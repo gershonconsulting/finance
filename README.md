@@ -16,6 +16,7 @@ This web application connects to your Xero account via API to provide comprehens
 - 📊 **Dashboard Overview** - Real-time invoice statistics (Draft, Awaiting Payment, Overdue)
 - 📈 **Data Visualization** - Interactive charts using Chart.js for financial metrics
 - 📄 **Invoice Management** - List, filter, and view invoice details
+- 👥 **Clients Awaiting Payment** - List of companies with outstanding invoices and totals
 - 💰 **Financial Reports** - Profit & Loss and Balance Sheet report generation
 - 💳 **Bank Transactions** - View and analyze transaction history
 - 📱 **Responsive Design** - Mobile-friendly interface with Tailwind CSS
@@ -89,12 +90,14 @@ This web application connects to your Xero account via API to provide comprehens
 | `/api/auth/status` | GET | Check authentication status |
 | `/api/invoices/summary` | GET | Get invoice statistics |
 | `/api/invoices` | GET | List invoices (with filters) |
+| `/api/clients/awaiting-payment` | GET | Get clients with outstanding payments |
 | `/api/reports/profit-loss` | GET | Profit & Loss report |
 | `/api/reports/balance-sheet` | GET | Balance Sheet report |
 | `/api/transactions` | GET | Bank transactions |
 | `/api/demo/summary` | GET | Demo data for testing |
 | `/api/export/summary` | GET | Export invoice summary to CSV |
 | `/api/export/invoices` | GET | Export invoices to CSV |
+| `/api/export/clients-awaiting-payment` | GET | Export clients awaiting payment to CSV |
 | `/api/export/transactions` | GET | Export transactions to CSV |
 | `/api/export/profit-loss` | GET | Export P&L report to CSV |
 | `/api/export/balance-sheet` | GET | Export Balance Sheet to CSV |
@@ -172,6 +175,14 @@ The main dashboard displays three key metrics:
 - Click filter buttons to view invoices by status (Draft, Awaiting, Paid, All)
 - View detailed invoice information in table format
 - See contact name, dates, amounts, and payment status
+
+### Clients Tab (NEW!)
+- View companies with outstanding invoices (awaiting payment)
+- See the number of invoices per company
+- View total outstanding amount per company
+- Companies sorted by highest outstanding amount
+- Summary shows: Total Companies, Total Invoices, Total Outstanding
+- Export to CSV with automatic totals row
 
 ### Reports Tab
 - Generate **Profit & Loss** reports to view income vs expenses
@@ -301,6 +312,18 @@ For technical support or questions:
 - Verify Cloudflare deployment status in dashboard
 
 ## 📅 Version History
+
+### Version 1.2.0 (2026-01-04)
+- ✅ **NEW**: Clients Awaiting Payment report
+- ✅ Groups invoices by company/contact
+- ✅ Shows totals per company
+- ✅ Export to CSV with automatic totals row
+- ✅ Sorted by highest outstanding amount
+
+### Version 1.1.0 (2026-01-04)
+- ✅ Google Sheets export functionality
+- ✅ Export all data views to CSV
+- ✅ Comprehensive export documentation
 
 ### Version 1.0.0 (2026-01-04)
 - ✅ Initial web application release
