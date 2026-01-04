@@ -144,6 +144,23 @@ app.get('/api/transactions', async (c) => {
   }
 });
 
+// Get clients awaiting payment (grouped by company)
+app.get('/api/clients/awaiting-payment', async (c) => {
+  try {
+    const session = getSession(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const clients = await xero.getClientsAwaitingPayment();
+    return c.json(clients);
+  } catch (error: any) {
+    console.error('Error fetching clients awaiting payment:', error);
+    return c.json({ error: error.message || 'Failed to fetch clients awaiting payment' }, 500);
+  }
+});
+
 // Auth status check
 app.get('/api/auth/status', (c) => {
   const session = getSession(c);
@@ -164,6 +181,47 @@ app.get('/api/demo/summary', (c) => {
     overdueAmount: 63313.81,
     totalInvoices: 92,
   });
+});
+
+// Demo endpoint for clients awaiting payment
+app.get('/api/demo/clients-awaiting-payment', (c) => {
+  return c.json([
+    {
+      contactName: 'ABC Corporation',
+      contactId: 'contact-001',
+      invoiceCount: 5,
+      totalOutstanding: 24500.00,
+      invoices: []
+    },
+    {
+      contactName: 'XYZ Industries Ltd',
+      contactId: 'contact-002',
+      invoiceCount: 3,
+      totalOutstanding: 18750.00,
+      invoices: []
+    },
+    {
+      contactName: 'Tech Solutions Inc',
+      contactId: 'contact-003',
+      invoiceCount: 4,
+      totalOutstanding: 15200.00,
+      invoices: []
+    },
+    {
+      contactName: 'Global Services Co',
+      contactId: 'contact-004',
+      invoiceCount: 2,
+      totalOutstanding: 12800.00,
+      invoices: []
+    },
+    {
+      contactName: 'Prime Consulting',
+      contactId: 'contact-005',
+      invoiceCount: 6,
+      totalOutstanding: 9500.00,
+      invoices: []
+    }
+  ]);
 });
 
 // Export endpoints for Google Sheets
@@ -375,6 +433,65 @@ app.get('/api/export/balance-sheet', async (c) => {
   }
 });
 
+// Export clients awaiting payment to CSV
+app.get('/api/export/clients-awaiting-payment', async (c) => {
+  try {
+    const session = getSession(c);
+    let clients;
+    
+    if (!session?.accessToken || !session?.tenantId) {
+      // Use demo data
+      clients = [
+        {
+          contactName: 'ABC Corporation',
+          contactId: 'contact-001',
+          invoiceCount: 5,
+          totalOutstanding: 24500.00,
+        },
+        {
+          contactName: 'XYZ Industries Ltd',
+          contactId: 'contact-002',
+          invoiceCount: 3,
+          totalOutstanding: 18750.00,
+        },
+        {
+          contactName: 'Tech Solutions Inc',
+          contactId: 'contact-003',
+          invoiceCount: 4,
+          totalOutstanding: 15200.00,
+        },
+        {
+          contactName: 'Global Services Co',
+          contactId: 'contact-004',
+          invoiceCount: 2,
+          totalOutstanding: 12800.00,
+        },
+        {
+          contactName: 'Prime Consulting',
+          contactId: 'contact-005',
+          invoiceCount: 6,
+          totalOutstanding: 9500.00,
+        }
+      ];
+    } else {
+      const xero = new XeroApiService(session.accessToken, session.tenantId);
+      clients = await xero.getClientsAwaitingPayment();
+    }
+    
+    const csv = ExportService.clientsAwaitingPaymentToCSV(clients);
+    
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="clients-awaiting-payment.csv"',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error exporting clients awaiting payment:', error);
+    return c.json({ error: error.message || 'Failed to export clients awaiting payment' }, 500);
+  }
+});
+
 // Default route - main dashboard
 app.get('/', (c) => {
   return c.html(`
@@ -423,6 +540,9 @@ app.get('/', (c) => {
                         </button>
                         <button onclick="showTab('reports')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
                             <i class="fas fa-chart-bar mr-2"></i>Reports
+                        </button>
+                        <button onclick="showTab('clients')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-users mr-2"></i>Clients
                         </button>
                         <button onclick="showTab('transactions')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
                             <i class="fas fa-exchange-alt mr-2"></i>Transactions
@@ -557,6 +677,29 @@ app.get('/', (c) => {
                     </div>
                     
                     <div id="reportData" class="mt-6"></div>
+                </div>
+
+                <!-- Clients Tab -->
+                <div id="tab-clients" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-800">Clients Awaiting Payment</h2>
+                                <p class="text-sm text-gray-500 mt-1">Companies with outstanding invoices</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button onclick="exportToGoogleSheets('clients-awaiting-payment')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center">
+                                    <i class="fas fa-table mr-2"></i>Export
+                                </button>
+                                <button onclick="loadClientsAwaitingPayment()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                    <i class="fas fa-sync-alt mr-2"></i>Load Clients
+                                </button>
+                            </div>
+                        </div>
+                        <div id="clientsList">
+                            <p class="text-gray-500 text-center py-8">Click "Load Clients" to view companies awaiting payment</p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Transactions Tab -->

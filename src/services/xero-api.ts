@@ -131,4 +131,50 @@ export class XeroApiService {
     const data = await this.fetchXero('/Reports/BudgetSummary');
     return data.Reports?.[0] || data;
   }
+
+  async getClientsAwaitingPayment(): Promise<Array<{
+    contactName: string;
+    contactId: string;
+    invoiceCount: number;
+    totalOutstanding: number;
+    invoices: XeroInvoice[];
+  }>> {
+    // Get all AUTHORISED invoices (awaiting payment)
+    const invoices = await this.getInvoices(undefined, undefined, 'AUTHORISED');
+    
+    // Group by contact
+    const clientMap = new Map<string, {
+      contactName: string;
+      contactId: string;
+      invoiceCount: number;
+      totalOutstanding: number;
+      invoices: XeroInvoice[];
+    }>();
+    
+    for (const invoice of invoices) {
+      const contactId = invoice.Contact?.ContactID || 'unknown';
+      const contactName = invoice.Contact?.Name || 'Unknown Contact';
+      const amountDue = invoice.AmountDue || 0;
+      
+      if (amountDue > 0) { // Only include invoices with outstanding amounts
+        if (!clientMap.has(contactId)) {
+          clientMap.set(contactId, {
+            contactName,
+            contactId,
+            invoiceCount: 0,
+            totalOutstanding: 0,
+            invoices: [],
+          });
+        }
+        
+        const client = clientMap.get(contactId)!;
+        client.invoiceCount++;
+        client.totalOutstanding += amountDue;
+        client.invoices.push(invoice);
+      }
+    }
+    
+    // Convert to array and sort by total outstanding (highest first)
+    return Array.from(clientMap.values()).sort((a, b) => b.totalOutstanding - a.totalOutstanding);
+  }
 }

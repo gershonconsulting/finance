@@ -433,6 +433,105 @@ function showError(message) {
   alert(message);
 }
 
+// Load clients awaiting payment
+async function loadClientsAwaitingPayment() {
+  try {
+    let response;
+    try {
+      response = await axios.get('/api/clients/awaiting-payment');
+    } catch (error) {
+      // Fall back to demo data
+      response = await axios.get('/api/demo/clients-awaiting-payment');
+    }
+    
+    const clients = response.data;
+    displayClientsAwaitingPayment(clients);
+  } catch (error) {
+    console.error('Error loading clients awaiting payment:', error);
+    showError('Failed to load clients awaiting payment');
+  }
+}
+
+// Display clients awaiting payment
+function displayClientsAwaitingPayment(clients) {
+  const listEl = document.getElementById('clientsList');
+  
+  if (clients.length === 0) {
+    listEl.innerHTML = '<p class="text-gray-500 text-center py-8">No clients with outstanding payments</p>';
+    return;
+  }
+  
+  // Calculate totals
+  const totalInvoices = clients.reduce((sum, client) => sum + client.invoiceCount, 0);
+  const totalOutstanding = clients.reduce((sum, client) => sum + client.totalOutstanding, 0);
+  
+  const html = `
+    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <p class="text-sm text-blue-600 font-medium">Total Companies</p>
+          <p class="text-2xl font-bold text-blue-900">${clients.length}</p>
+        </div>
+        <div>
+          <p class="text-sm text-blue-600 font-medium">Total Invoices</p>
+          <p class="text-2xl font-bold text-blue-900">${totalInvoices}</p>
+        </div>
+        <div>
+          <p class="text-sm text-blue-600 font-medium">Total Outstanding</p>
+          <p class="text-2xl font-bold text-blue-900">${formatCurrency(totalOutstanding)}</p>
+        </div>
+      </div>
+    </div>
+    
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Name</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Number of Invoices</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Outstanding</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        ${clients.map(client => `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <i class="fas fa-building text-blue-600"></i>
+                </div>
+                <div class="ml-4">
+                  <div class="text-sm font-medium text-gray-900">${client.contactName}</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                ${client.invoiceCount} invoice${client.invoiceCount !== 1 ? 's' : ''}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              ${formatCurrency(client.totalOutstanding)}
+            </td>
+          </tr>
+        `).join('')}
+        <tr class="bg-gray-100 font-bold">
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">TOTAL</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-200 text-gray-800">
+              ${totalInvoices} invoice${totalInvoices !== 1 ? 's' : ''}
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+            ${formatCurrency(totalOutstanding)}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+  
+  listEl.innerHTML = html;
+}
+
 // Export functions for Google Sheets
 async function exportToGoogleSheets(type, params = {}) {
   try {
@@ -452,6 +551,10 @@ async function exportToGoogleSheets(type, params = {}) {
       case 'transactions':
         url = '/api/export/transactions';
         filename = 'transactions.csv';
+        break;
+      case 'clients-awaiting-payment':
+        url = '/api/export/clients-awaiting-payment';
+        filename = 'clients-awaiting-payment.csv';
         break;
       case 'profit-loss':
         url = '/api/export/profit-loss';

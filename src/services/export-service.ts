@@ -151,6 +151,28 @@ export class ExportService {
     return `data:text/csv;charset=utf-8,${encoded}`;
   }
 
+  // Convert clients awaiting payment to CSV
+  static clientsAwaitingPaymentToCSV(clients: any[]): string {
+    const data = clients.map(client => ({
+      'Company Name': client.contactName,
+      'Number of Invoices': client.invoiceCount,
+      'Total Outstanding': client.totalOutstanding,
+    }));
+    
+    // Add totals row
+    const totalInvoices = clients.reduce((sum, c) => sum + c.invoiceCount, 0);
+    const totalOutstanding = clients.reduce((sum, c) => sum + c.totalOutstanding, 0);
+    
+    data.push({
+      'Company Name': 'TOTAL',
+      'Number of Invoices': totalInvoices,
+      'Total Outstanding': totalOutstanding,
+    });
+    
+    const headers = ['Company Name', 'Number of Invoices', 'Total Outstanding'];
+    return this.toCSV(data, headers);
+  }
+
   // Create downloadable blob
   static createDownloadLink(csvData: string, filename: string): string {
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
