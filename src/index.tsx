@@ -22,11 +22,14 @@ interface SessionData {
 // In-memory session store (replace with KV in production)
 const sessions = new Map<string, SessionData>();
 
-// Helper to get session from cookie
+// Helper to get session from cookie or header
 function getSession(c: any): SessionData | null {
-  const sessionId = c.req.cookie('session_id');
-  if (!sessionId) return null;
-  return sessions.get(sessionId) || null;
+  // For now, check Authorization header or return null
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader) return null;
+  
+  const token = authHeader.replace('Bearer ', '');
+  return sessions.get(token) || null;
 }
 
 // Helper to create session
