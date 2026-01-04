@@ -20,10 +20,12 @@ This web application connects to your Xero account via API to provide comprehens
 - 💳 **Bank Transactions** - View and analyze transaction history
 - 📱 **Responsive Design** - Mobile-friendly interface with Tailwind CSS
 - 🔄 **Demo Mode** - Test functionality without Xero authentication
+- 📊 **Google Sheets Export** - Export all data to CSV for Google Sheets import
 
 ⏳ **Planned Features:**
 - 🔐 **OAuth2 Authentication** - Full Xero OAuth2 integration for production use
-- 📤 **Export Capabilities** - CSV, Excel, and PDF export functionality
+- 📤 **PDF Export** - PDF generation for reports and invoices
+- 📊 **Excel Export** - Native Excel (.xlsx) format support
 - 🔍 **Advanced Filtering** - Date range and status-based filtering
 - 📊 **Additional Reports** - Trial Balance, Budget Summary, and custom reports
 - 💾 **Session Management** - Persistent authentication using Cloudflare KV
@@ -91,6 +93,11 @@ This web application connects to your Xero account via API to provide comprehens
 | `/api/reports/balance-sheet` | GET | Balance Sheet report |
 | `/api/transactions` | GET | Bank transactions |
 | `/api/demo/summary` | GET | Demo data for testing |
+| `/api/export/summary` | GET | Export invoice summary to CSV |
+| `/api/export/invoices` | GET | Export invoices to CSV |
+| `/api/export/transactions` | GET | Export transactions to CSV |
+| `/api/export/profit-loss` | GET | Export P&L report to CSV |
+| `/api/export/balance-sheet` | GET | Export Balance Sheet to CSV |
 
 ## 🚀 Getting Started
 
@@ -260,6 +267,27 @@ npx wrangler pages secret put XERO_REDIRECT_URI --project-name xero-reports-weba
 ## 🤝 Contributing
 
 This is a private project for GC Invoices Dashboard. For feature requests or bug reports, please contact the development team.
+
+## 📊 Google Sheets Export (NEW!)
+
+**Export any data to Google Sheets with one click!**
+
+All sections now include Google Sheets export functionality:
+
+- **Dashboard Summary**: Invoice statistics → CSV
+- **Invoice List**: All invoice details → CSV  
+- **Bank Transactions**: Complete history → CSV
+- **Profit & Loss Report**: Financial data → CSV
+- **Balance Sheet Report**: Financial position → CSV
+
+**How to Use**:
+1. Click the green **"Export to Google Sheets"** button in any section
+2. CSV file downloads automatically to your device
+3. Open [Google Sheets](https://sheets.google.com)
+4. File → Import → Upload your CSV file
+5. Analyze and share your data!
+
+**See [GOOGLE_SHEETS_EXPORT.md](GOOGLE_SHEETS_EXPORT.md) for complete documentation.**
 
 ## 📝 License
 

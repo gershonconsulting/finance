@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serveStatic } from 'hono/cloudflare-workers';
 import { XeroApiService } from './services/xero-api';
+import { ExportService } from './services/export-service';
 
 const app = new Hono();
 
@@ -165,6 +166,215 @@ app.get('/api/demo/summary', (c) => {
   });
 });
 
+// Export endpoints for Google Sheets
+
+// Export invoice summary to CSV
+app.get('/api/export/summary', async (c) => {
+  try {
+    const session = getSession(c);
+    let summary;
+    
+    if (!session?.accessToken || !session?.tenantId) {
+      // Use demo data
+      summary = {
+        draftCount: 16,
+        draftAmount: 30017.87,
+        awaitingCount: 38,
+        awaitingAmount: 63313.81,
+        overdueCount: 38,
+        overdueAmount: 63313.81,
+        totalInvoices: 92,
+      };
+    } else {
+      const xero = new XeroApiService(session.accessToken, session.tenantId);
+      summary = await xero.getInvoiceSummary();
+    }
+    
+    const csv = ExportService.invoiceSummaryToCSV(summary);
+    
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="invoice-summary.csv"',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error exporting summary:', error);
+    return c.json({ error: error.message || 'Failed to export summary' }, 500);
+  }
+});
+
+// Export invoices to CSV
+app.get('/api/export/invoices', async (c) => {
+  try {
+    const session = getSession(c);
+    let invoices;
+    
+    if (!session?.accessToken || !session?.tenantId) {
+      // Use demo data
+      invoices = [
+        {
+          InvoiceNumber: 'INV-2024-001',
+          Contact: { Name: 'ABC Company' },
+          Date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+          DueDate: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(),
+          Total: 15000.00,
+          AmountDue: 15000.00,
+          Status: 'AUTHORISED'
+        },
+        {
+          InvoiceNumber: 'INV-2024-002',
+          Contact: { Name: 'XYZ Corporation' },
+          Date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+          DueDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(),
+          Total: 8500.00,
+          AmountDue: 0.00,
+          Status: 'PAID'
+        },
+        {
+          InvoiceNumber: 'INV-2024-003',
+          Contact: { Name: 'Tech Solutions Ltd' },
+          Date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+          DueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+          Total: 12000.00,
+          AmountDue: 12000.00,
+          Status: 'DRAFT'
+        }
+      ];
+    } else {
+      const status = c.req.query('status');
+      const xero = new XeroApiService(session.accessToken, session.tenantId);
+      invoices = await xero.getInvoices(undefined, undefined, status);
+    }
+    
+    const csv = ExportService.invoicesToCSV(invoices as any);
+    
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="invoices.csv"',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error exporting invoices:', error);
+    return c.json({ error: error.message || 'Failed to export invoices' }, 500);
+  }
+});
+
+// Export transactions to CSV
+app.get('/api/export/transactions', async (c) => {
+  try {
+    const session = getSession(c);
+    let transactions;
+    
+    if (!session?.accessToken || !session?.tenantId) {
+      // Use demo data
+      transactions = [
+        {
+          Date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          Contact: { Name: 'Office Supplies Co' },
+          Type: 'SPEND',
+          Total: -1500.00,
+          Reference: 'Office supplies purchase'
+        },
+        {
+          Date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+          Contact: { Name: 'Client Payment' },
+          Type: 'RECEIVE',
+          Total: 8500.00,
+          Reference: 'Invoice payment'
+        },
+        {
+          Date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          Contact: { Name: 'Utility Company' },
+          Type: 'SPEND',
+          Total: -450.00,
+          Reference: 'Monthly utilities'
+        }
+      ];
+    } else {
+      const xero = new XeroApiService(session.accessToken, session.tenantId);
+      transactions = await xero.getBankTransactions();
+    }
+    
+    const csv = ExportService.transactionsToCSV(transactions as any);
+    
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="transactions.csv"',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error exporting transactions:', error);
+    return c.json({ error: error.message || 'Failed to export transactions' }, 500);
+  }
+});
+
+// Export Profit & Loss report to CSV
+app.get('/api/export/profit-loss', async (c) => {
+  try {
+    const session = getSession(c);
+    let report;
+    
+    if (!session?.accessToken || !session?.tenantId) {
+      // Use demo data structure
+      report = {
+        ReportName: 'Profit and Loss (Demo)',
+        ReportDate: new Date().toISOString(),
+        Rows: []
+      };
+    } else {
+      const xero = new XeroApiService(session.accessToken, session.tenantId);
+      report = await xero.getProfitAndLossReport();
+    }
+    
+    const csv = ExportService.profitLossToCSV(report);
+    
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="profit-loss.csv"',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error exporting P&L:', error);
+    return c.json({ error: error.message || 'Failed to export P&L report' }, 500);
+  }
+});
+
+// Export Balance Sheet to CSV
+app.get('/api/export/balance-sheet', async (c) => {
+  try {
+    const session = getSession(c);
+    let report;
+    
+    if (!session?.accessToken || !session?.tenantId) {
+      // Use demo data structure
+      report = {
+        ReportName: 'Balance Sheet (Demo)',
+        ReportDate: new Date().toISOString(),
+        Rows: []
+      };
+    } else {
+      const xero = new XeroApiService(session.accessToken, session.tenantId);
+      report = await xero.getBalanceSheetReport();
+    }
+    
+    const csv = ExportService.balanceSheetToCSV(report);
+    
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="balance-sheet.csv"',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error exporting balance sheet:', error);
+    return c.json({ error: error.message || 'Failed to export balance sheet' }, 500);
+  }
+});
+
 // Default route - main dashboard
 app.get('/', (c) => {
   return c.html(`
@@ -267,7 +477,12 @@ app.get('/', (c) => {
                     </div>
 
                     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">Invoice Status Overview</h2>
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-bold text-gray-800">Invoice Status Overview</h2>
+                            <button onclick="exportToGoogleSheets('summary')" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center">
+                                <i class="fas fa-table mr-2"></i>Export to Google Sheets
+                            </button>
+                        </div>
                         <canvas id="invoiceChart" height="80"></canvas>
                     </div>
 
@@ -294,6 +509,9 @@ app.get('/', (c) => {
                         <div class="flex items-center justify-between mb-6">
                             <h2 class="text-xl font-bold text-gray-800">Invoice List</h2>
                             <div class="flex space-x-2">
+                                <button onclick="exportToGoogleSheets('invoices')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center">
+                                    <i class="fas fa-table mr-2"></i>Export
+                                </button>
                                 <button onclick="loadInvoices('DRAFT')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
                                     Draft
                                 </button>
@@ -346,9 +564,14 @@ app.get('/', (c) => {
                     <div class="bg-white rounded-lg shadow-md p-6">
                         <div class="flex items-center justify-between mb-6">
                             <h2 class="text-xl font-bold text-gray-800">Bank Transactions</h2>
-                            <button onclick="loadTransactions()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
-                                <i class="fas fa-sync-alt mr-2"></i>Load Transactions
-                            </button>
+                            <div class="flex space-x-2">
+                                <button onclick="exportToGoogleSheets('transactions')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center">
+                                    <i class="fas fa-table mr-2"></i>Export
+                                </button>
+                                <button onclick="loadTransactions()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                                    <i class="fas fa-sync-alt mr-2"></i>Load
+                                </button>
+                            </div>
                         </div>
                         <div id="transactionList">
                             <p class="text-gray-500 text-center py-8">Click "Load Transactions" to view data</p>

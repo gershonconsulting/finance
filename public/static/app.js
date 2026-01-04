@@ -317,13 +317,16 @@ async function loadBalanceSheet() {
 function displayReport(report, title) {
   const reportEl = document.getElementById('reportData');
   
+  // Store report type for export
+  window.currentReportType = title.toLowerCase().includes('profit') ? 'profit-loss' : 'balance-sheet';
+  
   let html = `
     <div class="bg-white rounded-lg shadow-md p-6">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-xl font-bold text-gray-800">${title}</h2>
         <div class="space-x-2">
-          <button onclick="exportReport('csv')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-            <i class="fas fa-file-csv mr-2"></i>Export CSV
+          <button onclick="exportToGoogleSheets(window.currentReportType)" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center">
+            <i class="fas fa-table mr-2"></i>Export to Google Sheets
           </button>
           <button onclick="exportReport('pdf')" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
             <i class="fas fa-file-pdf mr-2"></i>Export PDF
@@ -430,8 +433,90 @@ function showError(message) {
   alert(message);
 }
 
+// Export functions for Google Sheets
+async function exportToGoogleSheets(type, params = {}) {
+  try {
+    let url = '';
+    let filename = '';
+    
+    switch(type) {
+      case 'summary':
+        url = '/api/export/summary';
+        filename = 'invoice-summary.csv';
+        break;
+      case 'invoices':
+        url = '/api/export/invoices';
+        filename = 'invoices.csv';
+        if (params.status) url += `?status=${params.status}`;
+        break;
+      case 'transactions':
+        url = '/api/export/transactions';
+        filename = 'transactions.csv';
+        break;
+      case 'profit-loss':
+        url = '/api/export/profit-loss';
+        filename = 'profit-loss.csv';
+        break;
+      case 'balance-sheet':
+        url = '/api/export/balance-sheet';
+        filename = 'balance-sheet.csv';
+        break;
+      default:
+        throw new Error('Unknown export type');
+    }
+    
+    // Download CSV file
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(downloadUrl);
+    document.body.removeChild(a);
+    
+    // Show success message with instructions
+    showGoogleSheetsInstructions(filename);
+    
+  } catch (error) {
+    console.error('Error exporting:', error);
+    showError('Failed to export data. Please try again.');
+  }
+}
+
+function showGoogleSheetsInstructions(filename) {
+  const message = `
+    ✅ CSV file downloaded: ${filename}
+    
+    To import to Google Sheets:
+    1. Open Google Sheets (sheets.google.com)
+    2. Click File → Import
+    3. Select "Upload" tab
+    4. Drag and drop the downloaded CSV file
+    5. Click "Import data"
+    
+    Or simply drag the CSV file into Google Drive and open with Google Sheets!
+  `;
+  
+  alert(message);
+}
+
 function exportReport(format) {
-  alert(`Export to ${format.toUpperCase()} - Feature coming soon!`);
+  if (format === 'csv') {
+    // Trigger the appropriate export based on current context
+    const activeTab = document.querySelector('.tab-content:not(.hidden)');
+    if (activeTab.id === 'tab-dashboard') {
+      exportToGoogleSheets('summary');
+    } else if (activeTab.id === 'tab-invoices') {
+      exportToGoogleSheets('invoices');
+    } else if (activeTab.id === 'tab-transactions') {
+      exportToGoogleSheets('transactions');
+    }
+  } else {
+    alert(`Export to ${format.toUpperCase()} - Feature coming soon!`);
+  }
 }
 
 function refreshData() {
