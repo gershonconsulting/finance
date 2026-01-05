@@ -2,7 +2,10 @@
 
 ## 📊 Actual Data from Your Xero Account
 
-**Source**: Xero Dashboard Screenshot (2026-01-05)
+**Source**: Xero Dashboard Screenshot (2026-01-05)  
+**Organization**: **Gershon Consulting LLC** (filtered)
+
+**Important**: The application will ONLY pull data from **Gershon Consulting LLC** organization, ignoring other connected organizations.
 
 ---
 
