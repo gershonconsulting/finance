@@ -6,15 +6,18 @@ A modern web application for generating financial reports from Xero accounting d
 
 **Public URL**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai
 
-## 🔧 Quick Fix for "invalid_client" Error
+## 🔐 Connect to Your Xero Data
 
-If you're seeing OAuth authentication errors, use this quick fix page:
+**Working credentials are now configured! Just click this link to connect:**
 
-**Reset & Connect**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/static/reset-connect
+**👉 Connect Now**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/auth/login
 
-This page clears any incorrect saved credentials and connects using the correct default credentials.
+This will:
+1. Redirect you to Xero login
+2. Authorize the app to access your data
+3. Redirect back with real data loaded! ✅
 
-📖 **Full troubleshooting guide**: [OAUTH_TROUBLESHOOTING.md](./OAUTH_TROUBLESHOOTING.md)
+📖 **Security info**: [SECURITY_CREDENTIALS.md](./SECURITY_CREDENTIALS.md)
 
 ## 📋 Project Overview
 
