@@ -279,26 +279,32 @@ npx wrangler pages secret put XERO_REDIRECT_URI --project-name xero-reports-weba
 
 This is a private project for GC Invoices Dashboard. For feature requests or bug reports, please contact the development team.
 
-## 📊 Google Sheets Export (NEW!)
+## 📊 Google Sheets Direct Links (NEW!)
 
-**Export any data to Google Sheets with one click!**
+**Connect your Google Sheets directly to Xero data with live URLs!**
 
-All sections now include Google Sheets export functionality:
+No downloads needed - use `=IMPORTDATA()` in Google Sheets to automatically pull data:
 
-- **Dashboard Summary**: Invoice statistics → CSV
-- **Invoice List**: All invoice details → CSV  
-- **Bank Transactions**: Complete history → CSV
-- **Profit & Loss Report**: Financial data → CSV
-- **Balance Sheet Report**: Financial position → CSV
+**Available Data Sources:**
+- **Invoice Summary**: Dashboard statistics
+- **Clients Awaiting Payment**: Companies with outstanding invoices + totals
+- **All Invoices**: Complete invoice list  
+- **Bank Transactions**: Transaction history
+- **Profit & Loss Report**: Financial performance
+- **Balance Sheet Report**: Financial position
 
 **How to Use**:
-1. Click the green **"Export to Google Sheets"** button in any section
-2. CSV file downloads automatically to your device
-3. Open [Google Sheets](https://sheets.google.com)
-4. File → Import → Upload your CSV file
-5. Analyze and share your data!
+1. Go to the **"Sheets Links"** tab in the navigation
+2. Click **"Copy"** button next to any data source
+3. In Google Sheets, use: `=IMPORTDATA("paste-url-here")`
+4. Data automatically imports and refreshes!
 
-**See [GOOGLE_SHEETS_EXPORT.md](GOOGLE_SHEETS_EXPORT.md) for complete documentation.**
+**Example:**
+```
+=IMPORTDATA("https://your-domain.com/api/export/clients-awaiting-payment")
+```
+
+**See [GOOGLE_SHEETS_LINKS.md](GOOGLE_SHEETS_LINKS.md) for complete documentation and examples.**
 
 ## 📝 License
 
