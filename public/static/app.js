@@ -691,3 +691,219 @@ async function copyToClipboard(elementId) {
     document.body.removeChild(textArea);
   }
 }
+
+// ============================================
+// Settings Functions
+// ============================================
+
+// Load current settings on page load when settings tab is shown
+function initializeSettings() {
+  const redirectUri = `${window.location.origin}/auth/callback`;
+  document.getElementById('redirectUri').value = redirectUri;
+  
+  loadCurrentSettings();
+  updateSettingsStatus();
+}
+
+// Load current credentials from localStorage
+function loadCurrentSettings() {
+  const clientId = localStorage.getItem('xero_client_id') || '';
+  const clientSecret = localStorage.getItem('xero_client_secret') || '';
+  
+  document.getElementById('clientId').value = clientId;
+  document.getElementById('clientSecret').value = clientSecret ? '••••••••••••••••' : '';
+  
+  updateSettingsStatus();
+}
+
+// Load default (pre-configured) credentials
+function loadDefaultSettings() {
+  // Default credentials from .dev.vars
+  const defaultClientId = '0CA378B164364DB0821A6014520913E6';
+  const defaultClientSecret = '1V72d0a3rmemuOng7bW5MikXQTlR60hIiQCpLh0w7ON7E15U';
+  
+  document.getElementById('clientId').value = defaultClientId;
+  document.getElementById('clientSecret').value = defaultClientSecret;
+  
+  alert('✅ Default configuration loaded! Click "Save Configuration" to use these credentials.');
+}
+
+// Save settings to localStorage
+function saveSettings() {
+  const clientId = document.getElementById('clientId').value.trim();
+  const clientSecret = document.getElementById('clientSecret').value.trim();
+  
+  if (!clientId) {
+    alert('❌ Please enter a Client ID');
+    return;
+  }
+  
+  if (!clientSecret || clientSecret === '••••••••••••••••') {
+    alert('❌ Please enter a Client Secret');
+    return;
+  }
+  
+  // Save to localStorage
+  localStorage.setItem('xero_client_id', clientId);
+  localStorage.setItem('xero_client_secret', clientSecret);
+  
+  updateSettingsStatus();
+  alert('✅ Settings saved successfully! You can now click "Connect to Xero" in the header.');
+}
+
+// Clear all settings and disconnect
+function clearSettings() {
+  if (!confirm('⚠️ This will clear all saved credentials and disconnect your Xero account. Continue?')) {
+    return;
+  }
+  
+  // Clear all Xero-related localStorage
+  localStorage.removeItem('xero_client_id');
+  localStorage.removeItem('xero_client_secret');
+  localStorage.removeItem('xero_session');
+  
+  // Clear form
+  document.getElementById('clientId').value = '';
+  document.getElementById('clientSecret').value = '';
+  
+  updateSettingsStatus();
+  
+  alert('✅ All credentials cleared. The page will reload.');
+  window.location.reload();
+}
+
+// Test connection (redirect to OAuth)
+function testConnection() {
+  const clientId = localStorage.getItem('xero_client_id');
+  
+  if (!clientId) {
+    alert('❌ Please save your credentials first before testing the connection.');
+    return;
+  }
+  
+  if (confirm('✅ Settings look good! Click OK to test the connection by redirecting to Xero login.')) {
+    window.location.href = '/auth/login';
+  }
+}
+
+// Toggle secret visibility
+function toggleSecretVisibility() {
+  const input = document.getElementById('clientSecret');
+  const icon = document.getElementById('secretIcon');
+  
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.classList.remove('fa-eye');
+    icon.classList.add('fa-eye-slash');
+  } else {
+    input.type = 'password';
+    icon.classList.remove('fa-eye-slash');
+    icon.classList.add('fa-eye');
+  }
+}
+
+// Copy redirect URI
+function copyRedirectUri() {
+  const redirectUri = document.getElementById('redirectUri').value;
+  const textArea = document.createElement('textarea');
+  textArea.value = redirectUri;
+  textArea.style.position = 'fixed';
+  textArea.style.left = '-999999px';
+  document.body.appendChild(textArea);
+  textArea.select();
+  
+  try {
+    document.execCommand('copy');
+    alert('✅ Redirect URI copied! Add this to your Xero app configuration.');
+  } catch (err) {
+    alert('❌ Failed to copy. Please copy manually: ' + redirectUri);
+  }
+  
+  document.body.removeChild(textArea);
+}
+
+// Update settings status display
+function updateSettingsStatus() {
+  const statusEl = document.getElementById('settingsStatus');
+  const clientId = localStorage.getItem('xero_client_id');
+  const clientSecret = localStorage.getItem('xero_client_secret');
+  const sessionToken = localStorage.getItem('xero_session');
+  
+  if (sessionToken) {
+    statusEl.className = 'p-4 rounded-lg border bg-green-50 border-green-200';
+    statusEl.innerHTML = `
+      <div class="flex items-center">
+        <i class="fas fa-check-circle text-green-600 text-xl mr-3"></i>
+        <div>
+          <p class="font-medium text-green-900">Connected to Xero</p>
+          <p class="text-sm text-green-700">You are currently authenticated and using real Xero data.</p>
+        </div>
+      </div>
+    `;
+  } else if (clientId && clientSecret) {
+    statusEl.className = 'p-4 rounded-lg border bg-yellow-50 border-yellow-200';
+    statusEl.innerHTML = `
+      <div class="flex items-center">
+        <i class="fas fa-exclamation-circle text-yellow-600 text-xl mr-3"></i>
+        <div>
+          <p class="font-medium text-yellow-900">Credentials Configured</p>
+          <p class="text-sm text-yellow-700">Click "Test Connection" or "Connect to Xero" in the header to authenticate.</p>
+        </div>
+      </div>
+    `;
+  } else {
+    statusEl.className = 'p-4 rounded-lg border bg-blue-50 border-blue-200';
+    statusEl.innerHTML = `
+      <div class="flex items-center">
+        <i class="fas fa-info-circle text-blue-600 text-xl mr-3"></i>
+        <div>
+          <p class="font-medium text-blue-900">No Credentials Configured</p>
+          <p class="text-sm text-blue-700">Load default configuration or enter your own Xero API credentials below.</p>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Initialize settings when tab is shown
+const originalShowTab = typeof showTab !== 'undefined' ? showTab : () => {};
+window.showTab = function(tabName) {
+  originalShowTab(tabName);
+  if (tabName === 'settings') {
+    initializeSettings();
+  }
+};
+
+// Connect to Xero with custom or default credentials
+async function connectToXero() {
+  const clientId = localStorage.getItem('xero_client_id');
+  const clientSecret = localStorage.getItem('xero_client_secret');
+  const redirectUri = `${window.location.origin}/auth/callback`;
+  
+  if (!clientId || !clientSecret) {
+    // No custom credentials, use default OAuth flow
+    window.location.href = '/auth/login';
+    return;
+  }
+  
+  try {
+    // Use custom credentials via POST
+    const response = await axios.post('/auth/login', {
+      clientId,
+      clientSecret,
+      redirectUri
+    });
+    
+    if (response.data.authUrl) {
+      window.location.href = response.data.authUrl;
+    } else {
+      alert('❌ Failed to initiate authentication');
+    }
+  } catch (error) {
+    console.error('Connect error:', error);
+    alert('❌ Failed to connect. Please check your credentials in Settings.');
+  }
+}
+
+// Make connectToXero globally available
+window.connectToXero = connectToXero;

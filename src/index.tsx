@@ -64,7 +64,37 @@ app.get('/api/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// OAuth: Start authentication
+// OAuth: Start authentication with custom credentials
+app.post('/auth/login', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { clientId, clientSecret, redirectUri } = body;
+    
+    if (!clientId || !clientSecret || !redirectUri) {
+      return c.json({ error: 'Missing credentials' }, 400);
+    }
+    
+    // Store credentials in session temporarily for callback
+    const tempSessionId = crypto.randomUUID();
+    sessions.set(tempSessionId, {
+      tempCredentials: {
+        clientId,
+        clientSecret,
+        redirectUri
+      }
+    } as any);
+    
+    const oauth = new XeroOAuthService(clientId, clientSecret, redirectUri);
+    const authUrl = oauth.getAuthorizationUrl(tempSessionId); // Use as state
+    
+    return c.json({ authUrl, state: tempSessionId });
+  } catch (error: any) {
+    console.error('Login initiation error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// OAuth: Start authentication (fallback to env vars)
 app.get('/auth/login', (c) => {
   const { env } = c;
   const oauth = new XeroOAuthService(
@@ -84,16 +114,30 @@ app.get('/auth/callback', async (c) => {
   try {
     const { env } = c;
     const code = c.req.query('code');
+    const state = c.req.query('state');
     
     if (!code) {
       return c.html('<h1>Error: No authorization code received</h1>');
     }
     
-    const oauth = new XeroOAuthService(
-      env.XERO_CLIENT_ID,
-      env.XERO_CLIENT_SECRET,
-      env.XERO_REDIRECT_URI
-    );
+    // Check if we have custom credentials in session (from POST /auth/login)
+    let clientId = env.XERO_CLIENT_ID;
+    let clientSecret = env.XERO_CLIENT_SECRET;
+    let redirectUri = env.XERO_REDIRECT_URI;
+    
+    if (state) {
+      const tempSession = sessions.get(state);
+      if (tempSession && (tempSession as any).tempCredentials) {
+        const creds = (tempSession as any).tempCredentials;
+        clientId = creds.clientId;
+        clientSecret = creds.clientSecret;
+        redirectUri = creds.redirectUri;
+        // Clean up temp session
+        sessions.delete(state);
+      }
+    }
+    
+    const oauth = new XeroOAuthService(clientId, clientSecret, redirectUri);
     
     // Exchange code for tokens
     const tokens = await oauth.exchangeCodeForTokens(code);
@@ -627,9 +671,9 @@ app.get('/', (c) => {
                             <button onclick="refreshData()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition">
                                 <i class="fas fa-sync-alt mr-2"></i>Refresh
                             </button>
-                            <a href="/auth/login" id="connectBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition hidden">
+                            <button onclick="connectToXero()" id="connectBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition hidden">
                                 <i class="fas fa-link mr-2"></i>Connect to Xero
-                            </a>
+                            </button>
                             <div id="authStatus" class="text-sm"></div>
                         </div>
                     </div>
@@ -658,6 +702,9 @@ app.get('/', (c) => {
                         </button>
                         <button onclick="showTab('sheets-links')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
                             <i class="fas fa-link mr-2"></i>Sheets Links
+                        </button>
+                        <button onclick="showTab('settings')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-cog mr-2"></i>Settings
                         </button>
                     </nav>
                 </div>
@@ -1012,6 +1059,175 @@ app.get('/', (c) => {
                                 <strong>Pro Tip:</strong> Google Sheets will automatically refresh the data periodically. 
                                 You can also manually refresh by clicking Data → Refresh all in Google Sheets.
                             </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div id="tab-settings" class="tab-content hidden">
+                    <div class="max-w-4xl mx-auto">
+                        <!-- Xero API Settings -->
+                        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                            <div class="flex items-start mb-6">
+                                <div class="flex-shrink-0">
+                                    <div class="flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
+                                        <i class="fas fa-key text-2xl"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4 flex-1">
+                                    <h2 class="text-2xl font-bold text-gray-900">Xero API Configuration</h2>
+                                    <p class="mt-2 text-sm text-gray-600">
+                                        Configure your Xero API credentials to connect your organization.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="space-y-6">
+                                <!-- Current Status -->
+                                <div id="settingsStatus" class="p-4 rounded-lg border">
+                                    <!-- Status will be populated by JavaScript -->
+                                </div>
+
+                                <!-- Client ID -->
+                                <div>
+                                    <label for="clientId" class="block text-sm font-medium text-gray-700 mb-2">
+                                        <i class="fas fa-id-badge mr-2 text-blue-600"></i>Client ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="clientId"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="0C••••••••••••••••••••••••••E6"
+                                    />
+                                    <p class="mt-1 text-xs text-gray-500">
+                                        Your Xero application Client ID from 
+                                        <a href="https://developer.xero.com/myapps" target="_blank" class="text-blue-600 hover:underline">
+                                            developer.xero.com/myapps
+                                        </a>
+                                    </p>
+                                </div>
+
+                                <!-- Client Secret -->
+                                <div>
+                                    <label for="clientSecret" class="block text-sm font-medium text-gray-700 mb-2">
+                                        <i class="fas fa-lock mr-2 text-blue-600"></i>Client Secret
+                                    </label>
+                                    <div class="relative">
+                                        <input
+                                            type="password"
+                                            id="clientSecret"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            placeholder="••••••••••••••••••••••••••••"
+                                        />
+                                        <button
+                                            onclick="toggleSecretVisibility()"
+                                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        >
+                                            <i id="secretIcon" class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">
+                                        Your Xero application Client Secret (keep this secure)
+                                    </p>
+                                </div>
+
+                                <!-- Redirect URI (Read-only) -->
+                                <div>
+                                    <label for="redirectUri" class="block text-sm font-medium text-gray-700 mb-2">
+                                        <i class="fas fa-link mr-2 text-blue-600"></i>Redirect URI
+                                    </label>
+                                    <div class="flex gap-2">
+                                        <input
+                                            type="text"
+                                            id="redirectUri"
+                                            readonly
+                                            class="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600"
+                                            value=""
+                                        />
+                                        <button
+                                            onclick="copyRedirectUri()"
+                                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+                                        >
+                                            <i class="fas fa-copy mr-2"></i>Copy
+                                        </button>
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">
+                                        Add this redirect URI to your Xero app configuration
+                                    </p>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="flex gap-4 pt-4">
+                                    <button
+                                        onclick="saveSettings()"
+                                        class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center font-medium"
+                                    >
+                                        <i class="fas fa-save mr-2"></i>Save Configuration
+                                    </button>
+                                    <button
+                                        onclick="testConnection()"
+                                        class="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center font-medium"
+                                    >
+                                        <i class="fas fa-plug mr-2"></i>Test Connection
+                                    </button>
+                                </div>
+
+                                <div class="flex gap-4">
+                                    <button
+                                        onclick="loadCurrentSettings()"
+                                        class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center justify-center"
+                                    >
+                                        <i class="fas fa-redo mr-2"></i>Load Current
+                                    </button>
+                                    <button
+                                        onclick="clearSettings()"
+                                        class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center justify-center"
+                                    >
+                                        <i class="fas fa-trash mr-2"></i>Clear & Disconnect
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Help Section -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-3">
+                                <i class="fas fa-info-circle mr-2"></i>How to Get Your Xero API Credentials
+                            </h3>
+                            <ol class="list-decimal list-inside space-y-2 text-sm text-blue-800">
+                                <li>Go to <a href="https://developer.xero.com/myapps" target="_blank" class="font-medium underline hover:text-blue-600">developer.xero.com/myapps</a></li>
+                                <li>Click "New app" or select an existing app</li>
+                                <li>Copy the <strong>Client ID</strong> and click "Generate a secret" for the <strong>Client Secret</strong></li>
+                                <li>Add the <strong>Redirect URI</strong> shown above to your Xero app's OAuth 2.0 redirect URIs</li>
+                                <li>Save your credentials in this form</li>
+                                <li>Click "Test Connection" to verify the setup</li>
+                                <li>Click "Connect to Xero" in the header to authorize</li>
+                            </ol>
+                            
+                            <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                <p class="text-xs text-yellow-800">
+                                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                                    <strong>Security Note:</strong> Your credentials are stored securely in your browser's localStorage 
+                                    and are only sent to your Xero account during authentication. Never share your Client Secret with anyone.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Pre-configured Info -->
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-6 mt-6">
+                            <h3 class="text-lg font-semibold text-green-900 mb-3">
+                                <i class="fas fa-check-circle mr-2"></i>Pre-configured Credentials Available
+                            </h3>
+                            <p class="text-sm text-green-800 mb-3">
+                                This app comes with pre-configured Xero API credentials. If you don't have your own credentials yet, 
+                                you can use the default configuration:
+                            </p>
+                            <button
+                                onclick="loadDefaultSettings()"
+                                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center"
+                            >
+                                <i class="fas fa-magic mr-2"></i>Load Default Configuration
+                            </button>
                         </div>
                     </div>
                 </div>
