@@ -63,9 +63,41 @@ async function loadDashboardData() {
     }
     
     updateDashboard(data);
+    
+    // Also load aging data
+    await loadAgingData();
   } catch (error) {
     console.error('Error loading dashboard data:', error);
     showError('Failed to load dashboard data');
+  }
+}
+
+// Load invoice aging data
+async function loadAgingData() {
+  try {
+    const response = await axios.get('/api/invoices/by-aging');
+    const aging = response.data;
+    
+    // Update CURRENT group
+    document.getElementById('currentCount').textContent = aging.current.count;
+    document.getElementById('currentAmount').textContent = formatCurrency(aging.current.total);
+    
+    // Update AGED group
+    document.getElementById('agedCount').textContent = aging.aged.count;
+    document.getElementById('agedAmount').textContent = formatCurrency(aging.aged.total);
+    
+    // Update CRITICAL group
+    document.getElementById('criticalCount').textContent = aging.critical.count;
+    document.getElementById('criticalAmount').textContent = formatCurrency(aging.critical.total);
+  } catch (error) {
+    console.error('Error loading aging data:', error);
+    // Set to demo/zero values
+    document.getElementById('currentCount').textContent = '--';
+    document.getElementById('currentAmount').textContent = '$0.00';
+    document.getElementById('agedCount').textContent = '--';
+    document.getElementById('agedAmount').textContent = '$0.00';
+    document.getElementById('criticalCount').textContent = '--';
+    document.getElementById('criticalAmount').textContent = '$0.00';
   }
 }
 

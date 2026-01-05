@@ -62,7 +62,18 @@ export class XeroApiService {
     if (status) params.Statuses = status;
     
     const data = await this.fetchXero('/Invoices', params);
-    return data.Invoices || [];
+    const invoices = data.Invoices || [];
+    
+    // Filter to only ACCREC (Accounts Receivable - what clients owe you)
+    // Exclude ACCPAY (Accounts Payable - bills you pay)
+    const receivableInvoices = invoices.filter((inv: XeroInvoice) => inv.Type === 'ACCREC');
+    
+    // Sort by date (newest first)
+    return receivableInvoices.sort((a: XeroInvoice, b: XeroInvoice) => {
+      const dateA = a.Date ? new Date(a.Date).getTime() : 0;
+      const dateB = b.Date ? new Date(b.Date).getTime() : 0;
+      return dateB - dateA; // Descending order (newest first)
+    });
   }
 
   async getInvoiceSummary(): Promise<XeroInvoiceSummary> {
@@ -220,6 +231,17 @@ export class XeroApiService {
         result.critical.invoices.push(invoice);
       }
     }
+    
+    // Sort each group by date (newest first)
+    const sortByDate = (a: XeroInvoice, b: XeroInvoice) => {
+      const dateA = a.Date ? new Date(a.Date).getTime() : 0;
+      const dateB = b.Date ? new Date(b.Date).getTime() : 0;
+      return dateB - dateA; // Descending order (newest first)
+    };
+    
+    result.current.invoices.sort(sortByDate);
+    result.aged.invoices.sort(sortByDate);
+    result.critical.invoices.sort(sortByDate);
     
     return result;
   }

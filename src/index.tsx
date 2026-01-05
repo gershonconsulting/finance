@@ -857,6 +857,71 @@ app.get('/', (c) => {
                         <canvas id="invoiceChart" height="80"></canvas>
                     </div>
 
+                    <!-- Invoice Aging Groups -->
+                    <div class="mb-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-bold text-gray-800">
+                                <i class="fas fa-hourglass-half text-yellow-600 mr-2"></i>
+                                Invoice Aging Analysis
+                            </h2>
+                            <button onclick="loadAgingData()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                                <i class="fas fa-sync-alt mr-2"></i>Load Aging Data
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- CURRENT Group -->
+                            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="p-3 bg-green-500 rounded-lg">
+                                        <i class="fas fa-check-circle text-white text-2xl"></i>
+                                    </div>
+                                    <div class="text-right">
+                                        <p id="currentCount" class="text-3xl font-bold text-green-700">--</p>
+                                        <p class="text-sm text-green-600">invoices</p>
+                                    </div>
+                                </div>
+                                <h3 class="text-lg font-semibold text-green-800 mb-1">🟢 CURRENT</h3>
+                                <p class="text-xs text-green-600 mb-2">0-99 days old</p>
+                                <p id="currentAmount" class="text-2xl font-bold text-green-700 mt-2">$0.00</p>
+                                <p class="text-xs text-green-600 mt-1">Normal collection period</p>
+                            </div>
+
+                            <!-- AGED Group -->
+                            <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="p-3 bg-yellow-500 rounded-lg">
+                                        <i class="fas fa-exclamation-triangle text-white text-2xl"></i>
+                                    </div>
+                                    <div class="text-right">
+                                        <p id="agedCount" class="text-3xl font-bold text-yellow-700">--</p>
+                                        <p class="text-sm text-yellow-600">invoices</p>
+                                    </div>
+                                </div>
+                                <h3 class="text-lg font-semibold text-yellow-800 mb-1">🟡 AGED</h3>
+                                <p class="text-xs text-yellow-600 mb-2">100-199 days old</p>
+                                <p id="agedAmount" class="text-2xl font-bold text-yellow-700 mt-2">$0.00</p>
+                                <p class="text-xs text-yellow-600 mt-1">⚠️ Requires attention</p>
+                            </div>
+
+                            <!-- CRITICAL Group -->
+                            <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg shadow-md p-6 border-l-4 border-red-500">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="p-3 bg-red-500 rounded-lg">
+                                        <i class="fas fa-gavel text-white text-2xl"></i>
+                                    </div>
+                                    <div class="text-right">
+                                        <p id="criticalCount" class="text-3xl font-bold text-red-700">--</p>
+                                        <p class="text-sm text-red-600">invoices</p>
+                                    </div>
+                                </div>
+                                <h3 class="text-lg font-semibold text-red-800 mb-1">🔴 CRITICAL</h3>
+                                <p class="text-xs text-red-600 mb-2">200+ days old</p>
+                                <p id="criticalAmount" class="text-2xl font-bold text-red-700 mt-2">$0.00</p>
+                                <p class="text-xs text-red-600 mt-1">🚨 Legal negotiation</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
                         <div class="flex items-start">
                             <i class="fas fa-info-circle text-blue-600 text-xl mr-3 mt-1"></i>
