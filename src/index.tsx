@@ -185,43 +185,53 @@ app.get('/api/demo/summary', (c) => {
 
 // Demo endpoint for clients awaiting payment
 app.get('/api/demo/clients-awaiting-payment', (c) => {
-  return c.json([
-    {
-      contactName: 'ABC Corporation',
-      contactId: 'contact-001',
-      invoiceCount: 5,
-      totalOutstanding: 24500.00,
-      invoices: []
-    },
-    {
-      contactName: 'XYZ Industries Ltd',
-      contactId: 'contact-002',
-      invoiceCount: 3,
-      totalOutstanding: 18750.00,
-      invoices: []
-    },
-    {
-      contactName: 'Tech Solutions Inc',
-      contactId: 'contact-003',
-      invoiceCount: 4,
-      totalOutstanding: 15200.00,
-      invoices: []
-    },
-    {
-      contactName: 'Global Services Co',
-      contactId: 'contact-004',
-      invoiceCount: 2,
-      totalOutstanding: 12800.00,
-      invoices: []
-    },
-    {
-      contactName: 'Prime Consulting',
-      contactId: 'contact-005',
-      invoiceCount: 6,
-      totalOutstanding: 9500.00,
-      invoices: []
+  // Simulated demo data based on real invoice structure
+  // In production, this would come from actual Xero API
+  const demoInvoices = [
+    { Contact: { Name: 'ABC Corporation', ContactID: 'c1' }, AmountDue: 15000, Status: 'AUTHORISED' },
+    { Contact: { Name: 'ABC Corporation', ContactID: 'c1' }, AmountDue: 5500, Status: 'AUTHORISED' },
+    { Contact: { Name: 'ABC Corporation', ContactID: 'c1' }, AmountDue: 4000, Status: 'AUTHORISED' },
+    { Contact: { Name: 'XYZ Industries Ltd', ContactID: 'c2' }, AmountDue: 12750, Status: 'AUTHORISED' },
+    { Contact: { Name: 'XYZ Industries Ltd', ContactID: 'c2' }, AmountDue: 6000, Status: 'AUTHORISED' },
+    { Contact: { Name: 'Tech Solutions Inc', ContactID: 'c3' }, AmountDue: 8200, Status: 'AUTHORISED' },
+    { Contact: { Name: 'Tech Solutions Inc', ContactID: 'c3' }, AmountDue: 7000, Status: 'AUTHORISED' },
+    { Contact: { Name: 'Global Services Co', ContactID: 'c4' }, AmountDue: 12800, Status: 'AUTHORISED' },
+    { Contact: { Name: 'Prime Consulting', ContactID: 'c5' }, AmountDue: 3500, Status: 'AUTHORISED' },
+    { Contact: { Name: 'Prime Consulting', ContactID: 'c5' }, AmountDue: 3000, Status: 'AUTHORISED' },
+    { Contact: { Name: 'Prime Consulting', ContactID: 'c5' }, AmountDue: 3000, Status: 'AUTHORISED' },
+  ];
+
+  // Group by contact (simulating the real API logic)
+  const clientMap = new Map();
+  
+  for (const invoice of demoInvoices) {
+    const contactId = invoice.Contact.ContactID;
+    const contactName = invoice.Contact.Name;
+    const amountDue = invoice.AmountDue;
+    
+    if (amountDue > 0) {
+      if (!clientMap.has(contactId)) {
+        clientMap.set(contactId, {
+          contactName,
+          contactId,
+          invoiceCount: 0,
+          totalOutstanding: 0,
+          invoices: []
+        });
+      }
+      
+      const client = clientMap.get(contactId);
+      client.invoiceCount++;
+      client.totalOutstanding += amountDue;
+      client.invoices.push(invoice);
     }
-  ]);
+  }
+  
+  // Convert to array and sort by outstanding amount (highest first)
+  const clients = Array.from(clientMap.values())
+    .sort((a, b) => b.totalOutstanding - a.totalOutstanding);
+  
+  return c.json(clients);
 });
 
 // Export endpoints for Google Sheets
@@ -440,36 +450,36 @@ app.get('/api/export/clients-awaiting-payment', async (c) => {
     let clients;
     
     if (!session?.accessToken || !session?.tenantId) {
-      // Use demo data
+      // Use realistic demo data - matching the demo endpoint logic
       clients = [
         {
           contactName: 'ABC Corporation',
-          contactId: 'contact-001',
-          invoiceCount: 5,
+          contactId: 'c1',
+          invoiceCount: 3,
           totalOutstanding: 24500.00,
         },
         {
           contactName: 'XYZ Industries Ltd',
-          contactId: 'contact-002',
-          invoiceCount: 3,
+          contactId: 'c2',
+          invoiceCount: 2,
           totalOutstanding: 18750.00,
         },
         {
           contactName: 'Tech Solutions Inc',
-          contactId: 'contact-003',
-          invoiceCount: 4,
+          contactId: 'c3',
+          invoiceCount: 2,
           totalOutstanding: 15200.00,
         },
         {
           contactName: 'Global Services Co',
-          contactId: 'contact-004',
-          invoiceCount: 2,
+          contactId: 'c4',
+          invoiceCount: 1,
           totalOutstanding: 12800.00,
         },
         {
           contactName: 'Prime Consulting',
-          contactId: 'contact-005',
-          invoiceCount: 6,
+          contactId: 'c5',
+          invoiceCount: 3,
           totalOutstanding: 9500.00,
         }
       ];
@@ -698,6 +708,12 @@ app.get('/', (c) => {
                                     <i class="fas fa-sync-alt mr-2"></i>Load Clients
                                 </button>
                             </div>
+                        </div>
+                        <div id="clientsListInfo" class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded hidden">
+                            <p class="text-sm text-yellow-800">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                <strong>Demo Mode:</strong> Showing sample data. Connect to Xero to see your actual clients with outstanding invoices.
+                            </p>
                         </div>
                         <div id="clientsList">
                             <p class="text-gray-500 text-center py-8">Click "Load Clients" to view companies awaiting payment</p>

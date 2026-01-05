@@ -437,15 +437,19 @@ function showError(message) {
 async function loadClientsAwaitingPayment() {
   try {
     let response;
+    let isDemo = false;
+    
     try {
       response = await axios.get('/api/clients/awaiting-payment');
     } catch (error) {
       // Fall back to demo data
+      console.log('Using demo data - not authenticated');
       response = await axios.get('/api/demo/clients-awaiting-payment');
+      isDemo = true;
     }
     
     const clients = response.data;
-    displayClientsAwaitingPayment(clients);
+    displayClientsAwaitingPayment(clients, isDemo);
   } catch (error) {
     console.error('Error loading clients awaiting payment:', error);
     showError('Failed to load clients awaiting payment');
@@ -453,8 +457,16 @@ async function loadClientsAwaitingPayment() {
 }
 
 // Display clients awaiting payment
-function displayClientsAwaitingPayment(clients) {
+function displayClientsAwaitingPayment(clients, isDemo = false) {
   const listEl = document.getElementById('clientsList');
+  const infoEl = document.getElementById('clientsListInfo');
+  
+  // Show/hide demo mode indicator
+  if (isDemo) {
+    infoEl.classList.remove('hidden');
+  } else {
+    infoEl.classList.add('hidden');
+  }
   
   if (clients.length === 0) {
     listEl.innerHTML = '<p class="text-gray-500 text-center py-8">No clients with outstanding payments</p>';
