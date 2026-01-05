@@ -889,234 +889,141 @@ app.get('/', (c) => {
 
                 <!-- Google Sheets Links Tab -->
                 <div id="tab-sheets-links" class="tab-content hidden">
-                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                        <div class="flex items-start mb-6">
-                            <div class="flex-shrink-0">
-                                <div class="flex items-center justify-center h-12 w-12 rounded-md bg-green-500 text-white">
-                                    <i class="fas fa-table text-2xl"></i>
+                    <!-- Authentication Warning -->
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-exclamation-triangle text-red-500 text-xl mr-3"></i>
+                                <div>
+                                    <p class="text-sm font-semibold text-red-800">Authentication Required</p>
+                                    <p class="text-xs text-red-700">Connect to Xero first to use these URLs with real data</p>
                                 </div>
                             </div>
-                            <div class="ml-4">
-                                <h2 class="text-2xl font-bold text-gray-900">Google Sheets Integration</h2>
-                                <p class="mt-2 text-sm text-gray-600">
-                                    Use these direct CSV URLs with Google Sheets <code class="bg-gray-100 px-2 py-1 rounded text-xs">=IMPORTDATA()</code> function
-                                    to automatically import and refresh your Xero data.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                            <div class="flex">
-                                <div class="flex-shrink-0">
-                                    <i class="fas fa-exclamation-triangle text-red-500"></i>
-                                </div>
-                                <div class="ml-3">
-                                    <p class="text-sm text-red-800">
-                                        <strong>⚠️ Authentication Required:</strong> You must connect to Xero first before using these URLs. 
-                                        These URLs will return REAL data from YOUR Xero account, not demo data.
-                                    </p>
-                                    <button onclick="window.location.href='/auth/login'" class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-medium">
-                                        <i class="fas fa-plug mr-2"></i>Connect to Xero Now
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                            <div class="flex">
-                                <div class="flex-shrink-0">
-                                    <i class="fas fa-info-circle text-blue-500"></i>
-                                </div>
-                                <div class="ml-3">
-                                    <p class="text-sm text-blue-700">
-                                        <strong>How to use:</strong> Copy any URL below, then in Google Sheets use: 
-                                        <code class="bg-white px-2 py-1 rounded text-xs ml-1">=IMPORTDATA("paste-url-here")</code>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-4">
-                            <!-- Invoice Summary Link -->
-                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
-                                            <i class="fas fa-chart-pie text-blue-600 mr-2"></i>Invoice Summary
-                                        </h3>
-                                        <p class="text-sm text-gray-600 mb-3">Dashboard statistics (Draft, Awaiting, Overdue)</p>
-                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
-                                            <code id="url-summary" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/summary</code>
-                                        </div>
-                                    </div>
-                                    <button onclick="copyToClipboard('url-summary')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
-                                        <i class="fas fa-copy mr-2"></i>Copy
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Clients Awaiting Payment Link -->
-                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
-                                            <i class="fas fa-users text-purple-600 mr-2"></i>Clients Awaiting Payment
-                                        </h3>
-                                        <p class="text-sm text-gray-600 mb-3">Companies with outstanding invoices and totals</p>
-                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
-                                            <code id="url-clients" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/clients-awaiting-payment</code>
-                                        </div>
-                                    </div>
-                                    <button onclick="copyToClipboard('url-clients')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
-                                        <i class="fas fa-copy mr-2"></i>Copy
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Invoices Link -->
-                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
-                                            <i class="fas fa-file-invoice text-orange-600 mr-2"></i>All Invoices
-                                        </h3>
-                                        <p class="text-sm text-gray-600 mb-3">Complete invoice list with details</p>
-                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
-                                            <code id="url-invoices" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/invoices</code>
-                                        </div>
-                                    </div>
-                                    <button onclick="copyToClipboard('url-invoices')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
-                                        <i class="fas fa-copy mr-2"></i>Copy
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Bank Transactions Link -->
-                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
-                                            <i class="fas fa-exchange-alt text-green-600 mr-2"></i>Bank Transactions
-                                        </h3>
-                                        <p class="text-sm text-gray-600 mb-3">Transaction history</p>
-                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
-                                            <code id="url-transactions" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/transactions</code>
-                                        </div>
-                                    </div>
-                                    <button onclick="copyToClipboard('url-transactions')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
-                                        <i class="fas fa-copy mr-2"></i>Copy
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Profit & Loss Link -->
-                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
-                                            <i class="fas fa-chart-line text-red-600 mr-2"></i>Profit & Loss Report
-                                        </h3>
-                                        <p class="text-sm text-gray-600 mb-3">Income and expenses breakdown</p>
-                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
-                                            <code id="url-profit-loss" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/profit-loss</code>
-                                        </div>
-                                    </div>
-                                    <button onclick="copyToClipboard('url-profit-loss')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
-                                        <i class="fas fa-copy mr-2"></i>Copy
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Balance Sheet Link -->
-                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
-                                            <i class="fas fa-balance-scale text-indigo-600 mr-2"></i>Balance Sheet Report
-                                        </h3>
-                                        <p class="text-sm text-gray-600 mb-3">Assets, liabilities, and equity</p>
-                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
-                                            <code id="url-balance-sheet" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/balance-sheet</code>
-                                        </div>
-                                    </div>
-                                    <button onclick="copyToClipboard('url-balance-sheet')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
-                                        <i class="fas fa-copy mr-2"></i>Copy
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Real Data Information -->
-                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                        <h3 class="text-lg font-bold text-gray-900 mb-4">
-                            <i class="fas fa-database text-green-600 mr-2"></i>Real Data - Not Demo
-                        </h3>
-                        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <p class="text-sm text-green-800 mb-3">
-                                <i class="fas fa-check-circle text-green-600 mr-2"></i>
-                                <strong>These URLs return YOUR actual Xero data:</strong>
-                            </p>
-                            <ul class="space-y-2 text-sm text-green-700 ml-6">
-                                <li>✅ Real company names from your Xero contacts</li>
-                                <li>✅ Actual outstanding invoice amounts</li>
-                                <li>✅ Real transaction history and dates</li>
-                                <li>✅ Your organization's financial reports</li>
-                                <li>✅ Live data - updates when you refresh in Google Sheets</li>
-                            </ul>
-                            
-                            <div class="mt-4 p-3 bg-white rounded border border-green-300">
-                                <p class="text-xs text-gray-700 font-mono">
-                                    <strong>Example (Clients Awaiting Payment):</strong><br/>
-                                    Company Name,Number of Invoices,Total Outstanding<br/>
-                                    Gershon Consulting,3,12500.00<br/>
-                                    ABC Corporation,2,8750.00<br/>
-                                    <span class="text-green-600">← Your actual company names and amounts!</span>
-                                </p>
-                            </div>
+                            <button onclick="window.location.href='/auth/login'" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium whitespace-nowrap">
+                                <i class="fas fa-plug mr-2"></i>Connect to Xero
+                            </button>
                         </div>
                     </div>
 
                     <!-- Usage Instructions -->
-                    <div class="bg-white rounded-lg shadow-md p-6">
-                        <h3 class="text-lg font-bold text-gray-900 mb-4">
-                            <i class="fas fa-graduation-cap text-blue-600 mr-2"></i>How to Use in Google Sheets
-                        </h3>
-                        <ol class="list-decimal list-inside space-y-3 text-sm text-gray-700">
-                            <li>
-                                <strong>Connect to Xero</strong> - Click the "Connect to Xero Now" button above (one-time setup)
-                            </li>
-                            <li>
-                                <strong>Copy a URL</strong> - Click the "Copy" button next to any data source above
-                            </li>
-                            <li>
-                                <strong>Open Google Sheets</strong> - Go to <a href="https://sheets.google.com" target="_blank" class="text-blue-600 hover:underline">sheets.google.com</a>
-                            </li>
-                            <li>
-                                <strong>Select a cell</strong> - Click on the cell where you want the data (e.g., A1)
-                            </li>
-                            <li>
-                                <strong>Enter formula</strong> - Type: <code class="bg-gray-100 px-2 py-1 rounded">=IMPORTDATA("paste-url-here")</code>
-                            </li>
-                            <li>
-                                <strong>Press Enter</strong> - Your REAL Xero data will automatically import!
-                            </li>
-                        </ol>
-                        
-                        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
-                            <p class="text-sm text-yellow-800">
-                                <i class="fas fa-lightbulb text-yellow-600 mr-2"></i>
-                                <strong>Pro Tip:</strong> Google Sheets will automatically refresh the data periodically. 
-                                You can also manually refresh by clicking Data → Refresh all in Google Sheets.
-                            </p>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-blue-500 text-lg mr-3 mt-1"></i>
+                            <div>
+                                <p class="text-sm text-blue-800">
+                                    <strong>How to use:</strong> Copy the full URL from any section below, then in Google Sheets use:
+                                </p>
+                                <code class="block mt-2 bg-white px-3 py-2 rounded text-xs text-gray-800">=IMPORTDATA("paste-full-url-here")</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grid Layout for Categories -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- General Metrics -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-chart-bar text-purple-600 mr-2"></i>
+                                General Metrics
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">Total Boxes</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/summary")</code>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="mt-4 p-4 bg-purple-50 border border-purple-200 rounded">
-                            <p class="text-sm text-purple-800">
-                                <i class="fas fa-shield-alt text-purple-600 mr-2"></i>
-                                <strong>Security:</strong> These are direct CSV export URLs. Only you can access your data after authentication. 
-                                Keep these URLs private as they contain access to your financial information.
-                            </p>
+                        <!-- By Stage (Active Stages) -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-layer-group text-blue-600 mr-2"></i>
+                                By Stage (Active Stages)
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">Closing</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/clients-awaiting-payment")</code>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">Negotiating</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/invoices")</code>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">Nurturing</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/transactions")</code>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">Proposal Sent</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/profit-loss")</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- By FIT -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                                By FIT
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">High FIT</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/balance-sheet")</code>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">Medium FIT</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/summary")</code>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">Low FIT</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/invoices")</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- By INTEREST -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-star text-yellow-600 mr-2"></i>
+                                By INTEREST
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">High INTEREST</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/clients-awaiting-payment")</code>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">Medium INTEREST</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/transactions")</code>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-gray-600 mb-1">Low INTEREST</p>
+                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
+                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/profit-loss")</code>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
