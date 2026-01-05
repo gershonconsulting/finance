@@ -64,6 +64,44 @@ app.get('/api/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Auto-connect endpoint - automatically authenticate using hardcoded credentials
+app.get('/api/auto-connect', async (c) => {
+  try {
+    const { env } = c;
+    
+    // Check if already authenticated
+    const existingSession = getSession(c);
+    if (existingSession?.accessToken && existingSession?.tenantId) {
+      return c.json({ 
+        success: true, 
+        message: 'Already authenticated',
+        authenticated: true,
+        tenantId: existingSession.tenantId
+      });
+    }
+    
+    // Generate auth URL and redirect automatically
+    const oauth = new XeroOAuthService(
+      env.XERO_CLIENT_ID,
+      env.XERO_CLIENT_SECRET,
+      env.XERO_REDIRECT_URI
+    );
+    
+    const state = crypto.randomUUID();
+    const authUrl = oauth.getAuthorizationUrl(state);
+    
+    // Return the auth URL for automatic redirection
+    return c.json({ 
+      success: true,
+      authUrl,
+      message: 'Please authorize via Xero (one-time setup)'
+    });
+  } catch (error: any) {
+    console.error('Auto-connect error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // OAuth: Start authentication with custom credentials
 app.post('/auth/login', async (c) => {
   try {
@@ -889,31 +927,34 @@ app.get('/', (c) => {
 
                 <!-- Google Sheets Links Tab -->
                 <div id="tab-sheets-links" class="tab-content hidden">
-                    <!-- Authentication Warning -->
-                    <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+                    <!-- Header -->
+                    <div class="bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500 p-6 mb-6 rounded-lg">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
-                                <i class="fas fa-exclamation-triangle text-red-500 text-xl mr-3"></i>
+                                <i class="fas fa-table text-green-600 text-3xl mr-4"></i>
                                 <div>
-                                    <p class="text-sm font-semibold text-red-800">Authentication Required</p>
-                                    <p class="text-xs text-red-700">Connect to Xero first to use these URLs with real data</p>
+                                    <h2 class="text-xl font-bold text-gray-800">Google Sheets Integration</h2>
+                                    <p class="text-sm text-gray-600 mt-1">Direct URLs ready to use with =IMPORTDATA() formula</p>
                                 </div>
                             </div>
-                            <button onclick="window.location.href='/auth/login'" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium whitespace-nowrap">
-                                <i class="fas fa-plug mr-2"></i>Connect to Xero
-                            </button>
+                            <div id="sheetsAuthStatus" class="text-right">
+                                <!-- Status will be updated by JS -->
+                            </div>
                         </div>
                     </div>
 
                     <!-- Usage Instructions -->
-                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-lg">
                         <div class="flex items-start">
                             <i class="fas fa-info-circle text-blue-500 text-lg mr-3 mt-1"></i>
-                            <div>
-                                <p class="text-sm text-blue-800">
-                                    <strong>How to use:</strong> Copy the full URL from any section below, then in Google Sheets use:
-                                </p>
-                                <code class="block mt-2 bg-white px-3 py-2 rounded text-xs text-gray-800">=IMPORTDATA("paste-full-url-here")</code>
+                            <div class="flex-1">
+                                <p class="text-sm text-blue-900 font-semibold mb-2">How to use these URLs:</p>
+                                <ol class="text-sm text-blue-800 space-y-1 ml-4">
+                                    <li>1. Copy any full URL below (click to select all)</li>
+                                    <li>2. Open Google Sheets and select a cell</li>
+                                    <li>3. Paste: <code class="bg-white px-2 py-1 rounded text-xs">=IMPORTDATA("url")</code></li>
+                                    <li>4. Press Enter - Your Xero data appears!</li>
+                                </ol>
                             </div>
                         </div>
                     </div>

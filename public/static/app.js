@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('App initialized');
   await checkAuthStatus();
   await loadDashboardData();
+  updateSheetsAuthStatus(); // Update Sheets Links tab status
 });
 
 // Check authentication status
@@ -907,3 +908,35 @@ async function connectToXero() {
 
 // Make connectToXero globally available
 window.connectToXero = connectToXero;
+
+// Update Sheets Links tab authentication status
+async function updateSheetsAuthStatus() {
+  try {
+    const statusEl = document.getElementById('sheetsAuthStatus');
+    if (!statusEl) return;
+    
+    const response = await axios.get('/api/auth/status');
+    
+    if (response.data.authenticated) {
+      statusEl.innerHTML = `
+        <div class="flex items-center space-x-2">
+          <i class="fas fa-check-circle text-green-600"></i>
+          <span class="text-sm font-semibold text-green-700">Ready to Use</span>
+        </div>
+        <p class="text-xs text-green-600 mt-1">Returning real Xero data</p>
+      `;
+    } else {
+      statusEl.innerHTML = `
+        <button onclick="window.location.href='/auth/login'" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium shadow-md">
+          <i class="fas fa-plug mr-2"></i>Connect to Xero
+        </button>
+        <p class="text-xs text-gray-600 mt-1">One-time setup required</p>
+      `;
+    }
+  } catch (error) {
+    console.error('Error updating sheets auth status:', error);
+  }
+}
+
+// Make it globally available
+window.updateSheetsAuthStatus = updateSheetsAuthStatus;
