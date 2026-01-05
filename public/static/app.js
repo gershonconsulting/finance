@@ -2,6 +2,15 @@
 
 let invoiceChart = null;
 
+// Configure axios to include session token
+axios.interceptors.request.use((config) => {
+  const sessionToken = localStorage.getItem('xero_session');
+  if (sessionToken) {
+    config.headers['X-Session-Token'] = sessionToken;
+  }
+  return config;
+});
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('App initialized');
@@ -14,21 +23,24 @@ async function checkAuthStatus() {
   try {
     const response = await axios.get('/api/auth/status');
     const authStatusEl = document.getElementById('authStatus');
+    const connectBtn = document.getElementById('connectBtn');
     
     if (response.data.authenticated) {
       authStatusEl.innerHTML = `
         <span class="flex items-center">
           <i class="fas fa-check-circle text-green-400 mr-2"></i>
-          <span>Connected</span>
+          <span>Connected to Xero</span>
         </span>
       `;
+      connectBtn.classList.add('hidden');
     } else {
       authStatusEl.innerHTML = `
         <span class="flex items-center">
           <i class="fas fa-exclamation-circle text-yellow-400 mr-2"></i>
-          <span>Demo Mode</span>
+          <span>Demo Mode - Click to connect</span>
         </span>
       `;
+      connectBtn.classList.remove('hidden');
     }
   } catch (error) {
     console.error('Error checking auth status:', error);

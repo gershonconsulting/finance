@@ -3,8 +3,15 @@ import { cors } from 'hono/cors';
 import { serveStatic } from 'hono/cloudflare-workers';
 import { XeroApiService } from './services/xero-api';
 import { ExportService } from './services/export-service';
+import { XeroOAuthService } from './services/xero-oauth';
 
-const app = new Hono();
+type Bindings = {
+  XERO_CLIENT_ID: string;
+  XERO_CLIENT_SECRET: string;
+  XERO_REDIRECT_URI: string;
+};
+
+const app = new Hono<{ Bindings: Bindings }>();
 
 // Enable CORS for API routes
 app.use('/api/*', cors());
@@ -25,12 +32,22 @@ const sessions = new Map<string, SessionData>();
 
 // Helper to get session from cookie or header
 function getSession(c: any): SessionData | null {
-  // For now, check Authorization header or return null
+  // Check Authorization header first
   const authHeader = c.req.header('Authorization');
-  if (!authHeader) return null;
+  if (authHeader) {
+    const token = authHeader.replace('Bearer ', '');
+    const session = sessions.get(token);
+    if (session) return session;
+  }
   
-  const token = authHeader.replace('Bearer ', '');
-  return sessions.get(token) || null;
+  // Check X-Session-Token header (from frontend)
+  const sessionHeader = c.req.header('X-Session-Token');
+  if (sessionHeader) {
+    const session = sessions.get(sessionHeader);
+    if (session) return session;
+  }
+  
+  return null;
 }
 
 // Helper to create session
@@ -45,6 +62,85 @@ function createSession(data: SessionData): string {
 // Health check
 app.get('/api/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// OAuth: Start authentication
+app.get('/auth/login', (c) => {
+  const { env } = c;
+  const oauth = new XeroOAuthService(
+    env.XERO_CLIENT_ID,
+    env.XERO_CLIENT_SECRET,
+    env.XERO_REDIRECT_URI
+  );
+  
+  const state = crypto.randomUUID();
+  const authUrl = oauth.getAuthorizationUrl(state);
+  
+  return c.redirect(authUrl);
+});
+
+// OAuth: Callback handler
+app.get('/auth/callback', async (c) => {
+  try {
+    const { env } = c;
+    const code = c.req.query('code');
+    
+    if (!code) {
+      return c.html('<h1>Error: No authorization code received</h1>');
+    }
+    
+    const oauth = new XeroOAuthService(
+      env.XERO_CLIENT_ID,
+      env.XERO_CLIENT_SECRET,
+      env.XERO_REDIRECT_URI
+    );
+    
+    // Exchange code for tokens
+    const tokens = await oauth.exchangeCodeForTokens(code);
+    
+    // Get tenant ID
+    const tenantId = await oauth.getTenantId(tokens.accessToken);
+    tokens.tenantId = tenantId;
+    
+    // Create session
+    const sessionId = createSession({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      tenantId: tenantId,
+      expiresAt: tokens.expiresAt,
+    });
+    
+    // Redirect to dashboard with session
+    return c.html(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Authentication Successful</title>
+        <script>
+          // Store session token
+          localStorage.setItem('xero_session', '${sessionId}');
+          // Redirect to dashboard
+          window.location.href = '/';
+        </script>
+      </head>
+      <body>
+        <h1>Authentication successful! Redirecting...</h1>
+      </body>
+      </html>
+    `);
+  } catch (error: any) {
+    console.error('OAuth callback error:', error);
+    return c.html(`<h1>Authentication Error</h1><p>${error.message}</p>`);
+  }
+});
+
+// Get authentication status
+app.get('/api/auth/status', (c) => {
+  const session = getSession(c);
+  return c.json({
+    authenticated: session?.accessToken ? true : false,
+    tenantId: session?.tenantId || null,
+  });
 });
 
 // Get invoice summary
@@ -531,6 +627,9 @@ app.get('/', (c) => {
                             <button onclick="refreshData()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition">
                                 <i class="fas fa-sync-alt mr-2"></i>Refresh
                             </button>
+                            <a href="/auth/login" id="connectBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition hidden">
+                                <i class="fas fa-link mr-2"></i>Connect to Xero
+                            </a>
                             <div id="authStatus" class="text-sm"></div>
                         </div>
                     </div>
