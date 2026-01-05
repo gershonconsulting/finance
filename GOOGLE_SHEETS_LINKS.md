@@ -2,18 +2,43 @@
 
 ## 🔗 Overview
 
-The Xero Reports Dashboard provides **direct CSV URLs** that can be used in Google Sheets with the `=IMPORTDATA()` function. This allows your Google Sheets to automatically pull and refresh data from your Xero account without manual downloads.
+The Xero Reports Dashboard provides **direct CSV URLs** that can be used in Google Sheets with the `=IMPORTDATA()` function. This allows your Google Sheets to automatically pull and refresh **REAL DATA** from your Xero account without manual downloads.
+
+## ⚠️ IMPORTANT: Authentication Required
+
+**These URLs return YOUR actual Xero data, NOT demo data!**
+
+Before using these URLs, you MUST:
+1. Connect to Xero via OAuth: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/auth/login
+2. Authorize the application to access your Xero data
+3. Then the URLs will return real CSV data from YOUR Xero account
+
+**What you'll get:**
+- ✅ Real company names from your Xero contacts
+- ✅ Actual outstanding invoice amounts
+- ✅ Real transaction history and dates
+- ✅ Your organization's financial reports
+- ✅ Live data - updates when you refresh
 
 ## 🚀 Quick Start
 
-### Step 1: Get Your URL
+### Step 1: Connect to Xero (One-Time Setup)
+
+**REQUIRED:** Before using any URLs, you must authenticate:
+
+1. Go to: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/auth/login
+2. Click to authorize the app
+3. Choose your Xero organization
+4. Done! Now the URLs will return your real data
+
+### Step 2: Get Your URL
 
 1. Open your dashboard: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai
 2. Click the **"Sheets Links"** tab in the navigation
 3. Find the data source you want (e.g., "Clients Awaiting Payment")
 4. Click the **"Copy"** button to copy the URL to clipboard
 
-### Step 2: Use in Google Sheets
+### Step 3: Use in Google Sheets
 
 1. Open [Google Sheets](https://sheets.google.com)
 2. Create a new spreadsheet or open an existing one
@@ -101,6 +126,47 @@ Google Sheets will automatically refresh the data periodically. You can also man
 - Values
 
 **Use case:** Financial position, asset tracking
+
+## 📊 Real Data Examples
+
+### Example 1: Clients Awaiting Payment (Real Data)
+
+After authentication, this URL:
+```
+https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/clients-awaiting-payment
+```
+
+Returns YOUR actual data like:
+```csv
+Company Name,Number of Invoices,Total Outstanding
+Gershon Consulting,3,12500.00
+ABC Corporation,2,8750.00
+Tech Solutions Inc,1,5200.00
+TOTAL,6,26450.00
+```
+
+**Key points:**
+- ✅ Real company names from YOUR Xero contacts
+- ✅ Actual invoice counts
+- ✅ Real outstanding amounts in your currency
+- ✅ Automatic TOTAL row for quick reference
+
+### Example 2: Invoice Summary (Real Data)
+
+```
+https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/summary
+```
+
+Returns:
+```csv
+Metric,Count,Amount
+Draft Invoices,5,15000.00
+Awaiting Payment,12,45000.00
+Overdue,3,8500.00
+Total Invoices,20,68500.00
+```
+
+**All numbers are from YOUR actual Xero account!**
 
 ## 💡 Example Use Cases
 
