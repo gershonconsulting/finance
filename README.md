@@ -24,6 +24,7 @@ This web application connects to your Xero account via API to provide comprehens
 - 📊 **Google Sheets Export** - Export all data to CSV for Google Sheets import
 
 ✅ **Recently Added:**
+- ⚙️ **Settings Page** - Configure custom Xero API credentials (Client ID & Secret)
 - 🔐 **OAuth2 Authentication** - Full Xero OAuth2 integration with real API data
 - 🔄 **Real Data Support** - Connect your Xero account to use actual financial data
 - 🔑 **Session Management** - Secure token management with automatic refresh
@@ -120,8 +121,9 @@ This web application connects to your Xero account via API to provide comprehens
 
 ### Quick Start (Connect Real Xero Data)
 
-**🎯 Your app is pre-configured to use your Xero API credentials!**
+**🎯 Two ways to connect:**
 
+#### **Option 1: Use Pre-configured Credentials (Fastest)**
 1. **Open the dashboard:**
 ```
 https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai
@@ -131,9 +133,19 @@ https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai
 
 3. **Authorize the app** with your Xero credentials
 
-4. **Start using real data** - All reports and exports will use actual Xero data!
+4. **Start using real data!**
 
-**📖 See [REAL_DATA_SETUP.md](REAL_DATA_SETUP.md) for complete authentication guide.**
+#### **Option 2: Use Your Own API Credentials**
+1. **Go to Settings tab** in the dashboard
+
+2. **Enter your Client ID and Client Secret** (from https://developer.xero.com/myapps)
+
+3. **Save configuration**
+
+4. **Click "Connect to Xero"** and authorize
+
+**📖 See [SETTINGS_GUIDE.md](SETTINGS_GUIDE.md) for detailed setup instructions.**  
+**📖 See [REAL_DATA_SETUP.md](REAL_DATA_SETUP.md) for authentication guide.**
 
 ### Local Development
 
@@ -168,31 +180,36 @@ http://localhost:3000
 
 ### Configuration
 
-#### Xero API Setup (Already Configured!)
+#### Xero API Setup
 
-**✅ Your app is pre-configured with Xero OAuth credentials from your Flutter app.**
+**✅ Two configuration options available:**
 
-**Current configuration:**
+**Option 1: Use Pre-configured Credentials (Default)**
 ```
 Client ID: 0CA378B164364DB0821A6014520913E6
 Client Secret: 1V72d0a3rmemuOng7bW5MikXQTlR60hIiQCpLh0w7ON7E15U
 Redirect URI: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/auth/callback
 ```
 
-**Scopes:**
+**Option 2: Use Your Own Credentials (Recommended for Production)**
+1. Go to **Settings** tab in the dashboard
+2. Click "Load Default Configuration" or enter your own:
+   - Get credentials from https://developer.xero.com/myapps
+   - Enter Client ID and Client Secret
+   - Add Redirect URI to your Xero app
+3. Click "Save Configuration"
+4. Click "Test Connection" to verify
+
+**📖 Complete guide:** See [SETTINGS_GUIDE.md](SETTINGS_GUIDE.md)
+
+**Scopes Requested:**
 - `accounting.reports.read` - Financial reports
 - `accounting.transactions.read` - Invoices & transactions
 - `accounting.contacts.read` - Client information
 - `accounting.settings.read` - Organization settings
 - `offline_access` - Token refresh
 
-**To connect:**
-1. Click "Connect to Xero" in the dashboard
-2. Sign in with your Xero account
-3. Authorize the app
-4. Start using real data!
-
-#### Production Secrets (For Custom Deployment)
+#### Production Secrets (For Cloudflare Deployment)
 ```bash
 npx wrangler pages secret put XERO_CLIENT_ID
 npx wrangler pages secret put XERO_CLIENT_SECRET
@@ -355,7 +372,15 @@ For technical support or questions:
 
 ## 📅 Version History
 
-### Version 1.3.0 (2026-01-05) - CURRENT
+### Version 1.4.0 (2026-01-05) - CURRENT
+- ✅ **NEW**: Settings page for custom API credentials configuration
+- ✅ **NEW**: Support for user-provided Client ID and Client Secret
+- ✅ **NEW**: Pre-configured credentials quick load option
+- ✅ **NEW**: Visual status indicators for connection state
+- ✅ **NEW**: Secure client-side credential storage
+- 📖 See [SETTINGS_GUIDE.md](SETTINGS_GUIDE.md)
+
+### Version 1.3.0 (2026-01-05)
 - ✅ **NEW**: Real Xero API data integration
 - ✅ **NEW**: OAuth2 authentication flow
 - ✅ **NEW**: "Connect to Xero" button with automatic session management
@@ -417,13 +442,18 @@ For technical support or questions:
 ---
 
 **Project**: Xero Reports Dashboard  
-**Version**: 1.3.0  
+**Version**: 1.4.0  
 **Last Updated**: January 5, 2026  
 **Deployment Status**: ✅ Active (Sandbox) - Real Data Enabled  
 **Technology**: Hono + TypeScript + Tailwind CSS + Chart.js + OAuth2
 
 **🔗 Quick Links:**
 - **Dashboard**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai
-- **Connect Xero**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/auth/login
-- **Setup Guide**: [REAL_DATA_SETUP.md](REAL_DATA_SETUP.md)
-- **Auth Guide**: [XERO_AUTHENTICATION_GUIDE.md](XERO_AUTHENTICATION_GUIDE.md)
+- **Settings**: Click "Settings" tab in dashboard
+- **Connect Xero**: Click "Connect to Xero" button in header
+
+**📚 Documentation:**
+- **Settings Guide**: [SETTINGS_GUIDE.md](SETTINGS_GUIDE.md) - Configure API credentials
+- **Setup Guide**: [REAL_DATA_SETUP.md](REAL_DATA_SETUP.md) - Real data integration
+- **Auth Guide**: [XERO_AUTHENTICATION_GUIDE.md](XERO_AUTHENTICATION_GUIDE.md) - Authentication flow
+- **Sheets Guide**: [GOOGLE_SHEETS_LINKS.md](GOOGLE_SHEETS_LINKS.md) - Google Sheets integration
