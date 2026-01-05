@@ -100,7 +100,7 @@ export class XeroOAuthService {
     };
   }
 
-  // Get tenant ID
+  // Get tenant ID for Gershon Consulting LLC specifically
   async getTenantId(accessToken: string): Promise<string> {
     const response = await fetch('https://api.xero.com/connections', {
       headers: {
@@ -118,6 +118,17 @@ export class XeroOAuthService {
       throw new Error('No Xero organizations connected');
     }
 
-    return connections[0].tenantId;
+    // Filter for "Gershon Consulting LLC" organization only
+    const gershonOrg = connections.find((conn: any) => 
+      conn.tenantName === 'Gershon Consulting LLC'
+    );
+
+    if (!gershonOrg) {
+      console.log('Available organizations:', connections.map((c: any) => c.tenantName));
+      throw new Error('Gershon Consulting LLC organization not found. Please ensure you authorized the correct organization.');
+    }
+
+    console.log('Using organization:', gershonOrg.tenantName, 'Tenant ID:', gershonOrg.tenantId);
+    return gershonOrg.tenantId;
   }
 }
