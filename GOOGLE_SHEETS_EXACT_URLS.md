@@ -1,8 +1,10 @@
 # Google Sheets - EXACT Copy & Paste URLs
 
-## ✅ **ALL 6 IMPORTDATA FORMULAS - READY TO USE**
+## ✅ **ALL 7 IMPORTDATA FORMULAS - READY TO USE**
 
 These are the **EXACT URLs** to copy and paste into Google Sheets. No variables, no substitution needed.
+
+**🆕 NEW: Invoice Aging Analysis** - Categorize invoices into 3 groups (CURRENT, AGED, CRITICAL)
 
 ---
 
@@ -77,6 +79,29 @@ These are the **EXACT URLs** to copy and paste into Google Sheets. No variables,
 
 ---
 
+### 7. **Invoice Aging Analysis** 🆕 **NEW!**
+```
+=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/invoices-by-aging")
+```
+**What you'll see:**
+- 🟢 **CURRENT** (0-99 days): Normal collection period
+- 🟡 **AGED** (100-199 days): Requires attention  
+- 🔴 **CRITICAL** (200+ days): Legal negotiation stage
+- **TOTAL**: Combined totals across all aging groups
+
+**Example output:**
+```csv
+Category,Age Range,Invoice Count,Total Outstanding
+CURRENT,0-99 days,15,25000.00
+AGED,100-199 days,20,35000.00
+CRITICAL,200+ days (Legal),13,23239.41
+TOTAL,All Ages,48,83239.41
+```
+
+📖 **Full guide**: [INVOICE_AGING_ANALYSIS.md](./INVOICE_AGING_ANALYSIS.md)
+
+---
+
 ## 🚀 **How to Use (3 Simple Steps):**
 
 ### **STEP 1: Authenticate (ONE TIME - 30 seconds)**
@@ -101,7 +126,7 @@ Should show:
 ### **STEP 3: Use in Google Sheets**
 1. Open Google Sheets
 2. Click on any cell (e.g., A1)
-3. Copy one of the 6 formulas above
+3. Copy one of the 7 formulas above
 4. Paste into the cell
 5. Press **Enter**
 6. **Your real Xero data appears!** 🎉

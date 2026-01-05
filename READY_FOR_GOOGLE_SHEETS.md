@@ -2,7 +2,9 @@
 
 ## 🎯 **Status: ALL SYSTEMS READY**
 
-All 6 Google Sheets IMPORTDATA URLs are now configured with **exact hardcoded URLs** - no variables, ready to copy and paste directly into Google Sheets.
+All 7 Google Sheets IMPORTDATA URLs are now configured with **exact hardcoded URLs** - no variables, ready to copy and paste directly into Google Sheets.
+
+**🆕 NEW: Invoice Aging Analysis** - 3 groups: CURRENT (0-99d), AGED (100-199d), CRITICAL (200+d legal)
 
 ---
 
@@ -53,6 +55,14 @@ All 6 Google Sheets IMPORTDATA URLs are now configured with **exact hardcoded UR
 =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/balance-sheet")
 ```
 📊 **Data**: Assets, Liabilities, Equity, Net Assets
+
+---
+
+### **7. Invoice Aging Analysis** 🆕 **NEW!**
+```
+=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/invoices-by-aging")
+```
+📊 **Data**: 🟢 CURRENT (0-99d) | 🟡 AGED (100-199d) | 🔴 CRITICAL (200+d Legal)
 
 ---
 
@@ -123,7 +133,7 @@ TOTAL                 48                    83239.41
 - ✅ **Hardcoded Credentials**: Client ID & Secret stored securely in `.dev.vars`
 - ✅ **OAuth Flow**: Full Xero OAuth2 authentication working
 - ✅ **Gershon Consulting LLC Filter**: App only uses your company's data
-- ✅ **All 6 Export Endpoints**: CSV endpoints ready and tested
+- ✅ **All 7 Export Endpoints**: CSV endpoints ready and tested (including NEW aging analysis)
 - ✅ **Exact URLs**: All `${window.location.origin}` replaced with hardcoded URLs
 - ✅ **Documentation**: Complete guides created
 - ✅ **App Rebuilt & Deployed**: Running on port 3000

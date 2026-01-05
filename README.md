@@ -21,7 +21,7 @@ This will:
 
 ## 📊 Google Sheets Integration - EXACT URLs
 
-**All 6 IMPORTDATA formulas ready to copy & paste into Google Sheets:**
+**All 7 IMPORTDATA formulas ready to copy & paste into Google Sheets:**
 
 ```
 1. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/summary")
@@ -30,9 +30,17 @@ This will:
 4. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/transactions")
 5. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/profit-loss")
 6. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/balance-sheet")
+7. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/invoices-by-aging") 🆕 NEW!
 ```
 
-**📖 Full guide**: [GOOGLE_SHEETS_EXACT_URLS.md](./GOOGLE_SHEETS_EXACT_URLS.md)
+**🆕 NEW: Invoice Aging Analysis** - Categorizes invoices into 3 groups:
+- 🟢 **CURRENT** (0-99 days)
+- 🟡 **AGED** (100-199 days) 
+- 🔴 **CRITICAL** (200+ days - legal negotiation)
+
+**📖 Full guides**: 
+- [GOOGLE_SHEETS_EXACT_URLS.md](./GOOGLE_SHEETS_EXACT_URLS.md) - All 7 URLs
+- [INVOICE_AGING_ANALYSIS.md](./INVOICE_AGING_ANALYSIS.md) - Aging details
 
 **⚠️ Note**: You must authenticate first (link above) for these URLs to work!
 
