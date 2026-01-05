@@ -177,4 +177,50 @@ export class XeroApiService {
     // Convert to array and sort by total outstanding (highest first)
     return Array.from(clientMap.values()).sort((a, b) => b.totalOutstanding - a.totalOutstanding);
   }
+
+  async getInvoicesByAging(): Promise<{
+    current: { count: number; total: number; invoices: XeroInvoice[] };
+    aged: { count: number; total: number; invoices: XeroInvoice[] };
+    critical: { count: number; total: number; invoices: XeroInvoice[] };
+  }> {
+    // Get all AUTHORISED invoices (awaiting payment)
+    const invoices = await this.getInvoices(undefined, undefined, 'AUTHORISED');
+    
+    const now = new Date();
+    const result = {
+      current: { count: 0, total: 0, invoices: [] as XeroInvoice[] },
+      aged: { count: 0, total: 0, invoices: [] as XeroInvoice[] },
+      critical: { count: 0, total: 0, invoices: [] as XeroInvoice[] },
+    };
+    
+    for (const invoice of invoices) {
+      const amountDue = invoice.AmountDue || 0;
+      if (amountDue <= 0) continue; // Skip paid invoices
+      
+      // Calculate days old from invoice date
+      const invoiceDate = invoice.Date ? new Date(invoice.Date) : null;
+      if (!invoiceDate) continue;
+      
+      const daysOld = Math.floor((now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysOld < 100) {
+        // CURRENT: 0-99 days old
+        result.current.count++;
+        result.current.total += amountDue;
+        result.current.invoices.push(invoice);
+      } else if (daysOld < 200) {
+        // AGED: 100-199 days old
+        result.aged.count++;
+        result.aged.total += amountDue;
+        result.aged.invoices.push(invoice);
+      } else {
+        // CRITICAL: 200+ days old (legal negotiation)
+        result.critical.count++;
+        result.critical.total += amountDue;
+        result.critical.invoices.push(invoice);
+      }
+    }
+    
+    return result;
+  }
 }

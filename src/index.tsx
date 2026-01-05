@@ -339,6 +339,23 @@ app.get('/api/clients/awaiting-payment', async (c) => {
   }
 });
 
+// Get invoices by aging (Current, Aged, Critical)
+app.get('/api/invoices/by-aging', async (c) => {
+  try {
+    const session = getSession(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const aging = await xero.getInvoicesByAging();
+    return c.json(aging);
+  } catch (error: any) {
+    console.error('Error fetching invoices by aging:', error);
+    return c.json({ error: error.message || 'Failed to fetch invoices by aging' }, 500);
+  }
+});
+
 // Auth status check
 app.get('/api/auth/status', (c) => {
   const session = getSession(c);
@@ -677,6 +694,43 @@ app.get('/api/export/clients-awaiting-payment', async (c) => {
   } catch (error: any) {
     console.error('Error exporting clients awaiting payment:', error);
     return c.json({ error: error.message || 'Failed to export clients awaiting payment' }, 500);
+  }
+});
+
+// Export invoices by aging to CSV
+app.get('/api/export/invoices-by-aging', async (c) => {
+  try {
+    const session = getSession(c);
+    let aging;
+    
+    if (!session?.accessToken || !session?.tenantId) {
+      // Use demo data
+      aging = {
+        current: { count: 15, total: 25000.00, invoices: [] },
+        aged: { count: 20, total: 35000.00, invoices: [] },
+        critical: { count: 13, total: 23239.41, invoices: [] },
+      };
+    } else {
+      const xero = new XeroApiService(session.accessToken, session.tenantId);
+      aging = await xero.getInvoicesByAging();
+    }
+    
+    // Generate CSV with aging breakdown
+    let csv = 'Category,Age Range,Invoice Count,Total Outstanding\n';
+    csv += `CURRENT,0-99 days,${aging.current.count},${aging.current.total.toFixed(2)}\n`;
+    csv += `AGED,100-199 days,${aging.aged.count},${aging.aged.total.toFixed(2)}\n`;
+    csv += `CRITICAL,200+ days (Legal),${aging.critical.count},${aging.critical.total.toFixed(2)}\n`;
+    csv += `TOTAL,All Ages,${aging.current.count + aging.aged.count + aging.critical.count},${(aging.current.total + aging.aged.total + aging.critical.total).toFixed(2)}\n`;
+    
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="invoices-by-aging.csv"',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error exporting invoices by aging:', error);
+    return c.json({ error: error.message || 'Failed to export invoices by aging' }, 500);
   }
 });
 
@@ -1030,6 +1084,22 @@ app.get('/', (c) => {
                             <p class="text-xs text-gray-600 mb-3">Assets, liabilities, and equity breakdown</p>
                             <div class="bg-indigo-50 p-3 rounded border border-indigo-200">
                                 <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/balance-sheet")</code>
+                            </div>
+                        </div>
+
+                        <!-- Invoice Aging Analysis -->
+                        <div class="bg-white rounded-lg shadow-sm border border-yellow-300 p-5 border-2">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-hourglass-half text-yellow-600 mr-2"></i>
+                                Invoice Aging Analysis ⭐ NEW
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">
+                                3 aging groups: <strong>CURRENT</strong> (0-99 days), 
+                                <strong>AGED</strong> (100-199 days), 
+                                <strong>CRITICAL</strong> (200+ days - legal negotiation)
+                            </p>
+                            <div class="bg-yellow-50 p-3 rounded border border-yellow-200">
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/invoices-by-aging")</code>
                             </div>
                         </div>
                     </div>
