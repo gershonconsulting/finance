@@ -629,3 +629,41 @@ function refreshData() {
     showError = (msg) => alert(msg); // Restore error handler
   }, 1000);
 }
+
+// Copy URL to clipboard
+async function copyToClipboard(elementId) {
+  const element = document.getElementById(elementId);
+  const text = element.textContent;
+  
+  try {
+    await navigator.clipboard.writeText(text);
+    
+    // Show success feedback
+    const button = event.target.closest('button');
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check mr-2"></i>Copied!';
+    button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+    button.classList.add('bg-green-600');
+    
+    setTimeout(() => {
+      button.innerHTML = originalHTML;
+      button.classList.remove('bg-green-600');
+      button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+    }, 2000);
+  } catch (err) {
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      alert('URL copied to clipboard!');
+    } catch (err) {
+      alert('Failed to copy URL. Please copy manually: ' + text);
+    }
+    document.body.removeChild(textArea);
+  }
+}

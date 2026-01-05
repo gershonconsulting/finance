@@ -547,6 +547,9 @@ app.get('/', (c) => {
                         <button onclick="showTab('transactions')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
                             <i class="fas fa-exchange-alt mr-2"></i>Transactions
                         </button>
+                        <button onclick="showTab('sheets-links')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-link mr-2"></i>Sheets Links
+                        </button>
                     </nav>
                 </div>
 
@@ -718,6 +721,182 @@ app.get('/', (c) => {
                         </div>
                         <div id="transactionList">
                             <p class="text-gray-500 text-center py-8">Click "Load Transactions" to view data</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google Sheets Links Tab -->
+                <div id="tab-sheets-links" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <div class="flex items-start mb-6">
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center justify-center h-12 w-12 rounded-md bg-green-500 text-white">
+                                    <i class="fas fa-table text-2xl"></i>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-2xl font-bold text-gray-900">Google Sheets Integration</h2>
+                                <p class="mt-2 text-sm text-gray-600">
+                                    Use these direct CSV URLs with Google Sheets <code class="bg-gray-100 px-2 py-1 rounded text-xs">=IMPORTDATA()</code> function
+                                    to automatically import and refresh your Xero data.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-info-circle text-blue-500"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-blue-700">
+                                        <strong>How to use:</strong> Copy any URL below, then in Google Sheets use: 
+                                        <code class="bg-white px-2 py-1 rounded text-xs ml-1">=IMPORTDATA("paste-url-here")</code>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <!-- Invoice Summary Link -->
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                                            <i class="fas fa-chart-pie text-blue-600 mr-2"></i>Invoice Summary
+                                        </h3>
+                                        <p class="text-sm text-gray-600 mb-3">Dashboard statistics (Draft, Awaiting, Overdue)</p>
+                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                                            <code id="url-summary" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/summary</code>
+                                        </div>
+                                    </div>
+                                    <button onclick="copyToClipboard('url-summary')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
+                                        <i class="fas fa-copy mr-2"></i>Copy
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Clients Awaiting Payment Link -->
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                                            <i class="fas fa-users text-purple-600 mr-2"></i>Clients Awaiting Payment
+                                        </h3>
+                                        <p class="text-sm text-gray-600 mb-3">Companies with outstanding invoices and totals</p>
+                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                                            <code id="url-clients" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/clients-awaiting-payment</code>
+                                        </div>
+                                    </div>
+                                    <button onclick="copyToClipboard('url-clients')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
+                                        <i class="fas fa-copy mr-2"></i>Copy
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Invoices Link -->
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                                            <i class="fas fa-file-invoice text-orange-600 mr-2"></i>All Invoices
+                                        </h3>
+                                        <p class="text-sm text-gray-600 mb-3">Complete invoice list with details</p>
+                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                                            <code id="url-invoices" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/invoices</code>
+                                        </div>
+                                    </div>
+                                    <button onclick="copyToClipboard('url-invoices')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
+                                        <i class="fas fa-copy mr-2"></i>Copy
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Bank Transactions Link -->
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                                            <i class="fas fa-exchange-alt text-green-600 mr-2"></i>Bank Transactions
+                                        </h3>
+                                        <p class="text-sm text-gray-600 mb-3">Transaction history</p>
+                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                                            <code id="url-transactions" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/transactions</code>
+                                        </div>
+                                    </div>
+                                    <button onclick="copyToClipboard('url-transactions')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
+                                        <i class="fas fa-copy mr-2"></i>Copy
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Profit & Loss Link -->
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                                            <i class="fas fa-chart-line text-red-600 mr-2"></i>Profit & Loss Report
+                                        </h3>
+                                        <p class="text-sm text-gray-600 mb-3">Income and expenses breakdown</p>
+                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                                            <code id="url-profit-loss" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/profit-loss</code>
+                                        </div>
+                                    </div>
+                                    <button onclick="copyToClipboard('url-profit-loss')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
+                                        <i class="fas fa-copy mr-2"></i>Copy
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Balance Sheet Link -->
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                                            <i class="fas fa-balance-scale text-indigo-600 mr-2"></i>Balance Sheet Report
+                                        </h3>
+                                        <p class="text-sm text-gray-600 mb-3">Assets, liabilities, and equity</p>
+                                        <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                                            <code id="url-balance-sheet" class="text-xs text-gray-800 break-all">${'${window.location.origin}'}/api/export/balance-sheet</code>
+                                        </div>
+                                    </div>
+                                    <button onclick="copyToClipboard('url-balance-sheet')" class="ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center whitespace-nowrap">
+                                        <i class="fas fa-copy mr-2"></i>Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Usage Instructions -->
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">
+                            <i class="fas fa-graduation-cap text-blue-600 mr-2"></i>How to Use in Google Sheets
+                        </h3>
+                        <ol class="list-decimal list-inside space-y-3 text-sm text-gray-700">
+                            <li>
+                                <strong>Copy a URL</strong> - Click the "Copy" button next to any data source above
+                            </li>
+                            <li>
+                                <strong>Open Google Sheets</strong> - Go to <a href="https://sheets.google.com" target="_blank" class="text-blue-600 hover:underline">sheets.google.com</a>
+                            </li>
+                            <li>
+                                <strong>Select a cell</strong> - Click on the cell where you want the data (e.g., A1)
+                            </li>
+                            <li>
+                                <strong>Enter formula</strong> - Type: <code class="bg-gray-100 px-2 py-1 rounded">=IMPORTDATA("paste-url-here")</code>
+                            </li>
+                            <li>
+                                <strong>Press Enter</strong> - Your Xero data will automatically import!
+                            </li>
+                        </ol>
+                        
+                        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
+                            <p class="text-sm text-yellow-800">
+                                <i class="fas fa-lightbulb text-yellow-600 mr-2"></i>
+                                <strong>Pro Tip:</strong> Google Sheets will automatically refresh the data periodically. 
+                                You can also manually refresh by clicking Data → Refresh all in Google Sheets.
+                            </p>
                         </div>
                     </div>
                 </div>
