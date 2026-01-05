@@ -23,13 +23,18 @@ This web application connects to your Xero account via API to provide comprehens
 - 🔄 **Demo Mode** - Test functionality without Xero authentication
 - 📊 **Google Sheets Export** - Export all data to CSV for Google Sheets import
 
+✅ **Recently Added:**
+- 🔐 **OAuth2 Authentication** - Full Xero OAuth2 integration with real API data
+- 🔄 **Real Data Support** - Connect your Xero account to use actual financial data
+- 🔑 **Session Management** - Secure token management with automatic refresh
+- 📊 **Live Google Sheets** - IMPORTDATA URLs return real Xero data after authentication
+
 ⏳ **Planned Features:**
-- 🔐 **OAuth2 Authentication** - Full Xero OAuth2 integration for production use
 - 📤 **PDF Export** - PDF generation for reports and invoices
 - 📊 **Excel Export** - Native Excel (.xlsx) format support
 - 🔍 **Advanced Filtering** - Date range and status-based filtering
 - 📊 **Additional Reports** - Trial Balance, Budget Summary, and custom reports
-- 💾 **Session Management** - Persistent authentication using Cloudflare KV
+- 💾 **Persistent Sessions** - Store sessions in Cloudflare KV for longer retention
 - 🔔 **Auto-refresh** - Scheduled data updates (weekly/monthly)
 
 ## 🏗️ Architecture
@@ -84,30 +89,51 @@ This web application connects to your Xero account via API to provide comprehens
 
 ### API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/health` | GET | Health check endpoint |
-| `/api/auth/status` | GET | Check authentication status |
-| `/api/invoices/summary` | GET | Get invoice statistics |
-| `/api/invoices` | GET | List invoices (with filters) |
-| `/api/clients/awaiting-payment` | GET | Get clients with outstanding payments |
-| `/api/reports/profit-loss` | GET | Profit & Loss report |
-| `/api/reports/balance-sheet` | GET | Balance Sheet report |
-| `/api/transactions` | GET | Bank transactions |
-| `/api/demo/summary` | GET | Demo data for testing |
-| `/api/export/summary` | GET | Export invoice summary to CSV |
-| `/api/export/invoices` | GET | Export invoices to CSV |
-| `/api/export/clients-awaiting-payment` | GET | Export clients awaiting payment to CSV |
-| `/api/export/transactions` | GET | Export transactions to CSV |
-| `/api/export/profit-loss` | GET | Export P&L report to CSV |
-| `/api/export/balance-sheet` | GET | Export Balance Sheet to CSV |
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/health` | GET | No | Health check endpoint |
+| `/auth/login` | GET | No | Start Xero OAuth flow |
+| `/auth/callback` | GET | No | OAuth callback handler |
+| `/api/auth/status` | GET | No | Check authentication status |
+| `/api/invoices/summary` | GET | **Yes** | Get invoice statistics (real data) |
+| `/api/invoices` | GET | **Yes** | List invoices (with filters) |
+| `/api/clients/awaiting-payment` | GET | **Yes** | Get clients with outstanding payments |
+| `/api/reports/profit-loss` | GET | **Yes** | Profit & Loss report |
+| `/api/reports/balance-sheet` | GET | **Yes** | Balance Sheet report |
+| `/api/transactions` | GET | **Yes** | Bank transactions |
+| `/api/demo/summary` | GET | No | Demo data for testing |
+| `/api/export/summary` | GET | Auto | Export invoice summary to CSV |
+| `/api/export/invoices` | GET | Auto | Export invoices to CSV |
+| `/api/export/clients-awaiting-payment` | GET | Auto | Export clients awaiting payment to CSV |
+| `/api/export/transactions` | GET | Auto | Export transactions to CSV |
+| `/api/export/profit-loss` | GET | Auto | Export P&L report to CSV |
+| `/api/export/balance-sheet` | GET | Auto | Export Balance Sheet to CSV |
+
+**Note:** Export endpoints marked "Auto" return real data when authenticated, demo data otherwise.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Node.js 18+ and npm
-- Xero Developer Account (for production use)
+- Xero account with API access
 - Cloudflare account (for deployment)
+
+### Quick Start (Connect Real Xero Data)
+
+**🎯 Your app is pre-configured to use your Xero API credentials!**
+
+1. **Open the dashboard:**
+```
+https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai
+```
+
+2. **Click "Connect to Xero"** (green button in top-right)
+
+3. **Authorize the app** with your Xero credentials
+
+4. **Start using real data** - All reports and exports will use actual Xero data!
+
+**📖 See [REAL_DATA_SETUP.md](REAL_DATA_SETUP.md) for complete authentication guide.**
 
 ### Local Development
 
@@ -142,21 +168,31 @@ http://localhost:3000
 
 ### Configuration
 
-#### Xero API Setup (Required for Production)
+#### Xero API Setup (Already Configured!)
 
-1. Create a Xero app at https://developer.xero.com/myapps
-2. Get your Client ID and Client Secret
-3. Set redirect URI to your application URL + `/auth/callback`
-4. Store credentials in `.dev.vars` (local) or Cloudflare secrets (production)
+**✅ Your app is pre-configured with Xero OAuth credentials from your Flutter app.**
 
-```bash
-# .dev.vars (local development - NOT committed to git)
-XERO_CLIENT_ID=your_client_id
-XERO_CLIENT_SECRET=your_client_secret
-XERO_REDIRECT_URI=http://localhost:3000/auth/callback
+**Current configuration:**
+```
+Client ID: 0CA378B164364DB0821A6014520913E6
+Client Secret: 1V72d0a3rmemuOng7bW5MikXQTlR60hIiQCpLh0w7ON7E15U
+Redirect URI: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/auth/callback
 ```
 
-#### Production Secrets (Cloudflare)
+**Scopes:**
+- `accounting.reports.read` - Financial reports
+- `accounting.transactions.read` - Invoices & transactions
+- `accounting.contacts.read` - Client information
+- `accounting.settings.read` - Organization settings
+- `offline_access` - Token refresh
+
+**To connect:**
+1. Click "Connect to Xero" in the dashboard
+2. Sign in with your Xero account
+3. Authorize the app
+4. Start using real data!
+
+#### Production Secrets (For Custom Deployment)
 ```bash
 npx wrangler pages secret put XERO_CLIENT_ID
 npx wrangler pages secret put XERO_CLIENT_SECRET
@@ -319,6 +355,16 @@ For technical support or questions:
 
 ## 📅 Version History
 
+### Version 1.3.0 (2026-01-05) - CURRENT
+- ✅ **NEW**: Real Xero API data integration
+- ✅ **NEW**: OAuth2 authentication flow
+- ✅ **NEW**: "Connect to Xero" button with automatic session management
+- ✅ **NEW**: Real-time data from actual Xero account
+- ✅ **NEW**: Google Sheets IMPORTDATA URLs return real data
+- ✅ Session token management with automatic refresh
+- ✅ Pre-configured with working Xero credentials
+- 📖 See [REAL_DATA_SETUP.md](REAL_DATA_SETUP.md) and [XERO_AUTHENTICATION_GUIDE.md](XERO_AUTHENTICATION_GUIDE.md)
+
 ### Version 1.2.0 (2026-01-04)
 - ✅ **NEW**: Clients Awaiting Payment report
 - ✅ Groups invoices by company/contact
@@ -344,27 +390,40 @@ For technical support or questions:
 
 ## 🎯 Next Steps
 
-**Recommended development priorities:**
+**Ready to use real data:**
+1. ✅ **Click "Connect to Xero"** in the dashboard
+2. ✅ **Authorize** with your Xero account
+3. ✅ **Start using** real financial data!
+
+**Recommended future development:**
 
 1. **High Priority:**
-   - Implement full Xero OAuth2 authentication flow
-   - Add session management with Cloudflare KV
    - Implement date range filtering for all reports
+   - Add persistent session storage with Cloudflare KV
+   - Implement user accounts and multi-organization support
 
 2. **Medium Priority:**
-   - Add CSV/Excel export functionality
+   - Add native Excel (.xlsx) export functionality
    - Implement PDF report generation
    - Add pagination for large invoice lists
+   - Email scheduled reports
 
 3. **Low Priority:**
    - Add scheduled auto-refresh functionality
    - Implement additional report types (Trial Balance, Budget Summary)
    - Add custom report builder with filters
+   - Dashboard customization
 
 ---
 
 **Project**: Xero Reports Dashboard  
-**Version**: 1.0.0  
-**Last Updated**: January 4, 2026  
-**Deployment Status**: ✅ Active (Sandbox)  
-**Technology**: Hono + TypeScript + Tailwind CSS + Chart.js
+**Version**: 1.3.0  
+**Last Updated**: January 5, 2026  
+**Deployment Status**: ✅ Active (Sandbox) - Real Data Enabled  
+**Technology**: Hono + TypeScript + Tailwind CSS + Chart.js + OAuth2
+
+**🔗 Quick Links:**
+- **Dashboard**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai
+- **Connect Xero**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/auth/login
+- **Setup Guide**: [REAL_DATA_SETUP.md](REAL_DATA_SETUP.md)
+- **Auth Guide**: [XERO_AUTHENTICATION_GUIDE.md](XERO_AUTHENTICATION_GUIDE.md)
