@@ -14,10 +14,27 @@ A modern web application for generating financial reports from Xero accounting d
 
 This will:
 1. Redirect you to Xero login
-2. Authorize the app to access your data
+2. Authorize the app to access **Gershon Consulting LLC** data
 3. Redirect back with real data loaded! ✅
 
 📖 **Security info**: [SECURITY_CREDENTIALS.md](./SECURITY_CREDENTIALS.md)
+
+## 📊 Google Sheets Integration - EXACT URLs
+
+**All 6 IMPORTDATA formulas ready to copy & paste into Google Sheets:**
+
+```
+1. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/summary")
+2. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/clients-awaiting-payment")
+3. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/invoices")
+4. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/transactions")
+5. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/profit-loss")
+6. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/balance-sheet")
+```
+
+**📖 Full guide**: [GOOGLE_SHEETS_EXACT_URLS.md](./GOOGLE_SHEETS_EXACT_URLS.md)
+
+**⚠️ Note**: You must authenticate first (link above) for these URLs to work!
 
 ## 📋 Project Overview
 
