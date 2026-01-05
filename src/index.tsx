@@ -905,6 +905,23 @@ app.get('/', (c) => {
                             </div>
                         </div>
 
+                        <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-exclamation-triangle text-red-500"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-red-800">
+                                        <strong>⚠️ Authentication Required:</strong> You must connect to Xero first before using these URLs. 
+                                        These URLs will return REAL data from YOUR Xero account, not demo data.
+                                    </p>
+                                    <button onclick="window.location.href='/auth/login'" class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-medium">
+                                        <i class="fas fa-plug mr-2"></i>Connect to Xero Now
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
                             <div class="flex">
                                 <div class="flex-shrink-0">
@@ -1030,12 +1047,45 @@ app.get('/', (c) => {
                         </div>
                     </div>
 
+                    <!-- Real Data Information -->
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">
+                            <i class="fas fa-database text-green-600 mr-2"></i>Real Data - Not Demo
+                        </h3>
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <p class="text-sm text-green-800 mb-3">
+                                <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                                <strong>These URLs return YOUR actual Xero data:</strong>
+                            </p>
+                            <ul class="space-y-2 text-sm text-green-700 ml-6">
+                                <li>✅ Real company names from your Xero contacts</li>
+                                <li>✅ Actual outstanding invoice amounts</li>
+                                <li>✅ Real transaction history and dates</li>
+                                <li>✅ Your organization's financial reports</li>
+                                <li>✅ Live data - updates when you refresh in Google Sheets</li>
+                            </ul>
+                            
+                            <div class="mt-4 p-3 bg-white rounded border border-green-300">
+                                <p class="text-xs text-gray-700 font-mono">
+                                    <strong>Example (Clients Awaiting Payment):</strong><br/>
+                                    Company Name,Number of Invoices,Total Outstanding<br/>
+                                    Gershon Consulting,3,12500.00<br/>
+                                    ABC Corporation,2,8750.00<br/>
+                                    <span class="text-green-600">← Your actual company names and amounts!</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Usage Instructions -->
                     <div class="bg-white rounded-lg shadow-md p-6">
                         <h3 class="text-lg font-bold text-gray-900 mb-4">
                             <i class="fas fa-graduation-cap text-blue-600 mr-2"></i>How to Use in Google Sheets
                         </h3>
                         <ol class="list-decimal list-inside space-y-3 text-sm text-gray-700">
+                            <li>
+                                <strong>Connect to Xero</strong> - Click the "Connect to Xero Now" button above (one-time setup)
+                            </li>
                             <li>
                                 <strong>Copy a URL</strong> - Click the "Copy" button next to any data source above
                             </li>
@@ -1049,7 +1099,7 @@ app.get('/', (c) => {
                                 <strong>Enter formula</strong> - Type: <code class="bg-gray-100 px-2 py-1 rounded">=IMPORTDATA("paste-url-here")</code>
                             </li>
                             <li>
-                                <strong>Press Enter</strong> - Your Xero data will automatically import!
+                                <strong>Press Enter</strong> - Your REAL Xero data will automatically import!
                             </li>
                         </ol>
                         
@@ -1058,6 +1108,14 @@ app.get('/', (c) => {
                                 <i class="fas fa-lightbulb text-yellow-600 mr-2"></i>
                                 <strong>Pro Tip:</strong> Google Sheets will automatically refresh the data periodically. 
                                 You can also manually refresh by clicking Data → Refresh all in Google Sheets.
+                            </p>
+                        </div>
+
+                        <div class="mt-4 p-4 bg-purple-50 border border-purple-200 rounded">
+                            <p class="text-sm text-purple-800">
+                                <i class="fas fa-shield-alt text-purple-600 mr-2"></i>
+                                <strong>Security:</strong> These are direct CSV export URLs. Only you can access your data after authentication. 
+                                Keep these URLs private as they contain access to your financial information.
                             </p>
                         </div>
                     </div>
