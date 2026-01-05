@@ -961,109 +961,75 @@ app.get('/', (c) => {
 
                     <!-- Grid Layout for Categories -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- General Metrics -->
+                        <!-- Invoice Summary -->
                         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center">
-                                <i class="fas fa-chart-bar text-purple-600 mr-2"></i>
-                                General Metrics
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-chart-pie text-blue-600 mr-2"></i>
+                                Invoice Summary
                             </h3>
-                            <div class="space-y-3">
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">Total Boxes</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/summary")</code>
-                                    </div>
-                                </div>
+                            <p class="text-xs text-gray-600 mb-3">Draft, Awaiting Payment, Overdue counts & amounts</p>
+                            <div class="bg-blue-50 p-3 rounded border border-blue-200">
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/summary")</code>
                             </div>
                         </div>
 
-                        <!-- By Stage (Active Stages) -->
+                        <!-- Clients Awaiting Payment -->
                         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center">
-                                <i class="fas fa-layer-group text-blue-600 mr-2"></i>
-                                By Stage (Active Stages)
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-users text-purple-600 mr-2"></i>
+                                Clients Awaiting Payment
                             </h3>
-                            <div class="space-y-3">
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">Closing</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/clients-awaiting-payment")</code>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">Negotiating</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/invoices")</code>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">Nurturing</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/transactions")</code>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">Proposal Sent</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/profit-loss")</code>
-                                    </div>
-                                </div>
+                            <p class="text-xs text-gray-600 mb-3">Companies with outstanding invoices (Milvue, Duorooq, HSSDR, etc.)</p>
+                            <div class="bg-purple-50 p-3 rounded border border-purple-200">
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/clients-awaiting-payment")</code>
                             </div>
                         </div>
 
-                        <!-- By FIT -->
+                        <!-- All Invoices -->
                         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center">
-                                <i class="fas fa-check-circle text-green-600 mr-2"></i>
-                                By FIT
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-file-invoice text-orange-600 mr-2"></i>
+                                All Invoices
                             </h3>
-                            <div class="space-y-3">
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">High FIT</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/balance-sheet")</code>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">Medium FIT</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/summary")</code>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">Low FIT</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/invoices")</code>
-                                    </div>
-                                </div>
+                            <p class="text-xs text-gray-600 mb-3">Complete invoice list with numbers, dates, amounts, status</p>
+                            <div class="bg-orange-50 p-3 rounded border border-orange-200">
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/invoices")</code>
                             </div>
                         </div>
 
-                        <!-- By INTEREST -->
+                        <!-- Bank Transactions -->
                         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center">
-                                <i class="fas fa-star text-yellow-600 mr-2"></i>
-                                By INTEREST
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-exchange-alt text-green-600 mr-2"></i>
+                                Bank Transactions
                             </h3>
-                            <div class="space-y-3">
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">High INTEREST</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/clients-awaiting-payment")</code>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">Medium INTEREST</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/transactions")</code>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-medium text-gray-600 mb-1">Low INTEREST</p>
-                                    <div class="bg-gray-50 p-2 rounded border border-gray-200">
-                                        <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("${'${window.location.origin}'}/api/export/profit-loss")</code>
-                                    </div>
-                                </div>
+                            <p class="text-xs text-gray-600 mb-3">Transaction history (receive/spend) with dates and amounts</p>
+                            <div class="bg-green-50 p-3 rounded border border-green-200">
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/transactions")</code>
+                            </div>
+                        </div>
+
+                        <!-- Profit & Loss Report -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-chart-line text-red-600 mr-2"></i>
+                                Profit & Loss Report
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">Revenue and expenses breakdown by account</p>
+                            <div class="bg-red-50 p-3 rounded border border-red-200">
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/profit-loss")</code>
+                            </div>
+                        </div>
+
+                        <!-- Balance Sheet Report -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-balance-scale text-indigo-600 mr-2"></i>
+                                Balance Sheet Report
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">Assets, liabilities, and equity breakdown</p>
+                            <div class="bg-indigo-50 p-3 rounded border border-indigo-200">
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/balance-sheet")</code>
                             </div>
                         </div>
                     </div>
