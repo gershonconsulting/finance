@@ -382,51 +382,51 @@ app.get('/api/demo/summary', (c) => {
 app.get('/api/demo/clients-awaiting-payment', (c) => {
   // Simulated demo data based on real invoice structure
   // In production, this would come from actual Xero API
-  const demoInvoices = [
-    { Contact: { Name: 'ABC Corporation', ContactID: 'c1' }, AmountDue: 15000, Status: 'AUTHORISED' },
-    { Contact: { Name: 'ABC Corporation', ContactID: 'c1' }, AmountDue: 5500, Status: 'AUTHORISED' },
-    { Contact: { Name: 'ABC Corporation', ContactID: 'c1' }, AmountDue: 4000, Status: 'AUTHORISED' },
-    { Contact: { Name: 'XYZ Industries Ltd', ContactID: 'c2' }, AmountDue: 12750, Status: 'AUTHORISED' },
-    { Contact: { Name: 'XYZ Industries Ltd', ContactID: 'c2' }, AmountDue: 6000, Status: 'AUTHORISED' },
-    { Contact: { Name: 'Tech Solutions Inc', ContactID: 'c3' }, AmountDue: 8200, Status: 'AUTHORISED' },
-    { Contact: { Name: 'Tech Solutions Inc', ContactID: 'c3' }, AmountDue: 7000, Status: 'AUTHORISED' },
-    { Contact: { Name: 'Global Services Co', ContactID: 'c4' }, AmountDue: 12800, Status: 'AUTHORISED' },
-    { Contact: { Name: 'Prime Consulting', ContactID: 'c5' }, AmountDue: 3500, Status: 'AUTHORISED' },
-    { Contact: { Name: 'Prime Consulting', ContactID: 'c5' }, AmountDue: 3000, Status: 'AUTHORISED' },
-    { Contact: { Name: 'Prime Consulting', ContactID: 'c5' }, AmountDue: 3000, Status: 'AUTHORISED' },
+  const demoClients = [
+    {
+      contactName: 'ABC Corporation',
+      contactId: 'c1',
+      invoiceCount: 3,
+      totalOutstanding: 24500.00,
+      averagePaymentDelay: 65,
+      totalPaid: 45000.00,
+    },
+    {
+      contactName: 'XYZ Industries Ltd',
+      contactId: 'c2',
+      invoiceCount: 2,
+      totalOutstanding: 18750.00,
+      averagePaymentDelay: 72,
+      totalPaid: 38000.00,
+    },
+    {
+      contactName: 'Tech Solutions Inc',
+      contactId: 'c3',
+      invoiceCount: 2,
+      totalOutstanding: 15200.00,
+      averagePaymentDelay: 45,
+      totalPaid: 52000.00,
+    },
+    {
+      contactName: 'Global Services Co',
+      contactId: 'c4',
+      invoiceCount: 1,
+      totalOutstanding: 12800.00,
+      averagePaymentDelay: 90,
+      totalPaid: 28000.00,
+    },
+    {
+      contactName: 'Prime Consulting',
+      contactId: 'c5',
+      invoiceCount: 3,
+      totalOutstanding: 9500.00,
+      averagePaymentDelay: 55,
+      totalPaid: 61000.00,
+    },
   ];
-
-  // Group by contact (simulating the real API logic)
-  const clientMap = new Map();
   
-  for (const invoice of demoInvoices) {
-    const contactId = invoice.Contact.ContactID;
-    const contactName = invoice.Contact.Name;
-    const amountDue = invoice.AmountDue;
-    
-    if (amountDue > 0) {
-      if (!clientMap.has(contactId)) {
-        clientMap.set(contactId, {
-          contactName,
-          contactId,
-          invoiceCount: 0,
-          totalOutstanding: 0,
-          invoices: []
-        });
-      }
-      
-      const client = clientMap.get(contactId);
-      client.invoiceCount++;
-      client.totalOutstanding += amountDue;
-      client.invoices.push(invoice);
-    }
-  }
-  
-  // Convert to array and sort by outstanding amount (highest first)
-  const clients = Array.from(clientMap.values())
-    .sort((a, b) => b.totalOutstanding - a.totalOutstanding);
-  
-  return c.json(clients);
+  // Return demo clients (already sorted by outstanding amount)
+  return c.json(demoClients);
 });
 
 // Export endpoints for Google Sheets
