@@ -148,10 +148,12 @@ export class XeroApiService {
     contactId: string;
     invoiceCount: number;
     totalOutstanding: number;
+    averagePaymentDelay: number;
+    totalPaid: number;
     invoices: XeroInvoice[];
   }>> {
-    // Get all AUTHORISED invoices (awaiting payment)
-    const invoices = await this.getInvoices(undefined, undefined, 'AUTHORISED');
+    // Get all invoices for this contact (both AUTHORISED and PAID)
+    const allInvoices = await this.getInvoices();
     
     // Group by contact
     const clientMap = new Map<string, {
@@ -159,34 +161,105 @@ export class XeroApiService {
       contactId: string;
       invoiceCount: number;
       totalOutstanding: number;
+      averagePaymentDelay: number;
+      totalPaid: number;
       invoices: XeroInvoice[];
+      paidInvoices: XeroInvoice[];
     }>();
     
-    for (const invoice of invoices) {
+    const now = new Date();
+    
+    for (const invoice of allInvoices) {
       const contactId = invoice.Contact?.ContactID || 'unknown';
       const contactName = invoice.Contact?.Name || 'Unknown Contact';
       const amountDue = invoice.AmountDue || 0;
+      const total = invoice.Total || 0;
+      const amountPaid = invoice.AmountPaid || 0;
       
-      if (amountDue > 0) { // Only include invoices with outstanding amounts
-        if (!clientMap.has(contactId)) {
-          clientMap.set(contactId, {
-            contactName,
-            contactId,
-            invoiceCount: 0,
-            totalOutstanding: 0,
-            invoices: [],
-          });
-        }
-        
-        const client = clientMap.get(contactId)!;
+      if (!clientMap.has(contactId)) {
+        clientMap.set(contactId, {
+          contactName,
+          contactId,
+          invoiceCount: 0,
+          totalOutstanding: 0,
+          averagePaymentDelay: 0,
+          totalPaid: 0,
+          invoices: [],
+          paidInvoices: [],
+        });
+      }
+      
+      const client = clientMap.get(contactId)!;
+      
+      // Track outstanding invoices
+      if (invoice.Status === 'AUTHORISED' && amountDue > 0) {
         client.invoiceCount++;
         client.totalOutstanding += amountDue;
         client.invoices.push(invoice);
       }
+      
+      // Track paid amounts (from all invoices)
+      if (amountPaid > 0) {
+        client.totalPaid += amountPaid;
+      }
+      
+      // Track paid invoices for delay calculation
+      if (invoice.Status === 'PAID' && invoice.FullyPaidOnDate && invoice.DueDate) {
+        client.paidInvoices.push(invoice);
+      }
     }
     
-    // Convert to array and sort by total outstanding (highest first)
-    return Array.from(clientMap.values()).sort((a, b) => b.totalOutstanding - a.totalOutstanding);
+    // Calculate average payment delay for each client
+    for (const client of clientMap.values()) {
+      if (client.paidInvoices.length > 0) {
+        let totalDelay = 0;
+        let validDelays = 0;
+        
+        for (const invoice of client.paidInvoices) {
+          if (invoice.FullyPaidOnDate && invoice.DueDate) {
+            const paidDate = new Date(invoice.FullyPaidOnDate);
+            const dueDate = new Date(invoice.DueDate);
+            const delayDays = Math.floor((paidDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+            
+            // Only count positive delays (late payments)
+            if (delayDays > 0) {
+              totalDelay += delayDays;
+              validDelays++;
+            }
+          }
+        }
+        
+        client.averagePaymentDelay = validDelays > 0 ? Math.round(totalDelay / validDelays) : 0;
+      }
+      
+      // If no paid invoices, calculate delay from current outstanding invoices
+      if (client.averagePaymentDelay === 0 && client.invoices.length > 0) {
+        let totalDelay = 0;
+        let validDelays = 0;
+        
+        for (const invoice of client.invoices) {
+          if (invoice.DueDate) {
+            const dueDate = new Date(invoice.DueDate);
+            const delayDays = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+            
+            if (delayDays > 0) {
+              totalDelay += delayDays;
+              validDelays++;
+            }
+          }
+        }
+        
+        client.averagePaymentDelay = validDelays > 0 ? Math.round(totalDelay / validDelays) : 0;
+      }
+      
+      // Remove paidInvoices from the result (internal calculation only)
+      delete (client as any).paidInvoices;
+    }
+    
+    // Filter to only clients with outstanding invoices and sort by total outstanding (highest first)
+    return Array.from(clientMap.values())
+      .filter(client => client.invoiceCount > 0)
+      .sort((a, b) => b.totalOutstanding - a.totalOutstanding);
   }
 
   async getInvoicesByAging(): Promise<{

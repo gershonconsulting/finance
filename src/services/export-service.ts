@@ -156,20 +156,28 @@ export class ExportService {
     const data = clients.map(client => ({
       'Company Name': client.contactName,
       'Number of Invoices': client.invoiceCount,
-      'Total Outstanding': client.totalOutstanding,
+      'Total Outstanding': client.totalOutstanding.toFixed(2),
+      'Avg Payment Delay (days)': client.averagePaymentDelay || 0,
+      'Total Paid Overall': client.totalPaid.toFixed(2),
     }));
     
     // Add totals row
     const totalInvoices = clients.reduce((sum, c) => sum + c.invoiceCount, 0);
     const totalOutstanding = clients.reduce((sum, c) => sum + c.totalOutstanding, 0);
+    const totalPaid = clients.reduce((sum, c) => sum + c.totalPaid, 0);
+    const avgDelay = clients.length > 0 
+      ? Math.round(clients.reduce((sum, c) => sum + (c.averagePaymentDelay || 0), 0) / clients.length)
+      : 0;
     
     data.push({
       'Company Name': 'TOTAL',
       'Number of Invoices': totalInvoices,
-      'Total Outstanding': totalOutstanding,
+      'Total Outstanding': totalOutstanding.toFixed(2),
+      'Avg Payment Delay (days)': avgDelay,
+      'Total Paid Overall': totalPaid.toFixed(2),
     });
     
-    const headers = ['Company Name', 'Number of Invoices', 'Total Outstanding'];
+    const headers = ['Company Name', 'Number of Invoices', 'Total Outstanding', 'Avg Payment Delay (days)', 'Total Paid Overall'];
     return this.toCSV(data, headers);
   }
 
