@@ -281,11 +281,12 @@ export class XeroApiService {
       const amountDue = invoice.AmountDue || 0;
       if (amountDue <= 0) continue; // Skip paid invoices
       
-      // Calculate days old from invoice date
-      const invoiceDate = invoice.Date ? new Date(invoice.Date) : null;
-      if (!invoiceDate) continue;
+      // Calculate days overdue from due date (more accurate for aging)
+      // If no due date, fall back to invoice date
+      const dueDate = invoice.DueDate ? new Date(invoice.DueDate) : (invoice.Date ? new Date(invoice.Date) : null);
+      if (!dueDate) continue;
       
-      const daysOld = Math.floor((now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24));
+      const daysOld = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
       
       if (daysOld < 100) {
         // CURRENT: 0-99 days old
