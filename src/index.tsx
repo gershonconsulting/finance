@@ -50,6 +50,72 @@ function getSession(c: any): SessionData | null {
   return null;
 }
 
+// Helper to get session ID from request
+function getSessionId(c: any): string | null {
+  const authHeader = c.req.header('Authorization');
+  if (authHeader) {
+    return authHeader.replace('Bearer ', '');
+  }
+  
+  const sessionHeader = c.req.header('X-Session-Token');
+  if (sessionHeader) {
+    return sessionHeader;
+  }
+  
+  return null;
+}
+
+// Helper to refresh expired token
+async function getSessionWithRefresh(c: any): Promise<{ session: SessionData | null, sessionId: string | null }> {
+  const sessionId = getSessionId(c);
+  if (!sessionId) {
+    return { session: null, sessionId: null };
+  }
+  
+  const session = sessions.get(sessionId);
+  if (!session) {
+    return { session: null, sessionId };
+  }
+  
+  // Check if token is expired or about to expire (within 5 minutes)
+  const now = Date.now();
+  const expiresAt = session.expiresAt || 0;
+  const fiveMinutes = 5 * 60 * 1000;
+  
+  if (expiresAt > 0 && expiresAt - now < fiveMinutes) {
+    // Token expired or about to expire, refresh it
+    try {
+      const { env } = c;
+      const oauth = new XeroOAuthService(
+        env.XERO_CLIENT_ID,
+        env.XERO_CLIENT_SECRET,
+        env.XERO_REDIRECT_URI
+      );
+      
+      if (session.refreshToken) {
+        console.log('Refreshing expired token...');
+        const newTokens = await oauth.refreshAccessToken(session.refreshToken);
+        
+        // Update session with new tokens
+        session.accessToken = newTokens.accessToken;
+        session.refreshToken = newTokens.refreshToken;
+        session.expiresAt = newTokens.expiresAt;
+        sessions.set(sessionId, session);
+        
+        console.log('Token refreshed successfully');
+        return { session, sessionId };
+      }
+    } catch (error) {
+      console.error('Failed to refresh token:', error);
+      // Token refresh failed, session is invalid
+      sessions.delete(sessionId);
+      return { session: null, sessionId };
+    }
+  }
+  
+  return { session, sessionId };
+}
+
 // Helper to create session
 function createSession(data: SessionData): string {
   const sessionId = crypto.randomUUID();
@@ -228,7 +294,7 @@ app.get('/api/auth/status', (c) => {
 // Get invoice summary
 app.get('/api/invoices/summary', async (c) => {
   try {
-    const session = getSession(c);
+    const { session } = await getSessionWithRefresh(c);
     if (!session?.accessToken || !session?.tenantId) {
       return c.json({ error: 'Not authenticated' }, 401);
     }
@@ -245,7 +311,7 @@ app.get('/api/invoices/summary', async (c) => {
 // Get invoices
 app.get('/api/invoices', async (c) => {
   try {
-    const session = getSession(c);
+    const { session } = await getSessionWithRefresh(c);
     if (!session?.accessToken || !session?.tenantId) {
       return c.json({ error: 'Not authenticated' }, 401);
     }
@@ -325,7 +391,7 @@ app.get('/api/transactions', async (c) => {
 // Get clients awaiting payment (grouped by company)
 app.get('/api/clients/awaiting-payment', async (c) => {
   try {
-    const session = getSession(c);
+    const { session } = await getSessionWithRefresh(c);
     if (!session?.accessToken || !session?.tenantId) {
       return c.json({ error: 'Not authenticated' }, 401);
     }
@@ -342,7 +408,7 @@ app.get('/api/clients/awaiting-payment', async (c) => {
 // Get invoices by aging (Current, Aged, Critical)
 app.get('/api/invoices/by-aging', async (c) => {
   try {
-    const session = getSession(c);
+    const { session } = await getSessionWithRefresh(c);
     if (!session?.accessToken || !session?.tenantId) {
       return c.json({ error: 'Not authenticated' }, 401);
     }
