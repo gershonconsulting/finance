@@ -521,6 +521,10 @@ function displayClientsAwaitingPayment(clients, isDemo = false) {
   // Calculate totals
   const totalInvoices = clients.reduce((sum, client) => sum + client.invoiceCount, 0);
   const totalOutstanding = clients.reduce((sum, client) => sum + client.totalOutstanding, 0);
+  const totalPaid = clients.reduce((sum, client) => sum + (client.totalPaid || 0), 0);
+  const avgDelay = clients.length > 0 
+    ? Math.round(clients.reduce((sum, client) => sum + (client.averagePaymentDelay || 0), 0) / clients.length)
+    : 0;
   
   const html = `
     <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -544,8 +548,20 @@ function displayClientsAwaitingPayment(clients, isDemo = false) {
       <thead class="bg-gray-50">
         <tr>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Name</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Number of Invoices</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Outstanding</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoices</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <span class="flex items-center">
+              Avg Delay
+              <i class="fas fa-clock ml-1 text-orange-500" title="Average payment delay in days"></i>
+            </span>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <span class="flex items-center">
+              Total Paid
+              <i class="fas fa-check-circle ml-1 text-green-500" title="Total paid historically"></i>
+            </span>
+          </th>
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
@@ -563,11 +579,24 @@ function displayClientsAwaitingPayment(clients, isDemo = false) {
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                ${client.invoiceCount} invoice${client.invoiceCount !== 1 ? 's' : ''}
+                ${client.invoiceCount}
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
               ${formatCurrency(client.totalOutstanding)}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                client.averagePaymentDelay <= 30 ? 'bg-green-100 text-green-800' :
+                client.averagePaymentDelay <= 60 ? 'bg-yellow-100 text-yellow-800' :
+                client.averagePaymentDelay <= 90 ? 'bg-orange-100 text-orange-800' :
+                'bg-red-100 text-red-800'
+              }">
+                ${client.averagePaymentDelay || 0} days
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+              ${formatCurrency(client.totalPaid || 0)}
             </td>
           </tr>
         `).join('')}
@@ -575,11 +604,19 @@ function displayClientsAwaitingPayment(clients, isDemo = false) {
           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">TOTAL</td>
           <td class="px-6 py-4 whitespace-nowrap">
             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-200 text-gray-800">
-              ${totalInvoices} invoice${totalInvoices !== 1 ? 's' : ''}
+              ${totalInvoices}
             </span>
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
             ${formatCurrency(totalOutstanding)}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-200 text-gray-800">
+              ${avgDelay} days
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+            ${formatCurrency(totalPaid)}
           </td>
         </tr>
       </tbody>
