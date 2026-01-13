@@ -25,14 +25,13 @@ These are the **EXACT URLs** to copy and paste into Google Sheets. No variables,
 ```
 =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/clients-awaiting-payment")
 ```
-**What you'll see:**
-- Milvue: $17,214.96
-- Duorooq Engineering: $10,941.77
-- HSSDR: $8,181.12
-- CONNECT INNOV: $7,995.30
-- Finance Montreal: $6,096.60
-- (and 43 more companies)
-- **TOTAL: $83,239.41**
+**What you'll see (5 columns):**
+- **Company Name**: Milvue, Duorooq Engineering, HSSDR, etc.
+- **Number of Invoices**: Count of outstanding invoices per client
+- **Total Outstanding**: Amount owed now (e.g., Milvue: $17,214.96)
+- **Avg Payment Delay (days)**: 🆕 Average days late (e.g., Milvue: 81 days)
+- **Total Paid Overall**: 🆕 Historical payments from this client
+- **TOTAL**: 48 clients, $83,239.41 outstanding
 
 ---
 
