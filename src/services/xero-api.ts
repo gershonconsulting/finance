@@ -4,6 +4,28 @@ import type { XeroInvoice, XeroInvoiceSummary, XeroBankTransaction, XeroReport }
 
 const XERO_API_BASE = 'https://api.xero.com/api.xro/2.0';
 
+/**
+ * Parse Xero date format to JavaScript Date
+ * Xero returns dates in format: "/Date(1234567890000+0000)/" or "/Date(1234567890000)/"
+ * Standard ISO format: "2024-01-15T00:00:00" also supported
+ */
+function parseXeroDate(dateStr: string | undefined | null): Date | null {
+  if (!dateStr) return null;
+  
+  // Handle Xero format: "/Date(1234567890000+0000)/" or "/Date(1234567890000)/"
+  if (typeof dateStr === 'string' && dateStr.includes('/Date(')) {
+    const match = dateStr.match(/\/Date\((\d+)([+-]\d+)?\)\//);
+    if (match) {
+      const timestamp = parseInt(match[1]);
+      return new Date(timestamp);
+    }
+  }
+  
+  // Handle standard ISO format or other standard formats
+  const date = new Date(dateStr);
+  return isNaN(date.getTime()) ? null : date;
+}
+
 export class XeroApiService {
   private accessToken: string;
   private tenantId: string;
@@ -68,11 +90,13 @@ export class XeroApiService {
     // Exclude ACCPAY (Accounts Payable - bills you pay)
     const receivableInvoices = invoices.filter((inv: XeroInvoice) => inv.Type === 'ACCREC');
     
-    // Sort by date (newest first)
+    // Sort by date (newest first) using proper Xero date parsing
     return receivableInvoices.sort((a: XeroInvoice, b: XeroInvoice) => {
-      const dateA = a.Date ? new Date(a.Date).getTime() : 0;
-      const dateB = b.Date ? new Date(b.Date).getTime() : 0;
-      return dateB - dateA; // Descending order (newest first)
+      const dateA = parseXeroDate(a.Date);
+      const dateB = parseXeroDate(b.Date);
+      const timeA = dateA ? dateA.getTime() : 0;
+      const timeB = dateB ? dateB.getTime() : 0;
+      return timeB - timeA; // Descending order (newest first)
     });
   }
 
@@ -99,13 +123,11 @@ export class XeroApiService {
         awaitingCount++;
         awaitingAmount += amountDue;
         
-        // Check if overdue
-        if (invoice.DueDate) {
-          const dueDate = new Date(invoice.DueDate);
-          if (dueDate < now && amountDue > 0) {
-            overdueCount++;
-            overdueAmount += amountDue;
-          }
+        // Check if overdue using proper date parsing
+        const dueDate = parseXeroDate(invoice.DueDate);
+        if (dueDate && dueDate < now && amountDue > 0) {
+          overdueCount++;
+          overdueAmount += amountDue;
         }
       }
     }
@@ -216,9 +238,9 @@ export class XeroApiService {
         let validDelays = 0;
         
         for (const invoice of client.paidInvoices) {
-          if (invoice.FullyPaidOnDate && invoice.DueDate) {
-            const paidDate = new Date(invoice.FullyPaidOnDate);
-            const dueDate = new Date(invoice.DueDate);
+          const paidDate = parseXeroDate(invoice.FullyPaidOnDate);
+          const dueDate = parseXeroDate(invoice.DueDate);
+          if (paidDate && dueDate) {
             const delayDays = Math.floor((paidDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
             
             // Only count positive delays (late payments)
@@ -238,8 +260,8 @@ export class XeroApiService {
         let validDelays = 0;
         
         for (const invoice of client.invoices) {
-          if (invoice.DueDate) {
-            const dueDate = new Date(invoice.DueDate);
+          const dueDate = parseXeroDate(invoice.DueDate);
+          if (dueDate) {
             const delayDays = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
             
             if (delayDays > 0) {
@@ -283,7 +305,7 @@ export class XeroApiService {
       
       // Calculate days overdue from due date (more accurate for aging)
       // If no due date, fall back to invoice date
-      const dueDate = invoice.DueDate ? new Date(invoice.DueDate) : (invoice.Date ? new Date(invoice.Date) : null);
+      const dueDate = parseXeroDate(invoice.DueDate) || parseXeroDate(invoice.Date);
       if (!dueDate) continue;
       
       const daysOld = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -308,9 +330,11 @@ export class XeroApiService {
     
     // Sort each group by date (newest first)
     const sortByDate = (a: XeroInvoice, b: XeroInvoice) => {
-      const dateA = a.Date ? new Date(a.Date).getTime() : 0;
-      const dateB = b.Date ? new Date(b.Date).getTime() : 0;
-      return dateB - dateA; // Descending order (newest first)
+      const dateA = parseXeroDate(a.Date);
+      const dateB = parseXeroDate(b.Date);
+      const timeA = dateA ? dateA.getTime() : 0;
+      const timeB = dateB ? dateB.getTime() : 0;
+      return timeB - timeA; // Descending order (newest first)
     };
     
     result.current.invoices.sort(sortByDate);
