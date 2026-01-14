@@ -459,13 +459,34 @@ function formatCurrency(amount) {
 
 function formatDate(dateStr) {
   if (!dateStr) return 'N/A';
-  const date = new Date(dateStr);
+  
+  // Xero returns dates in format: "/Date(1234567890000+0000)/"
+  // or ISO format: "2024-01-15T00:00:00"
+  let date;
+  
+  if (typeof dateStr === 'string' && dateStr.includes('/Date(')) {
+    // Xero format: "/Date(1234567890000)/"
+    const timestamp = dateStr.match(/\/Date\((\d+)([+-]\d+)?\)\//);
+    if (timestamp) {
+      date = new Date(parseInt(timestamp[1]));
+    } else {
+      return 'Invalid Date';
+    }
+  } else {
+    date = new Date(dateStr);
+  }
+  
+  if (isNaN(date.getTime())) {
+    return 'Invalid Date';
+  }
+  
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
   });
 }
+
 
 function getStatusColor(status) {
   const colors = {
