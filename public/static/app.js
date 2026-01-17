@@ -685,6 +685,12 @@ async function exportToGoogleSheets(type, params = {}) {
         url = '/api/export/balance-sheet';
         filename = 'balance-sheet.csv';
         break;
+      case 'payment-trends':
+        const viewType = document.getElementById('trendsViewType')?.value || 'monthly';
+        const periods = viewType === 'weekly' ? 8 : (viewType === 'monthly' ? 6 : 4);
+        url = `/api/export/payment-trends?view=${viewType}&periods=${periods}`;
+        filename = `payment-trends-${viewType}.csv`;
+        break;
       default:
         throw new Error('Unknown export type');
     }
@@ -1036,3 +1042,99 @@ async function updateSheetsAuthStatus() {
 
 // Make it globally available
 window.updateSheetsAuthStatus = updateSheetsAuthStatus;
+
+// Load payment trends
+async function loadPaymentTrends() {
+  try {
+    const viewType = document.getElementById('trendsViewType').value;
+    const periods = viewType === 'weekly' ? 8 : (viewType === 'monthly' ? 6 : 4);
+    
+    const response = await axios.get(`/api/payment-trends?view=${viewType}&periods=${periods}`);
+    const trends = response.data;
+    
+    // Update summary metrics
+    document.getElementById('totalImprovement').textContent = formatCurrency(trends.totalImprovement);
+    document.getElementById('avgPaymentVelocity').textContent = `${trends.averagePaymentVelocity} days`;
+    document.getElementById('bestPeriodLabel').textContent = trends.bestPeriod.periodLabel;
+    
+    // Calculate trend direction
+    const recentPeriods = trends.periods.slice(-3);
+    const avgReduction = recentPeriods.reduce((sum, p) => sum + p.overdueReduction, 0) / recentPeriods.length;
+    const trendIcon = avgReduction > 0 ? '📈 Improving' : avgReduction < 0 ? '📉 Declining' : '➡️ Stable';
+    document.getElementById('trendsDirection').textContent = trendIcon;
+    
+    // Display trends table
+    displayPaymentTrends(trends);
+  } catch (error) {
+    console.error('Error loading payment trends:', error);
+    showError('Failed to load payment trends. Please try again.');
+  }
+}
+
+// Display payment trends table
+function displayPaymentTrends(trends) {
+  const dataEl = document.getElementById('trendsData');
+  
+  let html = `
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Outstanding</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Overdue</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Payments</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Improvement</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Collection%</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pay Days</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+  `;
+  
+  trends.periods.forEach(period => {
+    const improvementColor = period.overdueReduction > 0 ? 'text-green-600' : period.overdueReduction < 0 ? 'text-red-600' : 'text-gray-600';
+    const improvementIcon = period.overdueReduction > 0 ? '↓' : period.overdueReduction < 0 ? '↑' : '→';
+    
+    html += `
+      <tr class="hover:bg-gray-50">
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${period.periodLabel}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">${formatCurrency(period.totalOutstanding)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-right ${period.overdueAmount > 0 ? 'text-red-600' : 'text-gray-500'}">
+          ${formatCurrency(period.overdueAmount)}
+          <span class="text-xs text-gray-500">(${period.overdueCount})</span>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600">
+          ${formatCurrency(period.paymentsReceived)}
+          <span class="text-xs text-gray-500">(${period.paymentsCount})</span>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-right ${improvementColor} font-semibold">
+          ${improvementIcon} ${formatCurrency(Math.abs(period.overdueReduction))}
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-700">
+          ${period.collectionRate.toFixed(1)}%
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-700">
+          ${period.paymentVelocity} days
+        </td>
+      </tr>
+    `;
+  });
+  
+  html += `
+      </tbody>
+    </table>
+  `;
+  
+  dataEl.innerHTML = html;
+}
+
+// Export to Google Sheets - payment trends
+function exportPaymentTrendsToGoogleSheets() {
+  const viewType = document.getElementById('trendsViewType').value;
+  const periods = viewType === 'weekly' ? 8 : (viewType === 'monthly' ? 6 : 4);
+  window.open(`/api/export/payment-trends?view=${viewType}&periods=${periods}`, '_blank');
+}
+
+// Make functions globally available
+window.loadPaymentTrends = loadPaymentTrends;
+window.exportPaymentTrendsToGoogleSheets = exportPaymentTrendsToGoogleSheets;

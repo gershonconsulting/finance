@@ -4,6 +4,7 @@ import { serveStatic } from 'hono/cloudflare-workers';
 import { XeroApiService } from './services/xero-api';
 import { ExportService } from './services/export-service';
 import { XeroOAuthService } from './services/xero-oauth';
+import { PaymentTrendsService } from './services/payment-trends';
 
 type Bindings = {
   XERO_CLIENT_ID: string;
@@ -422,6 +423,32 @@ app.get('/api/invoices/by-aging', async (c) => {
   }
 });
 
+// Get payment trends analysis
+app.get('/api/payment-trends', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+
+    const viewType = c.req.query('view') as 'weekly' | 'monthly' | 'quarterly' || 'monthly';
+    const periodsBack = parseInt(c.req.query('periods') || '6');
+
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    
+    // Get all invoices (both paid and outstanding)
+    const allInvoices = await xero.getInvoices();
+    
+    // Calculate trends
+    const trends = PaymentTrendsService.calculateTrends(allInvoices, viewType, periodsBack);
+    
+    return c.json(trends);
+  } catch (error: any) {
+    console.error('Error fetching payment trends:', error);
+    return c.json({ error: error.message || 'Failed to fetch payment trends' }, 500);
+  }
+});
+
 // Auth status check
 app.get('/api/auth/status', (c) => {
   const session = getSession(c);
@@ -810,6 +837,54 @@ app.get('/api/export/invoices-by-aging', async (c) => {
   }
 });
 
+// Export payment trends to CSV
+app.get('/api/export/payment-trends', async (c) => {
+  try {
+    const session = getSession(c);
+    
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+
+    const viewType = c.req.query('view') as 'weekly' | 'monthly' | 'quarterly' || 'monthly';
+    const periodsBack = parseInt(c.req.query('periods') || '6');
+
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const allInvoices = await xero.getInvoices();
+    const trends = PaymentTrendsService.calculateTrends(allInvoices, viewType, periodsBack);
+    
+    // Generate CSV
+    let csv = 'Period,Total Outstanding,Overdue Amount,Overdue Count,Payments Received,Payment Count,Current (0-99d),Aged (100-199d),Critical (200+d),Overdue Reduction,Payment Velocity (days),Collection Rate (%)\n';
+    
+    for (const period of trends.periods) {
+      csv += `${period.periodLabel},`;
+      csv += `${period.totalOutstanding.toFixed(2)},`;
+      csv += `${period.overdueAmount.toFixed(2)},`;
+      csv += `${period.overdueCount},`;
+      csv += `${period.paymentsReceived.toFixed(2)},`;
+      csv += `${period.paymentsCount},`;
+      csv += `${period.currentAmount.toFixed(2)},`;
+      csv += `${period.agedAmount.toFixed(2)},`;
+      csv += `${period.criticalAmount.toFixed(2)},`;
+      csv += `${period.overdueReduction.toFixed(2)},`;
+      csv += `${period.paymentVelocity},`;
+      csv += `${period.collectionRate.toFixed(2)}\n`;
+    }
+    
+    const filename = `payment-trends-${viewType}.csv`;
+    
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error exporting payment trends:', error);
+    return c.json({ error: error.message || 'Failed to export payment trends' }, 500);
+  }
+});
+
 // Default route - main dashboard
 app.get('/', (c) => {
   return c.html(`
@@ -864,6 +939,9 @@ app.get('/', (c) => {
                         </button>
                         <button onclick="showTab('clients')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
                             <i class="fas fa-users mr-2"></i>Clients
+                        </button>
+                        <button onclick="showTab('trends')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-chart-line mr-2"></i>Trends
                         </button>
                         <button onclick="showTab('transactions')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
                             <i class="fas fa-exchange-alt mr-2"></i>Transactions
@@ -1096,6 +1174,77 @@ app.get('/', (c) => {
                         </div>
                         <div id="clientsList">
                             <p class="text-gray-500 text-center py-8">Click "Load Clients" to view companies awaiting payment</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Trends Tab -->
+                <div id="tab-trends" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-xl font-bold text-gray-800">
+                                <i class="fas fa-chart-line mr-2 text-blue-600"></i>
+                                Payment Trends Analysis
+                            </h2>
+                            <div class="flex space-x-2">
+                                <select id="trendsViewType" class="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="weekly">Weekly (8 weeks)</option>
+                                    <option value="monthly" selected>Monthly (6 months)</option>
+                                    <option value="quarterly">Quarterly (4 quarters)</option>
+                                </select>
+                                <button onclick="exportToGoogleSheets('payment-trends')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center">
+                                    <i class="fas fa-table mr-2"></i>Export
+                                </button>
+                                <button onclick="loadPaymentTrends()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                    <i class="fas fa-sync-alt mr-2"></i>Load Trends
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+                                <div class="flex items-center justify-between">
+                                    <i class="fas fa-arrow-down text-green-600 text-2xl"></i>
+                                    <div class="text-right">
+                                        <p id="totalImprovement" class="text-2xl font-bold text-green-700">$0</p>
+                                        <p class="text-xs text-green-600">Total Improvement</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                                <div class="flex items-center justify-between">
+                                    <i class="fas fa-tachometer-alt text-blue-600 text-2xl"></i>
+                                    <div class="text-right">
+                                        <p id="avgPaymentVelocity" class="text-2xl font-bold text-blue-700">0</p>
+                                        <p class="text-xs text-blue-600">Avg Payment Days</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+                                <div class="flex items-center justify-between">
+                                    <i class="fas fa-trophy text-purple-600 text-2xl"></i>
+                                    <div class="text-right">
+                                        <p id="bestPeriodLabel" class="text-lg font-bold text-purple-700">--</p>
+                                        <p class="text-xs text-purple-600">Best Period</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+                                <div class="flex items-center justify-between">
+                                    <i class="fas fa-chart-line text-orange-600 text-2xl"></i>
+                                    <div class="text-right">
+                                        <p id="trendsDirection" class="text-lg font-bold text-orange-700">--</p>
+                                        <p class="text-xs text-orange-600">Trend Direction</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="trendsData" class="overflow-x-auto">
+                            <p class="text-gray-500 text-center py-8">Click "Load Trends" to see payment trends analysis</p>
                         </div>
                     </div>
                 </div>
