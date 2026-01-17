@@ -149,7 +149,14 @@ export class XeroApiService {
     if (toDate) params.toDate = toDate;
     
     const data = await this.fetchXero('/BankTransactions', params);
-    return data.BankTransactions || [];
+    const transactions = data.BankTransactions || [];
+    
+    // Sort by date descending (newest first)
+    return transactions.sort((a: any, b: any) => {
+      const dateA = this.parseXeroDate(a.Date);
+      const dateB = this.parseXeroDate(b.Date);
+      return dateB.getTime() - dateA.getTime();
+    });
   }
 
   async getTrialBalance(date?: string): Promise<XeroReport> {
