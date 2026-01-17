@@ -934,9 +934,6 @@ app.get('/', (c) => {
                         <button onclick="showTab('invoices')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
                             <i class="fas fa-file-invoice mr-2"></i>Invoices
                         </button>
-                        <button onclick="showTab('reports')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-chart-bar mr-2"></i>Reports
-                        </button>
                         <button onclick="showTab('clients')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
                             <i class="fas fa-users mr-2"></i>Clients
                         </button>
@@ -1120,33 +1117,6 @@ app.get('/', (c) => {
                             <p class="text-gray-500 text-center py-8">Click a button above to load invoices</p>
                         </div>
                     </div>
-                </div>
-
-                <!-- Reports Tab -->
-                <div id="tab-reports" class="tab-content hidden">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-white rounded-lg shadow-md p-6">
-                            <h3 class="text-lg font-bold text-gray-800 mb-4">
-                                <i class="fas fa-chart-pie text-blue-600 mr-2"></i>Profit & Loss Report
-                            </h3>
-                            <p class="text-gray-600 mb-4">View detailed income and expense breakdown</p>
-                            <button onclick="loadProfitLoss()" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                                Generate Report
-                            </button>
-                        </div>
-
-                        <div class="bg-white rounded-lg shadow-md p-6">
-                            <h3 class="text-lg font-bold text-gray-800 mb-4">
-                                <i class="fas fa-balance-scale text-green-600 mr-2"></i>Balance Sheet Report
-                            </h3>
-                            <p class="text-gray-600 mb-4">View assets, liabilities, and equity</p>
-                            <button onclick="loadBalanceSheet()" class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                                Generate Report
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div id="reportData" class="mt-6"></div>
                 </div>
 
                 <!-- Clients Tab -->
