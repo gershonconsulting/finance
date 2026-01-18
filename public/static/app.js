@@ -1071,27 +1071,106 @@ async function loadPaymentTrends() {
   }
 }
 
-// Display payment trends table
+// Display payment trends table with sorting
+let trendsSortState = { column: null, direction: 'asc' };
+let currentTrendsData = null;
+
 function displayPaymentTrends(trends) {
+  currentTrendsData = trends;
+  renderTrendsTable();
+}
+
+function renderTrendsTable() {
+  if (!currentTrendsData) return;
+  
   const dataEl = document.getElementById('trendsData');
+  const periods = [...currentTrendsData.periods]; // Create a copy
+  
+  // Apply sorting if active
+  if (trendsSortState.column) {
+    periods.sort((a, b) => {
+      let aVal, bVal;
+      
+      switch(trendsSortState.column) {
+        case 'period':
+          aVal = a.periodLabel;
+          bVal = b.periodLabel;
+          break;
+        case 'outstanding':
+          aVal = a.totalOutstanding;
+          bVal = b.totalOutstanding;
+          break;
+        case 'overdue':
+          aVal = a.overdueAmount;
+          bVal = b.overdueAmount;
+          break;
+        case 'payments':
+          aVal = a.paymentsReceived;
+          bVal = b.paymentsReceived;
+          break;
+        case 'improvement':
+          aVal = a.overdueReduction;
+          bVal = b.overdueReduction;
+          break;
+        case 'collection':
+          aVal = a.collectionRate;
+          bVal = b.collectionRate;
+          break;
+        case 'paydays':
+          aVal = a.paymentVelocity;
+          bVal = b.paymentVelocity;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (typeof aVal === 'string') {
+        const compare = aVal.localeCompare(bVal);
+        return trendsSortState.direction === 'asc' ? compare : -compare;
+      } else {
+        return trendsSortState.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+    });
+  }
+  
+  const getSortIcon = (column) => {
+    if (trendsSortState.column !== column) return '<i class="fas fa-sort ml-1 text-gray-400"></i>';
+    return trendsSortState.direction === 'asc' 
+      ? '<i class="fas fa-sort-up ml-1 text-blue-600"></i>'
+      : '<i class="fas fa-sort-down ml-1 text-blue-600"></i>';
+  };
   
   let html = `
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
-          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Outstanding</th>
-          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Overdue</th>
-          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Payments</th>
-          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Improvement</th>
-          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Collection%</th>
-          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pay Days</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="sortTrends('period')">
+            Period ${getSortIcon('period')}
+          </th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="sortTrends('outstanding')">
+            Outstanding ${getSortIcon('outstanding')}
+          </th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="sortTrends('overdue')">
+            Overdue ${getSortIcon('overdue')}
+          </th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="sortTrends('payments')">
+            Payments ${getSortIcon('payments')}
+          </th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="sortTrends('improvement')">
+            Improvement ${getSortIcon('improvement')}
+          </th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="sortTrends('collection')">
+            Collection% ${getSortIcon('collection')}
+          </th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="sortTrends('paydays')">
+            Pay Days ${getSortIcon('paydays')}
+          </th>
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
   `;
   
-  trends.periods.forEach(period => {
+  periods.forEach(period => {
     const improvementColor = period.overdueReduction > 0 ? 'text-green-600' : period.overdueReduction < 0 ? 'text-red-600' : 'text-gray-600';
     const improvementIcon = period.overdueReduction > 0 ? '↓' : period.overdueReduction < 0 ? '↑' : '→';
     
@@ -1127,6 +1206,21 @@ function displayPaymentTrends(trends) {
   
   dataEl.innerHTML = html;
 }
+
+function sortTrends(column) {
+  if (trendsSortState.column === column) {
+    // Toggle direction
+    trendsSortState.direction = trendsSortState.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    // New column, default to ascending
+    trendsSortState.column = column;
+    trendsSortState.direction = 'asc';
+  }
+  renderTrendsTable();
+}
+
+// Make sorting function globally available
+window.sortTrends = sortTrends;
 
 // Export to Google Sheets - payment trends
 function exportPaymentTrendsToGoogleSheets() {
