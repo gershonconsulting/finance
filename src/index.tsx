@@ -902,20 +902,84 @@ app.get('/', (c) => {
     </head>
     <body class="bg-gray-50">
         <div id="app">
-            <!-- Navigation -->
-            <nav class="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div class="flex items-center justify-between h-16">
-                        <div class="flex items-center">
-                            <i class="fas fa-chart-line text-2xl mr-3"></i>
-                            <h1 class="text-xl font-bold">Xero Reports Dashboard</h1>
+            <!-- Login Page (shown by default) -->
+            <div id="loginPage" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-700 px-4">
+                <div class="max-w-md w-full">
+                    <!-- Logo and Title -->
+                    <div class="text-center mb-8">
+                        <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg mb-4">
+                            <i class="fas fa-chart-line text-4xl text-blue-600"></i>
+                        </div>
+                        <h1 class="text-4xl font-bold text-white mb-2">Xero Reports</h1>
+                        <p class="text-blue-100">Accounts Receivable Dashboard</p>
+                    </div>
+
+                    <!-- Login Card -->
+                    <div class="bg-white rounded-lg shadow-xl p-8">
+                        <div class="text-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800 mb-2">Welcome</h2>
+                            <p class="text-gray-600">Sign in with your Xero account to access the dashboard</p>
+                        </div>
+
+                        <!-- Login Button -->
+                        <button onclick="loginWithXero()" class="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition shadow-lg flex items-center justify-center space-x-3">
+                            <i class="fas fa-sign-in-alt text-xl"></i>
+                            <span>Sign in with Xero</span>
+                        </button>
+
+                        <!-- Features List -->
+                        <div class="mt-8 pt-8 border-t border-gray-200">
+                            <p class="text-sm text-gray-500 mb-4">Access to:</p>
+                            <ul class="space-y-3">
+                                <li class="flex items-center text-sm text-gray-700">
+                                    <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                    Real-time invoice tracking
+                                </li>
+                                <li class="flex items-center text-sm text-gray-700">
+                                    <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                    Payment trends analysis
+                                </li>
+                                <li class="flex items-center text-sm text-gray-700">
+                                    <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                    Client payment insights
+                                </li>
+                                <li class="flex items-center text-sm text-gray-700">
+                                    <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                    Google Sheets export
+                                </li>
+                            </ul>
                         </div>
                     </div>
-                </div>
-            </nav>
 
-            <!-- Main Content -->
-            <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <!-- Footer -->
+                    <div class="text-center mt-8">
+                        <p class="text-blue-100 text-sm">
+                            <i class="fas fa-lock mr-2"></i>
+                            Secure OAuth 2.0 Authentication
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard (hidden by default, shown after login) -->
+            <div id="dashboardPage" class="hidden">
+                <!-- Navigation -->
+                <nav class="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="flex items-center justify-between h-16">
+                            <div class="flex items-center">
+                                <i class="fas fa-chart-line text-2xl mr-3"></i>
+                                <h1 class="text-xl font-bold">Xero Reports Dashboard</h1>
+                            </div>
+                            <button onclick="logout()" class="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition flex items-center">
+                                <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                            </button>
+                        </div>
+                    </div>
+                </nav>
+
+                <!-- Main Content -->
+                <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <!-- Navigation Tabs -->
                 <div class="mb-6 border-b border-gray-200">
                     <nav class="flex space-x-8" id="tabs">
@@ -1496,6 +1560,7 @@ app.get('/', (c) => {
                     </div>
                 </div>
             </main>
+            </div><!-- End Dashboard Page -->
         </div>
 
         <script src="/static/app.js"></script>

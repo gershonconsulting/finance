@@ -14,37 +14,46 @@ axios.interceptors.request.use((config) => {
 // Initialize app
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('App initialized');
-  await checkAuthStatus();
-  await loadDashboardData();
-  updateSheetsAuthStatus(); // Update Sheets Links tab status
+  
+  // Check if user is authenticated
+  const isAuthenticated = await checkAuthStatus();
+  
+  if (isAuthenticated) {
+    // Show dashboard, hide login
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('dashboardPage').classList.remove('hidden');
+    await loadDashboardData();
+    updateSheetsAuthStatus();
+  } else {
+    // Show login, hide dashboard
+    document.getElementById('loginPage').classList.remove('hidden');
+    document.getElementById('dashboardPage').classList.add('hidden');
+  }
 });
+
+// Login with Xero
+function loginWithXero() {
+  window.location.href = '/auth/login';
+}
+
+// Logout
+function logout() {
+  localStorage.removeItem('xero_session');
+  window.location.reload();
+}
+
+// Make functions globally available
+window.loginWithXero = loginWithXero;
+window.logout = logout;
 
 // Check authentication status
 async function checkAuthStatus() {
   try {
     const response = await axios.get('/api/auth/status');
-    const authStatusEl = document.getElementById('authStatus');
-    const connectBtn = document.getElementById('connectBtn');
-    
-    if (response.data.authenticated) {
-      authStatusEl.innerHTML = `
-        <span class="flex items-center">
-          <i class="fas fa-check-circle text-green-400 mr-2"></i>
-          <span>Connected to Xero</span>
-        </span>
-      `;
-      connectBtn.classList.add('hidden');
-    } else {
-      authStatusEl.innerHTML = `
-        <span class="flex items-center">
-          <i class="fas fa-exclamation-circle text-yellow-400 mr-2"></i>
-          <span>Demo Mode - Click to connect</span>
-        </span>
-      `;
-      connectBtn.classList.remove('hidden');
-    }
+    return response.data.authenticated;
   } catch (error) {
     console.error('Error checking auth status:', error);
+    return false;
   }
 }
 
@@ -749,14 +758,6 @@ function exportReport(format) {
   }
 }
 
-function refreshData() {
-  loadDashboardData();
-  showError = () => {}; // Suppress errors during refresh
-  setTimeout(() => {
-    showError = (msg) => alert(msg); // Restore error handler
-  }, 1000);
-}
-
 // Copy URL to clipboard
 async function copyToClipboard(elementId) {
   const element = document.getElementById(elementId);
@@ -977,39 +978,6 @@ window.showTab = function(tabName) {
   }
 };
 
-// Connect to Xero with custom or default credentials
-async function connectToXero() {
-  const clientId = localStorage.getItem('xero_client_id');
-  const clientSecret = localStorage.getItem('xero_client_secret');
-  const redirectUri = `${window.location.origin}/auth/callback`;
-  
-  if (!clientId || !clientSecret) {
-    // No custom credentials, use default OAuth flow
-    window.location.href = '/auth/login';
-    return;
-  }
-  
-  try {
-    // Use custom credentials via POST
-    const response = await axios.post('/auth/login', {
-      clientId,
-      clientSecret,
-      redirectUri
-    });
-    
-    if (response.data.authUrl) {
-      window.location.href = response.data.authUrl;
-    } else {
-      alert('❌ Failed to initiate authentication');
-    }
-  } catch (error) {
-    console.error('Connect error:', error);
-    alert('❌ Failed to connect. Please check your credentials in Settings.');
-  }
-}
-
-// Make connectToXero globally available
-window.connectToXero = connectToXero;
 
 // Update Sheets Links tab authentication status
 async function updateSheetsAuthStatus() {
