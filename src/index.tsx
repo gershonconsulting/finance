@@ -910,15 +910,6 @@ app.get('/', (c) => {
                             <i class="fas fa-chart-line text-2xl mr-3"></i>
                             <h1 class="text-xl font-bold">Xero Reports Dashboard</h1>
                         </div>
-                        <div class="flex items-center space-x-4">
-                            <button onclick="refreshData()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition">
-                                <i class="fas fa-sync-alt mr-2"></i>Refresh
-                            </button>
-                            <button onclick="connectToXero()" id="connectBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition hidden">
-                                <i class="fas fa-link mr-2"></i>Connect to Xero
-                            </button>
-                            <div id="authStatus" class="text-sm"></div>
-                        </div>
                     </div>
                 </div>
             </nav>
@@ -1132,12 +1123,6 @@ app.get('/', (c) => {
                                     <i class="fas fa-sync-alt mr-2"></i>Load Clients
                                 </button>
                             </div>
-                        </div>
-                        <div id="clientsListInfo" class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded hidden">
-                            <p class="text-sm text-yellow-800">
-                                <i class="fas fa-info-circle mr-2"></i>
-                                <strong>Demo Mode:</strong> Showing sample data. Connect to Xero to see your actual clients with outstanding invoices.
-                            </p>
                         </div>
                         <div id="clientsList">
                             <p class="text-gray-500 text-center py-8">Click "Load Clients" to view companies awaiting payment</p>
