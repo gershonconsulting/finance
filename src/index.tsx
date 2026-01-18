@@ -940,9 +940,6 @@ app.get('/', (c) => {
                         <button onclick="showTab('trends')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
                             <i class="fas fa-chart-line mr-2"></i>Trends
                         </button>
-                        <button onclick="showTab('transactions')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-exchange-alt mr-2"></i>Transactions
-                        </button>
                         <button onclick="showTab('sheets-links')" class="tab-btn border-b-2 border-transparent pb-4 px-1 text-gray-500 hover:text-gray-700">
                             <i class="fas fa-link mr-2"></i>Sheets Links
                         </button>
@@ -1215,26 +1212,6 @@ app.get('/', (c) => {
                         
                         <div id="trendsData" class="overflow-x-auto">
                             <p class="text-gray-500 text-center py-8">Click "Load Trends" to see payment trends analysis</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Transactions Tab -->
-                <div id="tab-transactions" class="tab-content hidden">
-                    <div class="bg-white rounded-lg shadow-md p-6">
-                        <div class="flex items-center justify-between mb-6">
-                            <h2 class="text-xl font-bold text-gray-800">Bank Transactions</h2>
-                            <div class="flex space-x-2">
-                                <button onclick="exportToGoogleSheets('transactions')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center">
-                                    <i class="fas fa-table mr-2"></i>Export
-                                </button>
-                                <button onclick="loadTransactions()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
-                                    <i class="fas fa-sync-alt mr-2"></i>Load
-                                </button>
-                            </div>
-                        </div>
-                        <div id="transactionList">
-                            <p class="text-gray-500 text-center py-8">Click "Load Transactions" to view data</p>
                         </div>
                     </div>
                 </div>
