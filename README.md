@@ -1,80 +1,49 @@
-# Xero Reports Dashboard
+# Gershon Finance Dashboard
 
-A modern web application for generating financial reports from Xero accounting data. Built with Hono framework and designed for deployment on Cloudflare Pages.
+A professional Accounts Receivable (AR) dashboard for Xero accounting data. Built with Xero OAuth authentication, payment trends analysis, and real-time financial insights.
 
-## 🌐 Live Demo
+## 🌐 Production URL
 
-**Public URL**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai
+**🚀 Live Application**: https://finance.gershoncrm.com
 
-## 🔐 Connect to Your Xero Data
+## 🔐 Access Control
 
-**Working credentials are now configured! Just click this link to connect:**
+**Xero OAuth Authentication Required**
 
-**👉 Connect Now**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/auth/login
+- Only users with Xero account access can view the dashboard
+- Secure OAuth 2.0 authentication flow
+- Session persistence across browser sessions
+- One-click logout functionality
 
-This will:
-1. Redirect you to Xero login
-2. Authorize the app to access **Gershon Consulting LLC** data
-3. Redirect back with real data loaded! ✅
+## 📊 Key Features
 
-📖 **Security info**: [SECURITY_CREDENTIALS.md](./SECURITY_CREDENTIALS.md)
+### ✅ Implemented Features
 
-## 📊 Google Sheets Integration - EXACT URLs
+**Authentication & Security:**
+- 🔐 **Xero OAuth Gate** - Professional login page with secure authentication
+- 🔑 **Session Management** - Persistent sessions with automatic token refresh
+- 🚪 **Logout** - Secure sign-out functionality
 
-**All 7 IMPORTDATA formulas ready to copy & paste into Google Sheets:**
+**Dashboard & Analytics:**
+- 📊 **Real-time Metrics** - Draft, Awaiting Payment, and Overdue invoices
+- 📈 **Payment Trends** - Weekly, Monthly, and Quarterly AR analysis
+- 👥 **Clients Awaiting Payment** - Companies with outstanding invoices
+- 💰 **Invoice Aging** - CURRENT (0-99 days), AGED (100-199 days), CRITICAL (200+ days)
+- 📉 **Overdue Tracking** - Payment delay analysis and collection rates
 
-```
-1. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/summary")
-2. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/clients-awaiting-payment")
-3. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/invoices")
-4. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/transactions")
-5. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/profit-loss")
-6. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/balance-sheet")
-7. =IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/invoices-by-aging") 🆕 NEW!
-```
+**Data Management:**
+- 📋 **Sortable Tables** - All columns sortable with arrow indicators
+- 🔄 **Automatic Refresh** - Real-time data from Xero API
+- 📤 **Google Sheets Export** - Direct CSV export for all data views
+- 📱 **Responsive Design** - Mobile-friendly interface
 
-**🆕 NEW: Invoice Aging Analysis** - Categorizes invoices into 3 groups:
-- 🟢 **CURRENT** (0-99 days)
-- 🟡 **AGED** (100-199 days) 
-- 🔴 **CRITICAL** (200+ days - legal negotiation)
-
-**📖 Full guides**: 
-- [GOOGLE_SHEETS_EXACT_URLS.md](./GOOGLE_SHEETS_EXACT_URLS.md) - All 7 URLs
-- [INVOICE_AGING_ANALYSIS.md](./INVOICE_AGING_ANALYSIS.md) - Aging details
-
-**⚠️ Note**: You must authenticate first (link above) for these URLs to work!
-
-## 📋 Project Overview
-
-This web application connects to your Xero account via API to provide comprehensive financial reporting and analysis capabilities. It replaces the previous mobile app implementation with a more accessible and feature-rich web interface.
-
-### Main Features
-
-✅ **Currently Implemented:**
-- 📊 **Dashboard Overview** - Real-time invoice statistics (Draft, Awaiting Payment, Overdue)
-- 📈 **Data Visualization** - Interactive charts using Chart.js for financial metrics
-- 📄 **Invoice Management** - List, filter, and view invoice details
-- 👥 **Clients Awaiting Payment** - List of companies with outstanding invoices and totals
-- 💰 **Financial Reports** - Profit & Loss and Balance Sheet report generation
-- 💳 **Bank Transactions** - View and analyze transaction history
-- 📱 **Responsive Design** - Mobile-friendly interface with Tailwind CSS
-- 🔄 **Demo Mode** - Test functionality without Xero authentication
-- 📊 **Google Sheets Export** - Export all data to CSV for Google Sheets import
-
-✅ **Recently Added:**
-- ⚙️ **Settings Page** - Configure custom Xero API credentials (Client ID & Secret)
-- 🔐 **OAuth2 Authentication** - Full Xero OAuth2 integration with real API data
-- 🔄 **Real Data Support** - Connect your Xero account to use actual financial data
-- 🔑 **Session Management** - Secure token management with automatic refresh
-- 📊 **Live Google Sheets** - IMPORTDATA URLs return real Xero data after authentication
-
-⏳ **Planned Features:**
-- 📤 **PDF Export** - PDF generation for reports and invoices
-- 📊 **Excel Export** - Native Excel (.xlsx) format support
-- 🔍 **Advanced Filtering** - Date range and status-based filtering
-- 📊 **Additional Reports** - Trial Balance, Budget Summary, and custom reports
-- 💾 **Persistent Sessions** - Store sessions in Cloudflare KV for longer retention
-- 🔔 **Auto-refresh** - Scheduled data updates (weekly/monthly)
+**Navigation Tabs:**
+1. **Dashboard** - Key metrics and statistics
+2. **Invoices** - Invoice list with filtering
+3. **Clients** - Companies awaiting payment with totals
+4. **Trends** - Payment trends analysis (Weekly/Monthly/Quarterly)
+5. **Sheets Links** - Google Sheets integration URLs
+6. **Settings** - Application configuration
 
 ## 🏗️ Architecture
 
@@ -334,30 +303,67 @@ webapp/
 - Implement CSRF protection for OAuth flow (recommended)
 - Validate all API responses before displaying
 
-## 🌐 Deployment
+## 🚀 Deployment
 
-### Cloudflare Pages Deployment
+### Production Deployment
 
-1. **Build the project:**
+**Live Application**: https://finance.gershoncrm.com
+
+**Project Configuration:**
+- **Project Name**: `gershon-finance`
+- **Platform**: Cloudflare Pages
+- **Custom Domain**: finance.gershoncrm.com
+- **Branch**: main
+
+### Quick Deploy
+
+```bash
+# Build and deploy
+npm run deploy
+```
+
+### Manual Deployment Steps
+
+1. **Setup Cloudflare API Token** (Deploy tab in GenSpark)
+
+2. **Build the project:**
 ```bash
 npm run build
 ```
 
-2. **Deploy to Cloudflare Pages:**
+3. **Create project (first time only):**
 ```bash
-npx wrangler pages deploy dist --project-name xero-reports-webapp
+npx wrangler pages project create gershon-finance \
+  --production-branch main \
+  --compatibility-date 2024-01-01
 ```
 
-3. **Set environment variables:**
+4. **Deploy:**
 ```bash
-npx wrangler pages secret put XERO_CLIENT_ID --project-name xero-reports-webapp
-npx wrangler pages secret put XERO_CLIENT_SECRET --project-name xero-reports-webapp
-npx wrangler pages secret put XERO_REDIRECT_URI --project-name xero-reports-webapp
+npx wrangler pages deploy dist --project-name gershon-finance
 ```
 
-### Production URL Structure
-- Production: `https://xero-reports-webapp.pages.dev`
-- Branch: `https://main.xero-reports-webapp.pages.dev`
+5. **Set environment variables:**
+```bash
+npx wrangler pages secret put XERO_CLIENT_ID --project-name gershon-finance
+npx wrangler pages secret put XERO_CLIENT_SECRET --project-name gershon-finance
+npx wrangler pages secret put XERO_REDIRECT_URI --project-name gershon-finance
+# Enter: https://finance.gershoncrm.com/auth/callback
+```
+
+6. **Add custom domain:**
+```bash
+npx wrangler pages domain add finance.gershoncrm.com --project-name gershon-finance
+```
+
+### Production URLs
+- **Custom Domain**: https://finance.gershoncrm.com
+- **Pages URL**: https://gershon-finance.pages.dev
+- **Branch URL**: https://main.gershon-finance.pages.dev
+
+### Documentation
+- **Complete Guide**: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+- **Quick Reference**: [DEPLOY.md](DEPLOY.md)
 
 ## 📈 Performance
 
@@ -410,7 +416,23 @@ For technical support or questions:
 
 ## 📅 Version History
 
-### Version 1.4.0 (2026-01-05) - CURRENT
+### Version 2.0.0 (2026-01-18) - CURRENT ✨
+- ✅ **NEW**: Xero OAuth authentication gate with professional login page
+- ✅ **NEW**: Payment Trends Analysis (Weekly/Monthly/Quarterly)
+- ✅ **NEW**: Sortable columns with arrow indicators
+- ✅ **NEW**: Logout functionality
+- ✅ **IMPROVED**: Automatic token refresh for expired sessions
+- ✅ **IMPROVED**: Backend date parsing for Xero date format
+- ✅ **REMOVED**: Bank Transactions tab
+- ✅ **REMOVED**: Reports tab
+- ✅ **REMOVED**: Demo mode banners
+- ✅ **FIXED**: Transaction sorting (newest first)
+- ✅ **FIXED**: Invoice aging distribution (CURRENT/AGED/CRITICAL)
+- ✅ **FIXED**: Overdue calculation accuracy
+- 🚀 **DEPLOYED**: Production at finance.gershoncrm.com
+- 📖 See [XERO_AUTH_GATE.md](XERO_AUTH_GATE.md) and [PAYMENT_TRENDS_FEATURE.md](PAYMENT_TRENDS_FEATURE.md)
+
+### Version 1.4.0 (2026-01-05)
 - ✅ **NEW**: Settings page for custom API credentials configuration
 - ✅ **NEW**: Support for user-provided Client ID and Client Secret
 - ✅ **NEW**: Pre-configured credentials quick load option
@@ -479,19 +501,18 @@ For technical support or questions:
 
 ---
 
-**Project**: Xero Reports Dashboard  
-**Version**: 1.4.0  
-**Last Updated**: January 5, 2026  
-**Deployment Status**: ✅ Active (Sandbox) - Real Data Enabled  
-**Technology**: Hono + TypeScript + Tailwind CSS + Chart.js + OAuth2
+**Project**: Gershon Finance Dashboard  
+**Version**: 2.0.0  
+**Last Updated**: January 18, 2026  
+**Deployment Status**: ✅ Production (finance.gershoncrm.com)  
+**Technology**: Hono + TypeScript + Tailwind CSS + Chart.js + OAuth2  
 
 **🔗 Quick Links:**
-- **Dashboard**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai
-- **Settings**: Click "Settings" tab in dashboard
-- **Connect Xero**: Click "Connect to Xero" button in header
+- **Production**: https://finance.gershoncrm.com
+- **Login**: https://finance.gershoncrm.com/auth/login
 
-**📚 Documentation:**
-- **Settings Guide**: [SETTINGS_GUIDE.md](SETTINGS_GUIDE.md) - Configure API credentials
-- **Setup Guide**: [REAL_DATA_SETUP.md](REAL_DATA_SETUP.md) - Real data integration
-- **Auth Guide**: [XERO_AUTHENTICATION_GUIDE.md](XERO_AUTHENTICATION_GUIDE.md) - Authentication flow
-- **Sheets Guide**: [GOOGLE_SHEETS_LINKS.md](GOOGLE_SHEETS_LINKS.md) - Google Sheets integration
+**📚 Key Documentation:**
+- **Deployment**: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Complete deployment guide
+- **Quick Deploy**: [DEPLOY.md](DEPLOY.md) - Quick command reference
+- **Authentication**: [XERO_AUTH_GATE.md](XERO_AUTH_GATE.md) - Auth gate implementation
+- **Payment Trends**: [PAYMENT_TRENDS_FEATURE.md](PAYMENT_TRENDS_FEATURE.md) - Trends analysis
