@@ -1,6 +1,6 @@
 {
   "name": "gershon-finance",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Gershon Finance Dashboard - Xero Accounts Receivable Reports",
   "type": "module",
   "scripts": {
@@ -8,9 +8,7 @@
     "dev:sandbox": "wrangler pages dev dist --ip 0.0.0.0 --port 3000",
     "build": "vite build",
     "preview": "wrangler pages dev dist",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name gershon-finance",
-    "deploy:prod": "npm run build && wrangler pages deploy dist --project-name gershon-finance",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "start": "node dist/_worker.js",
     "clean-port": "fuser -k 3000/tcp 2>/dev/null || true",
     "test": "curl http://localhost:3000",
     "git:init": "git init && git add . && git commit -m 'Initial commit'",
