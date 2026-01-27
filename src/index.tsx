@@ -14,6 +14,33 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
+// Production credentials with fallbacks
+const PRODUCTION_CREDENTIALS = {
+  XERO_CLIENT_ID: '0CA378B164364DB0821A6014520913E6',
+  XERO_CLIENT_SECRET: '-OvY_3_op75SDteQt6tOqvZVyZ3Ihq07aE32QYGOCWiqHhvh',
+  // Dynamically set redirect URI based on host
+  getRedirectUri: (host: string) => {
+    if (host.includes('finance.gershoncrm.com')) {
+      return 'https://finance.gershoncrm.com/auth/callback';
+    } else if (host.includes('sandbox.novita.ai')) {
+      return `https://${host}/auth/callback`;
+    }
+    return `https://${host}/auth/callback`;
+  }
+};
+
+// Helper to get credentials with fallbacks
+function getCredentials(c: any) {
+  const { env } = c;
+  const host = c.req.header('host') || '';
+  
+  return {
+    clientId: env?.XERO_CLIENT_ID || PRODUCTION_CREDENTIALS.XERO_CLIENT_ID,
+    clientSecret: env?.XERO_CLIENT_SECRET || PRODUCTION_CREDENTIALS.XERO_CLIENT_SECRET,
+    redirectUri: env?.XERO_REDIRECT_URI || PRODUCTION_CREDENTIALS.getRedirectUri(host)
+  };
+}
+
 // Enable CORS for API routes
 app.use('/api/*', cors());
 
@@ -86,11 +113,11 @@ async function getSessionWithRefresh(c: any): Promise<{ session: SessionData | n
   if (expiresAt > 0 && expiresAt - now < fiveMinutes) {
     // Token expired or about to expire, refresh it
     try {
-      const { env } = c;
+      const credentials = getCredentials(c);
       const oauth = new XeroOAuthService(
-        env.XERO_CLIENT_ID,
-        env.XERO_CLIENT_SECRET,
-        env.XERO_REDIRECT_URI
+        credentials.clientId,
+        credentials.clientSecret,
+        credentials.redirectUri
       );
       
       if (session.refreshToken) {
@@ -148,10 +175,11 @@ app.get('/api/auto-connect', async (c) => {
     }
     
     // Generate auth URL and redirect automatically
+    const credentials = getCredentials(c);
     const oauth = new XeroOAuthService(
-      env.XERO_CLIENT_ID,
-      env.XERO_CLIENT_SECRET,
-      env.XERO_REDIRECT_URI
+      credentials.clientId,
+      credentials.clientSecret,
+      credentials.redirectUri
     );
     
     const state = crypto.randomUUID();
@@ -201,11 +229,11 @@ app.post('/auth/login', async (c) => {
 
 // OAuth: Start authentication (fallback to env vars)
 app.get('/auth/login', (c) => {
-  const { env } = c;
+  const credentials = getCredentials(c);
   const oauth = new XeroOAuthService(
-    env.XERO_CLIENT_ID,
-    env.XERO_CLIENT_SECRET,
-    env.XERO_REDIRECT_URI
+    credentials.clientId,
+    credentials.clientSecret,
+    credentials.redirectUri
   );
   
   const state = crypto.randomUUID();
@@ -217,7 +245,7 @@ app.get('/auth/login', (c) => {
 // OAuth: Callback handler
 app.get('/auth/callback', async (c) => {
   try {
-    const { env } = c;
+    const credentials = getCredentials(c);
     const code = c.req.query('code');
     const state = c.req.query('state');
     
@@ -225,11 +253,12 @@ app.get('/auth/callback', async (c) => {
       return c.html('<h1>Error: No authorization code received</h1>');
     }
     
-    // Check if we have custom credentials in session (from POST /auth/login)
-    let clientId = env.XERO_CLIENT_ID;
-    let clientSecret = env.XERO_CLIENT_SECRET;
-    let redirectUri = env.XERO_REDIRECT_URI;
+    // Get credentials with fallbacks (already declared above)
+    let clientId = credentials.clientId;
+    let clientSecret = credentials.clientSecret;
+    let redirectUri = credentials.redirectUri;
     
+    // Check if we have custom credentials in session (from POST /auth/login)
     if (state) {
       const tempSession = sessions.get(state);
       if (tempSession && (tempSession as any).tempCredentials) {
