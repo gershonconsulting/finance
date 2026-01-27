@@ -305,65 +305,37 @@ webapp/
 
 ## 🚀 Deployment
 
-### Production Deployment
+### GenSpark Hosted Deploy
 
-**Live Application**: https://finance.gershoncrm.com
+**Target URL**: https://finance.gershoncrm.com
 
-**Project Configuration:**
-- **Project Name**: `gershon-finance`
-- **Platform**: Cloudflare Pages
-- **Custom Domain**: finance.gershoncrm.com
-- **Branch**: main
+**3-Step Deployment:**
 
-### Quick Deploy
+1. **Configure in GenSpark Deploy Tab:**
+   - Set environment variables (XERO_CLIENT_ID, XERO_CLIENT_SECRET, XERO_REDIRECT_URI)
+   - Configure custom domain: finance.gershoncrm.com
 
-```bash
-# Build and deploy
-npm run deploy
-```
+2. **Update Xero OAuth:**
+   - Add redirect URI: https://finance.gershoncrm.com/auth/callback
+   - At: https://developer.xero.com/app/manage
 
-### Manual Deployment Steps
-
-1. **Setup Cloudflare API Token** (Deploy tab in GenSpark)
-
-2. **Build the project:**
-```bash
-npm run build
-```
-
-3. **Create project (first time only):**
-```bash
-npx wrangler pages project create gershon-finance \
-  --production-branch main \
-  --compatibility-date 2024-01-01
-```
-
-4. **Deploy:**
-```bash
-npx wrangler pages deploy dist --project-name gershon-finance
-```
-
-5. **Set environment variables:**
-```bash
-npx wrangler pages secret put XERO_CLIENT_ID --project-name gershon-finance
-npx wrangler pages secret put XERO_CLIENT_SECRET --project-name gershon-finance
-npx wrangler pages secret put XERO_REDIRECT_URI --project-name gershon-finance
-# Enter: https://finance.gershoncrm.com/auth/callback
-```
-
-6. **Add custom domain:**
-```bash
-npx wrangler pages domain add finance.gershoncrm.com --project-name gershon-finance
-```
-
-### Production URLs
-- **Custom Domain**: https://finance.gershoncrm.com
-- **Pages URL**: https://gershon-finance.pages.dev
-- **Branch URL**: https://main.gershon-finance.pages.dev
+3. **Click Deploy:**
+   - Go to Deploy tab in GenSpark
+   - Click Deploy button
+   - Done! ✅
 
 ### Documentation
-- **Complete Guide**: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
-- **Quick Reference**: [DEPLOY.md](DEPLOY.md)
+- **Quick Start**: [DEPLOY_QUICK.md](DEPLOY_QUICK.md) - 3-step deployment
+- **Full Guide**: [GENSPARK_DEPLOY.md](GENSPARK_DEPLOY.md) - Complete deployment guide
+
+### What GenSpark Handles
+- ✅ Build process (`npm run build`)
+- ✅ Web hosting
+- ✅ SSL certificate (HTTPS)
+- ✅ Custom domain setup
+- ✅ Environment variables
+- ✅ Deployment logs
+- ✅ Automatic updates
 
 ## 📈 Performance
 
@@ -504,15 +476,15 @@ For technical support or questions:
 **Project**: Gershon Finance Dashboard  
 **Version**: 2.0.0  
 **Last Updated**: January 18, 2026  
-**Deployment Status**: ✅ Production (finance.gershoncrm.com)  
+**Deployment**: GenSpark Hosted Deploy → finance.gershoncrm.com  
 **Technology**: Hono + TypeScript + Tailwind CSS + Chart.js + OAuth2  
 
-**🔗 Quick Links:**
-- **Production**: https://finance.gershoncrm.com
+**🔗 Production:**
+- **URL**: https://finance.gershoncrm.com
 - **Login**: https://finance.gershoncrm.com/auth/login
 
-**📚 Key Documentation:**
-- **Deployment**: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Complete deployment guide
-- **Quick Deploy**: [DEPLOY.md](DEPLOY.md) - Quick command reference
-- **Authentication**: [XERO_AUTH_GATE.md](XERO_AUTH_GATE.md) - Auth gate implementation
-- **Payment Trends**: [PAYMENT_TRENDS_FEATURE.md](PAYMENT_TRENDS_FEATURE.md) - Trends analysis
+**📚 Deployment Guides:**
+- **Quick Deploy**: [DEPLOY_QUICK.md](DEPLOY_QUICK.md) - 3-step guide
+- **Full Guide**: [GENSPARK_DEPLOY.md](GENSPARK_DEPLOY.md) - Complete deployment
+- **Features**: [XERO_AUTH_GATE.md](XERO_AUTH_GATE.md) - Authentication
+- **Trends**: [PAYMENT_TRENDS_FEATURE.md](PAYMENT_TRENDS_FEATURE.md) - Analytics
