@@ -2,9 +2,16 @@
 
 A professional Accounts Receivable (AR) dashboard for Xero accounting data. Built with Xero OAuth authentication, payment trends analysis, and real-time financial insights.
 
-## 🌐 Production URL
+## 🌐 URLs
 
-**🚀 Live Application**: https://finance.gershoncrm.com
+**🚀 Production**: https://finance.gershoncrm.com (GenSpark Hosted Deploy)
+**🧪 Sandbox**: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai
+
+## 🚀 Deployment Status
+
+**Platform:** GenSpark Hosted Deploy
+**Status:** ✅ Ready to Deploy
+**Guide:** See [DEPLOY_TO_GENSPARK.md](./DEPLOY_TO_GENSPARK.md)
 
 ## 🔐 Access Control
 
@@ -48,6 +55,18 @@ A professional Accounts Receivable (AR) dashboard for Xero accounting data. Buil
 ## 🏗️ Architecture
 
 ### Tech Stack
+
+**Backend:**
+- **Node.js** with Hono framework
+- **@hono/node-server** for standard Node.js deployment
+- Xero API integration with OAuth 2.0
+- In-memory session storage (upgradable to Redis/KV)
+
+**Frontend:**
+- HTML5 with Tailwind CSS (CDN)
+- Vanilla JavaScript with Axios
+- Chart.js for data visualization
+- Font Awesome icons
 - **Backend**: Hono (TypeScript) - Lightweight web framework
 - **Frontend**: Vanilla JavaScript + Tailwind CSS
 - **Charts**: Chart.js v4
