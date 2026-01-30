@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gershon Finance Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="/static/styles.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    Gershon Finance Dashboard
+                </h1>
+                <button id="logoutBtn" class="hidden bg-red-500 hover:bg-red-600 px-4 py-2 rounded transition">
+                    <i class="fas fa-sign-out-alt mr-2"></i>
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+            <div class="text-center mb-6">
+                <i class="fas fa-lock text-blue-600 text-5xl mb-4"></i>
+                <h2 class="text-2xl font-bold text-gray-800">Welcome to Gershon Finance Dashboard</h2>
+                <p class="text-gray-600 mt-2">Please sign in with your Xero account to access your financial data</p>
+            </div>
+            <button onclick="window.location.href='/auth/login'" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition flex items-center justify-center">
+                <i class="fas fa-sign-in-alt mr-2"></i>
+                Sign in with Xero
+            </button>
+        </div>
+    </div>
+
+    <!-- Dashboard (Hidden until authenticated) -->
+    <div id="dashboard" class="hidden max-w-7xl mx-auto px-4 py-6">
+        <!-- Tab Navigation -->
+        <div class="bg-white rounded-lg shadow-lg mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="flex -mb-px">
+                    <button class="tab-button active px-6 py-4 text-sm font-medium border-b-2 border-blue-600 text-blue-600" data-tab="dashboard">
+                        <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+                    </button>
+                    <button class="tab-button px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="invoices">
+                        <i class="fas fa-file-invoice-dollar mr-2"></i>Invoices
+                    </button>
+                    <button class="tab-button px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="clients">
+                        <i class="fas fa-users mr-2"></i>Clients
+                    </button>
+                    <button class="tab-button px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="trends">
+                        <i class="fas fa-chart-line mr-2"></i>Trends
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboardTab" class="tab-content">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-gray-500 text-sm font-semibold mb-2">Total Outstanding</h3>
+                    <p id="totalOutstanding" class="text-3xl font-bold text-blue-600">$0.00</p>
+                </div>
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-gray-500 text-sm font-semibold mb-2">Total Overdue</h3>
+                    <p id="totalOverdue" class="text-3xl font-bold text-red-600">$0.00</p>
+                </div>
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-gray-500 text-sm font-semibold mb-2">Invoice Count</h3>
+                    <p id="invoiceCount" class="text-3xl font-bold text-gray-800">0</p>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-bold mb-4">Aging Analysis</h3>
+                <canvas id="agingChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Invoices Tab -->
+        <div id="invoicesTab" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-bold mb-4">Outstanding Invoices</h3>
+                <div id="invoicesContent">
+                    <p class="text-gray-500">Loading invoices...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clients Tab -->
+        <div id="clientsTab" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-bold mb-4">Clients Awaiting Payment</h3>
+                <div id="clientsContent">
+                    <p class="text-gray-500">Loading clients...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trends Tab -->
+        <div id="trendsTab" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold">Payment Trends</h3>
+                    <select id="trendsViewType" class="border rounded px-4 py-2">
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                    </select>
+                </div>
+                <div id="trendsData">
+                    <p class="text-gray-500">Loading trends...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="hidden fixed top-0 left-0 right-0 bg-blue-600 text-white text-center py-2">
+        <i class="fas fa-spinner fa-spin mr-2"></i>Loading...
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
