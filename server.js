@@ -455,6 +455,7 @@ app.get('/api/sheets/clients/list', async (c) => {
 
 // Demo data endpoints (for unauthenticated users)
 app.get('/api/demo/summary', (c) => {
+  console.log('Demo summary endpoint called')
   return c.json([
     {
       InvoiceNumber: 'DEMO-001',
@@ -478,10 +479,12 @@ app.get('/api/demo/summary', (c) => {
 })
 
 app.get('/api/demo/clients-awaiting-payment', (c) => {
+  console.log('Demo clients-awaiting-payment endpoint called')
   return c.json([
     {
       contactName: 'Demo Client A',
       totalDue: 3000,
+      totalOutstanding: 3000,
       invoiceCount: 1,
       oldestInvoiceDate: '/Date(1704067200000)/',
       invoices: []
@@ -489,6 +492,7 @@ app.get('/api/demo/clients-awaiting-payment', (c) => {
     {
       contactName: 'Demo Client B',
       totalDue: 7500,
+      totalOutstanding: 7500,
       invoiceCount: 1,
       oldestInvoiceDate: '/Date(1704067200000)/',
       invoices: []
