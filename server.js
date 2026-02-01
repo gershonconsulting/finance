@@ -379,6 +379,49 @@ app.get('/api/reports/:reportType', async (c) => {
   }
 })
 
+// Demo data endpoints (for unauthenticated users)
+app.get('/api/demo/summary', (c) => {
+  return c.json([
+    {
+      InvoiceNumber: 'DEMO-001',
+      Contact: { Name: 'Demo Client A' },
+      Date: '/Date(1704067200000)/',
+      DueDate: '/Date(1706745600000)/',
+      Total: 5000,
+      AmountDue: 3000,
+      Status: 'AUTHORISED'
+    },
+    {
+      InvoiceNumber: 'DEMO-002',
+      Contact: { Name: 'Demo Client B' },
+      Date: '/Date(1704067200000)/',
+      DueDate: '/Date(1706745600000)/',
+      Total: 7500,
+      AmountDue: 7500,
+      Status: 'AUTHORISED'
+    }
+  ])
+})
+
+app.get('/api/demo/clients-awaiting-payment', (c) => {
+  return c.json([
+    {
+      contactName: 'Demo Client A',
+      totalDue: 3000,
+      invoiceCount: 1,
+      oldestInvoiceDate: '/Date(1704067200000)/',
+      invoices: []
+    },
+    {
+      contactName: 'Demo Client B',
+      totalDue: 7500,
+      invoiceCount: 1,
+      oldestInvoiceDate: '/Date(1704067200000)/',
+      invoices: []
+    }
+  ])
+})
+
 // Default route - serve the dashboard
 app.get('/', async (c) => {
   try {
