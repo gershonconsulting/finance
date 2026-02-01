@@ -379,6 +379,80 @@ app.get('/api/reports/:reportType', async (c) => {
   }
 })
 
+// Google Sheets export - Client balance due
+// Usage: =IMPORTDATA("https://finance.gershoncrm.com/api/sheets/ClientName/due")
+app.get('/api/sheets/:clientName/due', async (c) => {
+  const session = getSession(c)
+  if (!session?.accessToken) {
+    // Return CSV format with error for unauthenticated users
+    return c.text('Error: Not authenticated', 401, {
+      'Content-Type': 'text/csv'
+    })
+  }
+
+  try {
+    const clientName = decodeURIComponent(c.req.param('clientName'))
+    const xero = new XeroApiService(session.accessToken, session.tenantId)
+    
+    // Get all clients awaiting payment
+    const clients = await xero.getClientsAwaitingPayment()
+    
+    // Find the specific client (case-insensitive)
+    const client = clients.find(cl => 
+      cl.contactName.toLowerCase() === clientName.toLowerCase()
+    )
+    
+    if (!client) {
+      // Return 0 if client not found or has no outstanding balance
+      return c.text('0', 200, {
+        'Content-Type': 'text/csv'
+      })
+    }
+    
+    // Return just the amount due (Google Sheets will interpret as number)
+    const amountDue = client.totalDue || 0
+    return c.text(amountDue.toString(), 200, {
+      'Content-Type': 'text/csv'
+    })
+  } catch (error) {
+    console.error('Client balance error:', error)
+    return c.text('Error: ' + error.message, 500, {
+      'Content-Type': 'text/csv'
+    })
+  }
+})
+
+// List all client names (for reference)
+// Usage: =IMPORTDATA("https://finance.gershoncrm.com/api/sheets/clients/list")
+app.get('/api/sheets/clients/list', async (c) => {
+  const session = getSession(c)
+  if (!session?.accessToken) {
+    return c.text('Error: Not authenticated', 401, {
+      'Content-Type': 'text/csv'
+    })
+  }
+
+  try {
+    const xero = new XeroApiService(session.accessToken, session.tenantId)
+    const clients = await xero.getClientsAwaitingPayment()
+    
+    // Return CSV format: Client Name, Amount Due
+    let csv = 'Client Name,Amount Due\n'
+    clients.forEach(client => {
+      csv += `"${client.contactName}",${client.totalDue}\n`
+    })
+    
+    return c.text(csv, 200, {
+      'Content-Type': 'text/csv'
+    })
+  } catch (error) {
+    console.error('Client list error:', error)
+    return c.text('Error: ' + error.message, 500, {
+      'Content-Type': 'text/csv'
+    })
+  }
+})
+
 // Demo data endpoints (for unauthenticated users)
 app.get('/api/demo/summary', (c) => {
   return c.json([
