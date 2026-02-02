@@ -60,6 +60,9 @@
                     <button class="tab-button px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="trends">
                         <i class="fas fa-chart-line mr-2"></i>Trends
                     </button>
+                    <button class="tab-button px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="sheets">
+                        <i class="fas fa-link mr-2"></i>Sheets Links
+                    </button>
                 </nav>
             </div>
         </div>
@@ -128,6 +131,139 @@
                 </div>
                 <div id="trendsData">
                     <p class="text-gray-500">Loading trends...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sheets Links Tab -->
+        <div id="sheetsTab" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-table text-green-600 mr-2"></i>
+                            Google Sheets Integration
+                        </h3>
+                        <div class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                            <i class="fas fa-check-circle mr-1"></i>
+                            Ready to Use
+                        </div>
+                    </div>
+                    <p class="text-gray-600 mb-4">Direct URLs ready to use with =IMPORTDATA() formula</p>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+                        <div>
+                            <p class="font-semibold text-blue-900 mb-2">How to use these URLs:</p>
+                            <ol class="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                                <li>Copy any full URL below (click to select all)</li>
+                                <li>Open Google Sheets and select a cell</li>
+                                <li>Paste: <code class="bg-blue-200 px-1 rounded">=IMPORTDATA("url")</code></li>
+                                <li>Press Enter - Your Xero data appears!</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Invoice Summary -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-file-invoice text-blue-600 text-2xl mr-3"></i>
+                            <div>
+                                <h4 class="font-semibold text-gray-900">Invoice Summary</h4>
+                                <p class="text-xs text-gray-500">Draft, Awaiting Payment, Overdue counts & amounts</p>
+                            </div>
+                        </div>
+                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlInvoiceSummary">=IMPORTDATA("https://finance.gershoncrm.com/api/export/summary")</code>
+                    </div>
+
+                    <!-- Clients Awaiting Payment -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-users text-purple-600 text-2xl mr-3"></i>
+                            <div>
+                                <h4 class="font-semibold text-gray-900">Clients Awaiting Payment</h4>
+                                <p class="text-xs text-gray-500">Companies with outstanding invoices (Milvue, Overdue, USSOR, etc.)</p>
+                            </div>
+                        </div>
+                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlClientsAwaiting">=IMPORTDATA("https://finance.gershoncrm.com/api/export/clients-awaiting-payment")</code>
+                    </div>
+
+                    <!-- All Invoices -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-list text-red-600 text-2xl mr-3"></i>
+                            <div>
+                                <h4 class="font-semibold text-gray-900">All Invoices</h4>
+                                <p class="text-xs text-gray-500">Complete invoice list with numbers, dates, amounts, status</p>
+                            </div>
+                        </div>
+                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlInvoices">=IMPORTDATA("https://finance.gershoncrm.com/api/export/invoices")</code>
+                    </div>
+
+                    <!-- Bank Transactions -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-exchange-alt text-green-600 text-2xl mr-3"></i>
+                            <div>
+                                <h4 class="font-semibold text-gray-900">Bank Transactions</h4>
+                                <p class="text-xs text-gray-500">Transaction history (receive/spend) with dates and amounts</p>
+                            </div>
+                        </div>
+                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlTransactions">=IMPORTDATA("https://finance.gershoncrm.com/api/export/transactions")</code>
+                    </div>
+
+                    <!-- Profit & Loss -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-chart-line text-indigo-600 text-2xl mr-3"></i>
+                            <div>
+                                <h4 class="font-semibold text-gray-900">Profit & Loss Report</h4>
+                                <p class="text-xs text-gray-500">Revenue and expenses breakdown by account</p>
+                            </div>
+                        </div>
+                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlProfitLoss">=IMPORTDATA("https://finance.gershoncrm.com/api/export/profit-loss")</code>
+                    </div>
+
+                    <!-- Balance Sheet -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-balance-scale text-yellow-600 text-2xl mr-3"></i>
+                            <div>
+                                <h4 class="font-semibold text-gray-900">Balance Sheet Report</h4>
+                                <p class="text-xs text-gray-500">Assets, liabilities, and equity breakdown</p>
+                            </div>
+                        </div>
+                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlBalanceSheet">=IMPORTDATA("https://finance.gershoncrm.com/api/export/balance-sheet")</code>
+                    </div>
+
+                    <!-- Invoices by Aging -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-clock text-orange-600 text-2xl mr-3"></i>
+                            <div>
+                                <h4 class="font-semibold text-gray-900">Invoices by Aging</h4>
+                                <p class="text-xs text-gray-500">CURRENT (0-99), AGED (100-199), CRITICAL (200+ days)</p>
+                            </div>
+                        </div>
+                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlInvoicesAging">=IMPORTDATA("https://finance.gershoncrm.com/api/export/invoices-by-aging")</code>
+                    </div>
+
+                    <!-- Client Balance (New Feature) -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition bg-green-50">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-dollar-sign text-green-600 text-2xl mr-3"></i>
+                            <div>
+                                <h4 class="font-semibold text-gray-900">Individual Client Balance 🆕</h4>
+                                <p class="text-xs text-gray-500">Get exact balance for any client (e.g., Urban Factory)</p>
+                            </div>
+                        </div>
+                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded">=IMPORTDATA("https://finance.gershoncrm.com/api/sheets/Urban Factory/due")</code>
+                        <p class="text-xs text-green-700 mt-2"><i class="fas fa-lightbulb mr-1"></i>Replace "Urban Factory" with any client name</p>
+                    </div>
                 </div>
             </div>
         </div>
