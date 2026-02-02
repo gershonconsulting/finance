@@ -485,7 +485,9 @@ app.get('/api/demo/clients-awaiting-payment', (c) => {
       contactName: 'Demo Client A',
       totalDue: 3000,
       totalOutstanding: 3000,
+      totalPaid: 10000,
       invoiceCount: 1,
+      averagePaymentDelay: 45,
       oldestInvoiceDate: '/Date(1704067200000)/',
       invoices: []
     },
@@ -493,7 +495,9 @@ app.get('/api/demo/clients-awaiting-payment', (c) => {
       contactName: 'Demo Client B',
       totalDue: 7500,
       totalOutstanding: 7500,
+      totalPaid: 25000,
       invoiceCount: 1,
+      averagePaymentDelay: 60,
       oldestInvoiceDate: '/Date(1704067200000)/',
       invoices: []
     }

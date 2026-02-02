@@ -1200,3 +1200,56 @@ function exportPaymentTrendsToGoogleSheets() {
 // Make functions globally available
 window.loadPaymentTrends = loadPaymentTrends;
 window.exportPaymentTrendsToGoogleSheets = exportPaymentTrendsToGoogleSheets;
+
+// Initialize event listeners when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  // Load Clients button
+  const loadClientsBtn = document.getElementById('loadClientsBtn');
+  if (loadClientsBtn) {
+    loadClientsBtn.addEventListener('click', loadClientsAwaitingPayment);
+  }
+  
+  // Tab switching
+  document.querySelectorAll('.tab-button').forEach(button => {
+    button.addEventListener('click', (e) => {
+      const tabName = e.currentTarget.getAttribute('data-tab');
+      
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.add('hidden');
+      });
+      
+      // Remove active class from all buttons
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active', 'border-blue-600', 'text-blue-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+      });
+      
+      // Show selected tab
+      const selectedTab = document.getElementById(tabName + 'Tab');
+      if (selectedTab) {
+        selectedTab.classList.remove('hidden');
+      }
+      
+      // Add active class to clicked button
+      e.currentTarget.classList.add('active', 'border-blue-600', 'text-blue-600');
+      e.currentTarget.classList.remove('border-transparent', 'text-gray-500');
+      
+      // Load data for the selected tab
+      if (tabName === 'clients') {
+        loadClientsAwaitingPayment();
+      } else if (tabName === 'trends') {
+        loadPaymentTrends();
+      }
+    });
+  });
+  
+  // Logout button
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+  }
+});
+
+// Make functions globally available
+window.loadClientsAwaitingPayment = loadClientsAwaitingPayment;
