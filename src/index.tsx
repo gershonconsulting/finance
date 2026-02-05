@@ -158,10 +158,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.3.1',
+    version: '2.3.2',
     releaseDate: '2026-02-05T16:50:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.3.2: Added time to release date display',
       'v2.3.1: Added release date/time to version display',
       'v2.3.0: Built dist with demo endpoints and correct URLs',
       'v2.2.0: Fixed URLs in src/index.tsx',
