@@ -249,9 +249,13 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.1.0-both-fixes',
+    version: '2.2.0',
     server: 'nodejs-direct',
-    fixes: ['demo-endpoints-with-totalOutstanding', 'correct-production-urls', 'sheets-links-tab', 'client-balance-export']
+    fixes: [
+      'v2.2.0: Fixed all URLs in src/index.tsx to use finance.gershoncrm.com',
+      'v2.1.0: Added demo endpoints with totalOutstanding field',
+      'v2.0.0: Converted to Node.js from Cloudflare Workers'
+    ]
   })
 })
 

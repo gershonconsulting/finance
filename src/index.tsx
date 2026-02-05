@@ -1338,7 +1338,7 @@ app.get('/', (c) => {
                             </h3>
                             <p class="text-xs text-gray-600 mb-3">Draft, Awaiting Payment, Overdue counts & amounts</p>
                             <div class="bg-blue-50 p-3 rounded border border-blue-200">
-                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/summary")</code>
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/summary")</code>
                             </div>
                         </div>
 
@@ -1350,7 +1350,7 @@ app.get('/', (c) => {
                             </h3>
                             <p class="text-xs text-gray-600 mb-3">Companies with outstanding invoices (Milvue, Duorooq, HSSDR, etc.)</p>
                             <div class="bg-purple-50 p-3 rounded border border-purple-200">
-                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/clients-awaiting-payment")</code>
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/clients-awaiting-payment")</code>
                             </div>
                         </div>
 
@@ -1362,7 +1362,7 @@ app.get('/', (c) => {
                             </h3>
                             <p class="text-xs text-gray-600 mb-3">Complete invoice list with numbers, dates, amounts, status</p>
                             <div class="bg-orange-50 p-3 rounded border border-orange-200">
-                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/invoices")</code>
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/invoices")</code>
                             </div>
                         </div>
 
@@ -1374,7 +1374,7 @@ app.get('/', (c) => {
                             </h3>
                             <p class="text-xs text-gray-600 mb-3">Transaction history (receive/spend) with dates and amounts</p>
                             <div class="bg-green-50 p-3 rounded border border-green-200">
-                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/transactions")</code>
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/transactions")</code>
                             </div>
                         </div>
 
@@ -1386,7 +1386,7 @@ app.get('/', (c) => {
                             </h3>
                             <p class="text-xs text-gray-600 mb-3">Revenue and expenses breakdown by account</p>
                             <div class="bg-red-50 p-3 rounded border border-red-200">
-                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/profit-loss")</code>
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/profit-loss")</code>
                             </div>
                         </div>
 
@@ -1398,7 +1398,7 @@ app.get('/', (c) => {
                             </h3>
                             <p class="text-xs text-gray-600 mb-3">Assets, liabilities, and equity breakdown</p>
                             <div class="bg-indigo-50 p-3 rounded border border-indigo-200">
-                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/balance-sheet")</code>
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/balance-sheet")</code>
                             </div>
                         </div>
 
@@ -1414,7 +1414,7 @@ app.get('/', (c) => {
                                 <strong>CRITICAL</strong> (200+ days - legal negotiation)
                             </p>
                             <div class="bg-yellow-50 p-3 rounded border border-yellow-200">
-                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/api/export/invoices-by-aging")</code>
+                                <code class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/invoices-by-aging")</code>
                             </div>
                         </div>
                     </div>
