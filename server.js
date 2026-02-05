@@ -246,7 +246,13 @@ class XeroApiService {
 
 // Routes
 app.get('/api/health', (c) => {
-  return c.json({ status: 'ok', timestamp: new Date().toISOString() })
+  return c.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    version: '2.1.0-both-fixes',
+    server: 'nodejs-direct',
+    fixes: ['demo-endpoints-with-totalOutstanding', 'correct-production-urls', 'sheets-links-tab', 'client-balance-export']
+  })
 })
 
 app.get('/api/auth/status', (c) => {
