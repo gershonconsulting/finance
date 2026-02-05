@@ -492,15 +492,6 @@ app.get('/api/payment-trends', async (c) => {
   }
 });
 
-// Auth status check
-app.get('/api/auth/status', (c) => {
-  const session = getSession(c);
-  return c.json({
-    authenticated: !!session?.accessToken,
-    tenantId: session?.tenantId || null,
-  });
-});
-
 // Demo mode endpoint - for testing without Xero auth
 app.get('/api/demo/summary', (c) => {
   return c.json({
