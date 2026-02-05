@@ -158,9 +158,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.3.0',
+    version: '2.3.1',
+    releaseDate: '2026-02-05T16:50:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.3.1: Added release date/time to version display',
       'v2.3.0: Built dist with demo endpoints and correct URLs',
       'v2.2.0: Fixed URLs in src/index.tsx',
       'v2.1.0: Added demo endpoints with totalOutstanding field',
@@ -1009,7 +1011,8 @@ app.get('/', (c) => {
                         <div class="flex items-center justify-between h-16">
                             <div class="flex items-center">
                                 <i class="fas fa-chart-line text-2xl mr-3"></i>
-                                <h1 class="text-xl font-bold">Xero Reports Dashboard v2.3.0</h1>
+                                <h1 class="text-xl font-bold">Xero Reports Dashboard v2.3.1</h1>
+                                <span class="ml-3 text-xs text-blue-200 bg-blue-800 px-2 py-1 rounded">Feb 5, 2026</span>
                             </div>
                             <button onclick="logout()" class="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition flex items-center">
                                 <i class="fas fa-sign-out-alt mr-2"></i>Logout
