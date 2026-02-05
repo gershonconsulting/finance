@@ -249,7 +249,7 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.2.0',
+    version: '2.3.3',
     server: 'nodejs-direct',
     fixes: [
       'v2.2.0: Fixed all URLs in src/index.tsx to use finance.gershoncrm.com',
