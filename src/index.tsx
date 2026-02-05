@@ -47,7 +47,7 @@ app.use('/api/*', cors());
 // Serve static files from public directory
 app.use('/static/*', serveStatic({ root: './public' }));
 
-// Session storage (in production, use KV or D1)
+// Session storage - Using client-side tokens instead of server-side Map
 interface SessionData {
   accessToken?: string;
   refreshToken?: string;
@@ -55,54 +55,69 @@ interface SessionData {
   expiresAt?: number;
 }
 
-// In-memory session store (replace with KV in production)
-const sessions = new Map<string, SessionData>();
+// Simple Base64 encoding/decoding for session data
+function encodeSession(session: SessionData): string {
+  try {
+    return btoa(JSON.stringify(session));
+  } catch (e) {
+    console.error('Session encode error:', e);
+    return '';
+  }
+}
+
+function decodeSession(encoded: string): SessionData | null {
+  try {
+    if (!encoded) return null;
+    return JSON.parse(atob(encoded));
+  } catch (e) {
+    console.error('Session decode error:', e);
+    return null;
+  }
+}
 
 // Helper to get session from cookie or header
 function getSession(c: any): SessionData | null {
-  // Check Authorization header first
-  const authHeader = c.req.header('Authorization');
-  if (authHeader) {
-    const token = authHeader.replace('Bearer ', '');
-    const session = sessions.get(token);
-    if (session) return session;
-  }
-  
   // Check X-Session-Token header (from frontend)
   const sessionHeader = c.req.header('X-Session-Token');
   if (sessionHeader) {
-    const session = sessions.get(sessionHeader);
-    if (session) return session;
+    return decodeSession(sessionHeader);
+  }
+  
+  // Check Authorization header
+  const authHeader = c.req.header('Authorization');
+  if (authHeader) {
+    const token = authHeader.replace('Bearer ', '');
+    return decodeSession(token);
   }
   
   return null;
 }
 
-// Helper to get session ID from request
-function getSessionId(c: any): string | null {
-  const authHeader = c.req.header('Authorization');
-  if (authHeader) {
-    return authHeader.replace('Bearer ', '');
-  }
-  
+// Helper to get session token from request (for refresh)
+function getSessionToken(c: any): string | null {
   const sessionHeader = c.req.header('X-Session-Token');
   if (sessionHeader) {
     return sessionHeader;
+  }
+  
+  const authHeader = c.req.header('Authorization');
+  if (authHeader) {
+    return authHeader.replace('Bearer ', '');
   }
   
   return null;
 }
 
 // Helper to refresh expired token
-async function getSessionWithRefresh(c: any): Promise<{ session: SessionData | null, sessionId: string | null }> {
-  const sessionId = getSessionId(c);
-  if (!sessionId) {
-    return { session: null, sessionId: null };
+async function getSessionWithRefresh(c: any): Promise<{ session: SessionData | null, sessionToken: string | null }> {
+  const sessionToken = getSessionToken(c);
+  if (!sessionToken) {
+    return { session: null, sessionToken: null };
   }
   
-  const session = sessions.get(sessionId);
+  const session = decodeSession(sessionToken);
   if (!session) {
-    return { session: null, sessionId };
+    return { session: null, sessionToken: null };
   }
   
   // Check if token is expired or about to expire (within 5 minutes)
@@ -128,27 +143,26 @@ async function getSessionWithRefresh(c: any): Promise<{ session: SessionData | n
         session.accessToken = newTokens.accessToken;
         session.refreshToken = newTokens.refreshToken;
         session.expiresAt = newTokens.expiresAt;
-        sessions.set(sessionId, session);
+        
+        // Return updated session token
+        const updatedToken = encodeSession(session);
         
         console.log('Token refreshed successfully');
-        return { session, sessionId };
+        return { session, sessionToken: updatedToken };
       }
     } catch (error) {
       console.error('Failed to refresh token:', error);
       // Token refresh failed, session is invalid
-      sessions.delete(sessionId);
-      return { session: null, sessionId };
+      return { session: null, sessionToken: null };
     }
   }
   
-  return { session, sessionId };
+  return { session, sessionToken: sessionToken };
 }
 
-// Helper to create session
-function createSession(data: SessionData): string {
-  const sessionId = crypto.randomUUID();
-  sessions.set(sessionId, data);
-  return sessionId;
+// Helper to create session token
+function createSessionToken(data: SessionData): string {
+  return encodeSession(data);
 }
 
 // API Routes
@@ -158,10 +172,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.3.3',
-    releaseDate: '2026-02-05T19:00:00Z',
+    version: '2.3.4',
+    releaseDate: '2026-02-05T19:30:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.3.4: Fixed session storage - switched from in-memory Map to client-side tokens for Cloudflare Workers',
       'v2.3.3: QA tested - removed duplicate auth endpoint, verified all features',
       'v2.3.2: Added time to release date display',
       'v2.3.1: Added release date/time to version display',
@@ -212,6 +227,9 @@ app.get('/api/auto-connect', async (c) => {
   }
 });
 
+// Temporary credential storage for OAuth flow (only used during redirect)
+const tempCredentials = new Map<string, any>();
+
 // OAuth: Start authentication with custom credentials
 app.post('/auth/login', async (c) => {
   try {
@@ -222,20 +240,27 @@ app.post('/auth/login', async (c) => {
       return c.json({ error: 'Missing credentials' }, 400);
     }
     
-    // Store credentials in session temporarily for callback
-    const tempSessionId = crypto.randomUUID();
-    sessions.set(tempSessionId, {
-      tempCredentials: {
-        clientId,
-        clientSecret,
-        redirectUri
+    // Store credentials temporarily (will be cleaned up in callback)
+    const state = crypto.randomUUID();
+    tempCredentials.set(state, {
+      clientId,
+      clientSecret,
+      redirectUri,
+      timestamp: Date.now()
+    });
+    
+    // Clean up old temp credentials (older than 10 minutes)
+    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+    for (const [key, value] of tempCredentials.entries()) {
+      if (value.timestamp < tenMinutesAgo) {
+        tempCredentials.delete(key);
       }
-    } as any);
+    }
     
     const oauth = new XeroOAuthService(clientId, clientSecret, redirectUri);
-    const authUrl = oauth.getAuthorizationUrl(tempSessionId); // Use as state
+    const authUrl = oauth.getAuthorizationUrl(state);
     
-    return c.json({ authUrl, state: tempSessionId });
+    return c.json({ authUrl, state });
   } catch (error: any) {
     console.error('Login initiation error:', error);
     return c.json({ error: error.message }, 500);
@@ -273,16 +298,15 @@ app.get('/auth/callback', async (c) => {
     let clientSecret = credentials.clientSecret;
     let redirectUri = credentials.redirectUri;
     
-    // Check if we have custom credentials in session (from POST /auth/login)
+    // Check if we have custom credentials (from POST /auth/login)
     if (state) {
-      const tempSession = sessions.get(state);
-      if (tempSession && (tempSession as any).tempCredentials) {
-        const creds = (tempSession as any).tempCredentials;
-        clientId = creds.clientId;
-        clientSecret = creds.clientSecret;
-        redirectUri = creds.redirectUri;
-        // Clean up temp session
-        sessions.delete(state);
+      const tempCreds = tempCredentials.get(state);
+      if (tempCreds) {
+        clientId = tempCreds.clientId;
+        clientSecret = tempCreds.clientSecret;
+        redirectUri = tempCreds.redirectUri;
+        // Clean up temp credentials
+        tempCredentials.delete(state);
       }
     }
     
@@ -295,8 +319,8 @@ app.get('/auth/callback', async (c) => {
     const tenantId = await oauth.getTenantId(tokens.accessToken);
     tokens.tenantId = tenantId;
     
-    // Create session
-    const sessionId = createSession({
+    // Create session token
+    const sessionToken = createSessionToken({
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       tenantId: tenantId,
@@ -311,7 +335,7 @@ app.get('/auth/callback', async (c) => {
         <title>Authentication Successful</title>
         <script>
           // Store session token
-          localStorage.setItem('xero_session', '${sessionId}');
+          localStorage.setItem('xero_session', '${sessionToken}');
           // Redirect to dashboard
           window.location.href = '/';
         </script>
