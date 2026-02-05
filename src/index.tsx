@@ -153,9 +153,20 @@ function createSession(data: SessionData): string {
 
 // API Routes
 
-// Health check
+// Health check with version info
 app.get('/api/health', (c) => {
-  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+  return c.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    version: '2.3.0',
+    server: 'cloudflare-workers',
+    fixes: [
+      'v2.3.0: Built dist with demo endpoints and correct URLs',
+      'v2.2.0: Fixed URLs in src/index.tsx',
+      'v2.1.0: Added demo endpoints with totalOutstanding field',
+      'v2.0.0: Node.js conversion',
+    ]
+  });
 });
 
 // Auto-connect endpoint - automatically authenticate using hardcoded credentials
@@ -998,7 +1009,7 @@ app.get('/', (c) => {
                         <div class="flex items-center justify-between h-16">
                             <div class="flex items-center">
                                 <i class="fas fa-chart-line text-2xl mr-3"></i>
-                                <h1 class="text-xl font-bold">Xero Reports Dashboard</h1>
+                                <h1 class="text-xl font-bold">Xero Reports Dashboard v2.3.0</h1>
                             </div>
                             <button onclick="logout()" class="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition flex items-center">
                                 <i class="fas fa-sign-out-alt mr-2"></i>Logout
