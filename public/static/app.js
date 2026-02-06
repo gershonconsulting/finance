@@ -148,16 +148,17 @@ async function loadAgingData() {
 
 // Update dashboard with data
 function updateDashboard(data) {
-  document.getElementById('draftCount').textContent = data.draftCount;
-  document.getElementById('draftAmount').textContent = formatCurrency(data.draftAmount);
+  // Update the three main metrics that actually exist in the HTML
+  document.getElementById('totalOutstanding').textContent = formatCurrency(data.awaitingAmount || 0);
+  document.getElementById('totalOverdue').textContent = formatCurrency(data.overdueAmount || 0);
+  document.getElementById('invoiceCount').textContent = data.totalInvoices || 0;
   
-  document.getElementById('awaitingCount').textContent = data.awaitingCount;
-  document.getElementById('awaitingAmount').textContent = formatCurrency(data.awaitingAmount);
-  
-  document.getElementById('overdueCount').textContent = data.overdueCount;
-  document.getElementById('overdueAmount').textContent = formatCurrency(data.overdueAmount);
-  
-  createInvoiceChart(data);
+  // Try to update chart if it exists
+  try {
+    createInvoiceChart(data);
+  } catch (error) {
+    console.warn('Could not create chart:', error);
+  }
 }
 
 // Create invoice chart
