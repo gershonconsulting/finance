@@ -87,21 +87,27 @@ async function loadDashboardData() {
     // Try to load real data, fall back to demo
     let data;
     try {
+      console.log('Attempting to load real data from /api/invoices/summary...');
       const response = await axios.get('/api/invoices/summary');
       data = response.data;
+      console.log('✅ Loaded real data from Xero');
     } catch (error) {
       // Fall back to demo data
+      console.log('Real data failed, loading demo data from /api/demo/summary...');
       const response = await axios.get('/api/demo/summary');
       data = response.data;
+      console.log('✅ Loaded demo data');
     }
     
     updateDashboard(data);
+    console.log('✅ Dashboard updated');
     
     // Also load aging data
     await loadAgingData();
   } catch (error) {
     console.error('Error loading dashboard data:', error);
-    showError('Failed to load dashboard data');
+    // Don't show alert - just log and continue
+    console.warn('Dashboard will show with default empty state');
   }
 }
 
