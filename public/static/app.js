@@ -540,9 +540,8 @@ function getStatusColor(status) {
 }
 
 function showError(message) {
-  // You can implement a toast notification here
-  console.error(message);
-  alert(message);
+  // Just log to console - don't show alert popups
+  console.error('Error:', message);
 }
 
 // Load clients awaiting payment

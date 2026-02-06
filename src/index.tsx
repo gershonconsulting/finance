@@ -172,11 +172,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.4.0',
+    version: '2.4.1',
     releaseDate: '2026-02-06T13:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
-      'v2.4.0: MAJOR FIX - Fixed HTML element IDs mismatch in updateDashboard (draftCount -> totalOutstanding, etc.)',
+      'v2.4.1: Remove ALL alert popups - errors only logged to console',
       'v2.3.3: QA tested - removed duplicate auth endpoint, verified all features',
       'v2.3.2: Added time to release date display',
       'v2.3.1: Added release date/time to version display',
