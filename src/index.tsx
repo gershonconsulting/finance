@@ -172,11 +172,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.3.5',
-    releaseDate: '2026-02-06T11:30:00Z',
+    version: '2.3.6',
+    releaseDate: '2026-02-06T12:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
-      'v2.3.5: GenSpark Hosted Deploy uses Cloudflare Workers - client-side session tokens',
+      'v2.3.6: Added debug logging to diagnose authentication callback flow',
       'v2.3.3: QA tested - removed duplicate auth endpoint, verified all features',
       'v2.3.2: Added time to release date display',
       'v2.3.1: Added release date/time to version display',
@@ -334,14 +334,39 @@ app.get('/auth/callback', async (c) => {
       <head>
         <title>Authentication Successful</title>
         <script>
-          // Store session token
-          localStorage.setItem('xero_session', '${sessionToken}');
-          // Redirect to dashboard
-          window.location.href = '/';
+          console.log('=== AUTH CALLBACK DEBUG ===');
+          console.log('Session token length:', '${sessionToken}'.length);
+          
+          try {
+            // Store session token
+            localStorage.setItem('xero_session', '${sessionToken}');
+            console.log('✅ Session token stored in localStorage');
+            console.log('Token preview:', '${sessionToken}'.substring(0, 50) + '...');
+            
+            // Verify it was stored
+            const stored = localStorage.getItem('xero_session');
+            if (stored) {
+              console.log('✅ Verified: Token retrieved from localStorage');
+              console.log('Stored token length:', stored.length);
+            } else {
+              console.error('❌ ERROR: Token not found in localStorage after storing!');
+            }
+            
+            // Redirect to dashboard
+            console.log('Redirecting to dashboard...');
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 1000);
+          } catch (error) {
+            console.error('❌ ERROR storing session token:', error);
+            alert('Authentication error: ' + error.message);
+          }
         </script>
       </head>
       <body>
-        <h1>Authentication successful! Redirecting...</h1>
+        <h1>Authentication successful!</h1>
+        <p>Redirecting to dashboard...</p>
+        <p style="color: gray; font-size: 12px;">Check browser console (F12) for debug info</p>
       </body>
       </html>
     `);

@@ -48,11 +48,33 @@ window.logout = logout;
 
 // Check authentication status
 async function checkAuthStatus() {
+  console.log('=== CHECKING AUTH STATUS ===');
+  const sessionToken = localStorage.getItem('xero_session');
+  console.log('Session token in localStorage:', sessionToken ? 'EXISTS (length: ' + sessionToken.length + ')' : 'NOT FOUND');
+  
+  if (!sessionToken) {
+    console.log('❌ No session token found');
+    return false;
+  }
+  
   try {
+    console.log('Calling /api/auth/status with session token...');
     const response = await axios.get('/api/auth/status');
+    console.log('Auth status response:', response.data);
+    
+    if (response.data.authenticated) {
+      console.log('✅ User is authenticated, tenantId:', response.data.tenantId);
+    } else {
+      console.log('❌ User not authenticated (server returned false)');
+    }
+    
     return response.data.authenticated;
   } catch (error) {
-    console.error('Error checking auth status:', error);
+    console.error('❌ Error checking auth status:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
     return false;
   }
 }
