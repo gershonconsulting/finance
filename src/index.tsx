@@ -172,11 +172,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.3.6',
-    releaseDate: '2026-02-06T12:00:00Z',
+    version: '2.3.7',
+    releaseDate: '2026-02-06T12:15:00Z',
     server: 'cloudflare-workers',
     fixes: [
-      'v2.3.6: Added debug logging to diagnose authentication callback flow',
+      'v2.3.7: Added VISIBLE diagnostic page to show exactly what happens during OAuth callback',
       'v2.3.3: QA tested - removed duplicate auth endpoint, verified all features',
       'v2.3.2: Added time to release date display',
       'v2.3.1: Added release date/time to version display',
@@ -333,40 +333,67 @@ app.get('/auth/callback', async (c) => {
       <html>
       <head>
         <title>Authentication Successful</title>
-        <script>
-          console.log('=== AUTH CALLBACK DEBUG ===');
-          console.log('Session token length:', '${sessionToken}'.length);
-          
-          try {
-            // Store session token
-            localStorage.setItem('xero_session', '${sessionToken}');
-            console.log('✅ Session token stored in localStorage');
-            console.log('Token preview:', '${sessionToken}'.substring(0, 50) + '...');
-            
-            // Verify it was stored
-            const stored = localStorage.getItem('xero_session');
-            if (stored) {
-              console.log('✅ Verified: Token retrieved from localStorage');
-              console.log('Stored token length:', stored.length);
-            } else {
-              console.error('❌ ERROR: Token not found in localStorage after storing!');
-            }
-            
-            // Redirect to dashboard
-            console.log('Redirecting to dashboard...');
-            setTimeout(() => {
-              window.location.href = '/';
-            }, 1000);
-          } catch (error) {
-            console.error('❌ ERROR storing session token:', error);
-            alert('Authentication error: ' + error.message);
-          }
-        </script>
+        <style>
+          body { font-family: Arial; padding: 40px; max-width: 800px; margin: 0 auto; }
+          .status { padding: 15px; margin: 10px 0; border-radius: 5px; }
+          .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+          .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+          .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+          code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+          button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+          button:hover { background: #0056b3; }
+        </style>
       </head>
       <body>
-        <h1>Authentication successful!</h1>
-        <p>Redirecting to dashboard...</p>
-        <p style="color: gray; font-size: 12px;">Check browser console (F12) for debug info</p>
+        <h1>🔐 Authentication Debug</h1>
+        <div id="status"></div>
+        <button onclick="goToDashboard()" id="continueBtn" style="display:none;">Continue to Dashboard</button>
+        
+        <script>
+          const statusDiv = document.getElementById('status');
+          const sessionToken = '${sessionToken}';
+          
+          function addStatus(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = 'status ' + type;
+            div.innerHTML = message;
+            statusDiv.appendChild(div);
+          }
+          
+          function goToDashboard() {
+            window.location.href = '/';
+          }
+          
+          // Start diagnostic
+          addStatus('✅ OAuth callback successful', 'success');
+          addStatus('📦 Session token received from server (length: ' + sessionToken.length + ' chars)', 'success');
+          
+          try {
+            // Store token
+            localStorage.setItem('xero_session', sessionToken);
+            addStatus('✅ Session token stored in localStorage', 'success');
+            
+            // Verify
+            const stored = localStorage.getItem('xero_session');
+            if (stored) {
+              addStatus('✅ Verified: Token retrieved from localStorage (length: ' + stored.length + ' chars)', 'success');
+              addStatus('<strong>Token preview:</strong> <code>' + stored.substring(0, 80) + '...</code>', 'info');
+              
+              // Show continue button
+              document.getElementById('continueBtn').style.display = 'inline-block';
+              
+              // Auto-redirect after 3 seconds
+              addStatus('🔄 Auto-redirecting to dashboard in 3 seconds...', 'info');
+              setTimeout(goToDashboard, 3000);
+            } else {
+              addStatus('❌ ERROR: Token not found in localStorage after storing!', 'error');
+              addStatus('This indicates a browser security issue or localStorage is disabled', 'error');
+            }
+          } catch (error) {
+            addStatus('❌ ERROR storing token: ' + error.message, 'error');
+            addStatus('Error details: ' + error.stack, 'error');
+          }
+        </script>
       </body>
       </html>
     `);
