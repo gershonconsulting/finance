@@ -20,14 +20,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   if (isAuthenticated) {
     // Show dashboard, hide login
-    document.getElementById('loginPage').classList.add('hidden');
-    document.getElementById('dashboardPage').classList.remove('hidden');
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    document.getElementById('logoutBtn').classList.remove('hidden');
     await loadDashboardData();
     updateSheetsAuthStatus();
   } else {
     // Show login, hide dashboard
-    document.getElementById('loginPage').classList.remove('hidden');
-    document.getElementById('dashboardPage').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('dashboard').classList.add('hidden');
+    document.getElementById('logoutBtn').classList.add('hidden');
   }
 });
 
