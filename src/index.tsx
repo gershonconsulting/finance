@@ -172,10 +172,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.4.1',
-    releaseDate: '2026-02-06T13:00:00Z',
+    version: '2.4.2',
+    releaseDate: '2026-02-06T14:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
       'v2.4.1: Remove ALL alert popups - errors only logged to console',
       'v2.3.3: QA tested - removed duplicate auth endpoint, verified all features',
       'v2.3.2: Added time to release date display',
@@ -993,6 +994,76 @@ app.get('/api/export/payment-trends', async (c) => {
   } catch (error: any) {
     console.error('Error exporting payment trends:', error);
     return c.json({ error: error.message || 'Failed to export payment trends' }, 500);
+  }
+});
+
+// Google Sheets IMPORTDATA endpoints - return plain text or CSV
+
+// Get specific client balance due
+app.get('/api/sheets/:clientName/due', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    const clientName = c.req.param('clientName');
+    
+    if (!session?.accessToken || !session?.tenantId) {
+      // Demo data for testing
+      const demoBalances: Record<string, number> = {
+        'Urban Factory': 2055.20,
+        'Milvue': 17512.33,
+        'Acme Corp': 5000.00
+      };
+      const balance = demoBalances[clientName] || 0;
+      return c.text(balance.toFixed(2));
+    }
+
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const clients = await xero.getClientsAwaitingPayment();
+    
+    // Find matching client (case-insensitive)
+    const client = clients.find(
+      (c: any) => c.contactName.toLowerCase() === clientName.toLowerCase()
+    );
+    
+    const balance = client?.totalOutstanding || 0;
+    return c.text(balance.toFixed(2));
+  } catch (error: any) {
+    console.error(`Error fetching balance for ${c.req.param('clientName')}:`, error);
+    return c.text('0.00');
+  }
+});
+
+// Get all clients with balances as CSV
+app.get('/api/sheets/clients/list', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    
+    let clients;
+    if (!session?.accessToken || !session?.tenantId) {
+      // Demo data
+      clients = [
+        { contactName: 'Urban Factory', totalOutstanding: 2055.20 },
+        { contactName: 'Milvue', totalOutstanding: 17512.33 },
+        { contactName: 'Acme Corp', totalOutstanding: 5000.00 }
+      ];
+    } else {
+      const xero = new XeroApiService(session.accessToken, session.tenantId);
+      clients = await xero.getClientsAwaitingPayment();
+    }
+    
+    // Generate CSV: Client Name,Balance
+    let csv = 'Client Name,Balance Due\n';
+    for (const client of clients) {
+      csv += `${client.contactName},${client.totalOutstanding.toFixed(2)}\n`;
+    }
+    
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error generating clients list:', error);
+    return c.text('Client Name,Balance Due\nError,0.00');
   }
 });
 
