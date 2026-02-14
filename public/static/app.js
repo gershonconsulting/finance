@@ -265,26 +265,6 @@ function createInvoiceChart(data) {
 }
 
 // Tab navigation
-function showTab(tabName) {
-  // Hide all tabs
-  document.querySelectorAll('.tab-content').forEach(tab => {
-    tab.classList.add('hidden');
-  });
-  
-  // Remove active class from all buttons
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.remove('active', 'border-blue-600', 'text-blue-600');
-    btn.classList.add('border-transparent', 'text-gray-500');
-  });
-  
-  // Show selected tab
-  document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-  
-  // Add active class to clicked button
-  event.target.closest('.tab-btn').classList.add('active', 'border-blue-600', 'text-blue-600');
-  event.target.closest('.tab-btn').classList.remove('border-transparent', 'text-gray-500');
-}
-
 // Load invoices
 async function loadInvoices(status = null) {
   try {
@@ -998,16 +978,6 @@ function updateSettingsStatus() {
     `;
   }
 }
-
-// Initialize settings when tab is shown
-const originalShowTab = typeof showTab !== 'undefined' ? showTab : () => {};
-window.showTab = function(tabName) {
-  originalShowTab(tabName);
-  if (tabName === 'settings') {
-    initializeSettings();
-  }
-};
-
 
 // Update Sheets Links tab authentication status
 async function updateSheetsAuthStatus() {
