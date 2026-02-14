@@ -1,283 +1,581 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gershon Finance Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="/static/styles.css" rel="stylesheet">
-</head>
-<body class="bg-gray-100">
-    <!-- Navigation -->
-    <nav class="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 py-4">
-            <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold">
-                    <i class="fas fa-chart-line mr-2"></i>
-                    Gershon Finance Dashboard
-                    <span class="text-xs font-normal text-blue-200 ml-2">v2.4.5</span>
-                    <span class="text-xs font-normal text-blue-300 ml-2">• Feb 6, 2026 1:15 PM UTC</span>
-                </h1>
-                <button id="logoutBtn" class="hidden bg-red-500 hover:bg-red-600 px-4 py-2 rounded transition">
-                    <i class="fas fa-sign-out-alt mr-2"></i>
-                    Logout
-                </button>
-            </div>
-        </div>
-    </nav>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Xero Reports Dashboard</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <link href="/static/styles.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-50">
+        <div id="app">
+            <!-- Login Page (shown by default) -->
+            <div id="loginPage" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-700 px-4">
+                <div class="max-w-md w-full">
+                    <!-- Logo and Title -->
+                    <div class="text-center mb-8">
+                        <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg mb-4">
+                            <i class="fas fa-chart-line text-4xl text-blue-600"></i>
+                        </div>
+                        <h1 class="text-4xl font-bold text-white mb-2">Xero Reports</h1>
+                        <p class="text-blue-100">Accounts Receivable Dashboard</p>
+                    </div>
 
-    <!-- Login Screen -->
-    <div id="loginScreen" class="flex items-center justify-center min-h-screen">
-        <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-            <div class="text-center mb-6">
-                <i class="fas fa-lock text-blue-600 text-5xl mb-4"></i>
-                <h2 class="text-2xl font-bold text-gray-800">Welcome to Gershon Finance Dashboard</h2>
-                <p class="text-gray-600 mt-2">Please sign in with your Xero account to access your financial data</p>
-            </div>
-            <button onclick="window.location.href='/auth/login'" 
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition flex items-center justify-center">
-                <i class="fas fa-sign-in-alt mr-2"></i>
-                Sign in with Xero
-            </button>
-        </div>
-    </div>
+                    <!-- Login Card -->
+                    <div class="bg-white rounded-lg shadow-xl p-8">
+                        <button onclick="loginWithXero()" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-6 rounded-lg hover:from-blue-700 hover:to-blue-800 transition font-semibold text-lg shadow-md">
+                            <i class="fas fa-sign-in-alt mr-2"></i>
+                            Sign in with Xero
+                        </button>
 
-    <!-- Dashboard (Hidden until authenticated) -->
-    <div id="dashboard" class="hidden max-w-7xl mx-auto px-4 py-6">
-        <!-- Tab Navigation -->
-        <div class="bg-white rounded-lg shadow-lg mb-6">
-            <div class="border-b border-gray-200">
-                <nav class="flex -mb-px">
-                    <button class="tab-button active px-6 py-4 text-sm font-medium border-b-2 border-blue-600 text-blue-600" data-tab="dashboard">
-                        <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
-                    </button>
-                    <button class="tab-button px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="invoices">
-                        <i class="fas fa-file-invoice-dollar mr-2"></i>Invoices
-                    </button>
-                    <button class="tab-button px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="clients">
-                        <i class="fas fa-users mr-2"></i>Clients
-                    </button>
-                    <button class="tab-button px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="trends">
-                        <i class="fas fa-chart-line mr-2"></i>Trends
-                    </button>
-                    <button class="tab-button px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="sheets">
-                        <i class="fas fa-link mr-2"></i>Sheets Links
-                    </button>
+                        <div class="mt-6 text-sm text-gray-600">
+                            <p class="font-semibold mb-2">Features:</p>
+                            <ul class="space-y-2">
+                                <li class="flex items-start">
+                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5"></i>
+                                    <span>Real-time invoice tracking and aging analysis</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5"></i>
+                                    <span>Client payment monitoring and trends</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5"></i>
+                                    <span>Export to Google Sheets with IMPORTDATA</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5"></i>
+                                    <span>Secure OAuth 2.0 authentication</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <p class="text-center text-blue-100 text-sm mt-6">
+                        <i class="fas fa-shield-alt mr-1"></i>
+                        Secure connection to Xero API
+                    </p>
+                </div>
+            </div>
+
+            <!-- Main Dashboard (hidden by default) -->
+            <div id="mainApp" class="hidden min-h-screen">
+                <!-- Top Navigation -->
+                <nav class="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg sticky top-0 z-50">
+                    <div class="max-w-7xl mx-auto px-4">
+                        <div class="flex items-center justify-between h-16">
+                            <div class="flex items-center">
+                                <i class="fas fa-chart-line text-2xl mr-3"></i>
+                                <h1 class="text-xl font-bold">Xero Financial Dashboard</h1>
+                                <span class="text-xs font-normal text-blue-200 ml-2">v2.4.6</span>
+                            </div>
+                            <button id="logoutBtn" onclick="logout()" class="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition flex items-center">
+                                <i class="fas fa-sign-out-alt mr-2"></i>
+                                Logout
+                            </button>
+                        </div>
+                    </div>
                 </nav>
+
+                <!-- Tab Navigation -->
+                <div class="bg-white border-b border-gray-200 sticky top-16 z-40">
+                    <div class="max-w-7xl mx-auto px-4">
+                        <div class="flex space-x-1">
+                            <button data-tab="dashboard" class="tab-button active px-6 py-3 font-medium text-blue-600 border-b-2 border-blue-600">
+                                <i class="fas fa-home mr-2"></i>Dashboard
+                            </button>
+                            <button data-tab="invoices" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300">
+                                <i class="fas fa-file-invoice-dollar mr-2"></i>Invoices
+                            </button>
+                            <button data-tab="clients" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300">
+                                <i class="fas fa-users mr-2"></i>Clients
+                            </button>
+                            <button data-tab="trends" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300">
+                                <i class="fas fa-chart-line mr-2"></i>Trends
+                            </button>
+                            <button data-tab="sheets-links" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300">
+                                <i class="fas fa-table mr-2"></i>Google Sheets Links
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content Container -->
+                <div class="max-w-7xl mx-auto px-4 py-6">
+                <!-- Dashboard Tab (default visible) -->
+                <div id="tab-dashboard" class="tab-content">
+                    <!-- Top Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                            <div class="flex items-center justify-between">
+                                <div class="p-3 bg-green-500 rounded-lg">
+                                    <i class="fas fa-dollar-sign text-white text-2xl"></i>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm text-green-600 uppercase tracking-wide">Total Outstanding</p>
+                                    <p id="totalOutstanding" class="text-3xl font-bold text-green-700">$0.00</p>
+                                    <p id="invoiceCount" class="text-xs text-green-600 mt-1">0 invoices</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg shadow-md p-6 border-l-4 border-red-500">
+                            <div class="flex items-center justify-between">
+                                <div class="p-3 bg-red-500 rounded-lg">
+                                    <i class="fas fa-exclamation-triangle text-white text-2xl"></i>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm text-red-600 uppercase tracking-wide">Total Overdue</p>
+                                    <p id="totalOverdue" class="text-3xl font-bold text-red-700">$0.00</p>
+                                    <p class="text-xs text-red-600 mt-1">Requires attention</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                            <div class="flex items-center justify-between">
+                                <div class="p-3 bg-blue-500 rounded-lg">
+                                    <i class="fas fa-sync-alt text-white text-2xl"></i>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm text-blue-600 uppercase tracking-wide">Actions</p>
+                                    <button onclick="loadDashboardData()" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
+                                        <i class="fas fa-sync-alt mr-2"></i>Refresh Data
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Invoice Status Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="p-3 bg-gray-100 rounded-lg">
+                                    <i class="fas fa-file-alt text-gray-600 text-2xl"></i>
+                                </div>
+                                <div class="text-right">
+                                    <p id="draftCount" class="text-3xl font-bold text-gray-800">--</p>
+                                    <p class="text-sm text-gray-500">invoices</p>
+                                </div>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-700">Draft Invoices</h3>
+                            <p id="draftAmount" class="text-2xl font-bold text-gray-600 mt-2">$0.00</p>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="p-3 bg-orange-100 rounded-lg">
+                                    <i class="fas fa-clock text-orange-600 text-2xl"></i>
+                                </div>
+                                <div class="text-right">
+                                    <p id="awaitingCount" class="text-3xl font-bold text-orange-600">--</p>
+                                    <p class="text-sm text-gray-500">invoices</p>
+                                </div>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-700">Awaiting Payment</h3>
+                            <p id="awaitingAmount" class="text-2xl font-bold text-orange-600 mt-2">$0.00</p>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="p-3 bg-red-100 rounded-lg">
+                                    <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                                </div>
+                                <div class="text-right">
+                                    <p id="overdueCount" class="text-3xl font-bold text-red-600">--</p>
+                                    <p class="text-sm text-gray-500">invoices</p>
+                                </div>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-700">Overdue</h3>
+                            <p id="overdueAmount" class="text-2xl font-bold text-red-600 mt-2">$0.00</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-bold text-gray-800">Invoice Status Overview</h2>
+                            <button onclick="exportToGoogleSheets('summary')" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center">
+                                <i class="fas fa-table mr-2"></i>Export to Google Sheets
+                            </button>
+                        </div>
+                        <canvas id="invoiceChart" height="80"></canvas>
+                    </div>
+
+                    <!-- Invoice Aging Groups -->
+                    <div class="mb-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-bold text-gray-800">
+                                <i class="fas fa-hourglass-half text-yellow-600 mr-2"></i>
+                                Invoice Aging Analysis
+                            </h2>
+                            <button onclick="loadAgingData()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                                <i class="fas fa-sync-alt mr-2"></i>Load Aging Data
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- CURRENT Group -->
+                            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="p-3 bg-green-500 rounded-lg">
+                                        <i class="fas fa-check-circle text-white text-2xl"></i>
+                                    </div>
+                                    <div class="text-right">
+                                        <p id="currentCount" class="text-3xl font-bold text-green-700">--</p>
+                                        <p class="text-sm text-green-600">invoices</p>
+                                    </div>
+                                </div>
+                                <h3 class="text-lg font-semibold text-green-800 mb-1">🟢 CURRENT</h3>
+                                <p class="text-xs text-green-600 mb-2">0-99 days old</p>
+                                <p id="currentAmount" class="text-2xl font-bold text-green-700 mt-2">$0.00</p>
+                                <p class="text-xs text-green-600 mt-1">Normal collection period</p>
+                            </div>
+
+                            <!-- AGED Group -->
+                            <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="p-3 bg-yellow-500 rounded-lg">
+                                        <i class="fas fa-exclamation-triangle text-white text-2xl"></i>
+                                    </div>
+                                    <div class="text-right">
+                                        <p id="agedCount" class="text-3xl font-bold text-yellow-700">--</p>
+                                        <p class="text-sm text-yellow-600">invoices</p>
+                                    </div>
+                                </div>
+                                <h3 class="text-lg font-semibold text-yellow-800 mb-1">🟡 AGED</h3>
+                                <p class="text-xs text-yellow-600 mb-2">100-199 days old</p>
+                                <p id="agedAmount" class="text-2xl font-bold text-yellow-700 mt-2">$0.00</p>
+                                <p class="text-xs text-yellow-600 mt-1">⚠️ Requires attention</p>
+                            </div>
+
+                            <!-- CRITICAL Group -->
+                            <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg shadow-md p-6 border-l-4 border-red-500">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="p-3 bg-red-500 rounded-lg">
+                                        <i class="fas fa-gavel text-white text-2xl"></i>
+                                    </div>
+                                    <div class="text-right">
+                                        <p id="criticalCount" class="text-3xl font-bold text-red-700">--</p>
+                                        <p class="text-sm text-red-600">invoices</p>
+                                    </div>
+                                </div>
+                                <h3 class="text-lg font-semibold text-red-800 mb-1">🔴 CRITICAL</h3>
+                                <p class="text-xs text-red-600 mb-2">200+ days old</p>
+                                <p id="criticalAmount" class="text-2xl font-bold text-red-700 mt-2">$0.00</p>
+                                <p class="text-xs text-red-600 mt-1">🚨 Legal negotiation</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-blue-600 text-xl mr-3 mt-1"></i>
+                            <div>
+                                <h3 class="text-lg font-semibold text-blue-900 mb-2">About This Dashboard</h3>
+                                <p class="text-blue-800 mb-2">This dashboard connects to your Xero account to provide real-time financial insights and reporting capabilities.</p>
+                                <ul class="list-disc list-inside text-blue-700 space-y-1">
+                                    <li>View invoice summaries and payment status</li>
+                                    <li>Generate Profit & Loss and Balance Sheet reports</li>
+                                    <li>Track bank transactions and cash flow</li>
+                                    <li>Export data to CSV, Excel, or PDF formats</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Invoices Tab -->
+                <div id="tab-invoices" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-xl font-bold text-gray-800">Invoice List</h2>
+                            <div class="flex space-x-2">
+                                <button onclick="exportToGoogleSheets('invoices')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center">
+                                    <i class="fas fa-table mr-2"></i>Export
+                                </button>
+                                <button onclick="loadInvoices('DRAFT')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                                    Draft
+                                </button>
+                                <button onclick="loadInvoices('AUTHORISED')" class="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600">
+                                    Awaiting
+                                </button>
+                                <button onclick="loadInvoices('PAID')" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                                    Paid
+                                </button>
+                                <button onclick="loadInvoices()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                    All
+                                </button>
+                            </div>
+                        </div>
+                        <div id="invoiceList" class="overflow-x-auto">
+                            <p class="text-gray-500 text-center py-8">Click a button above to load invoices</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clients Tab -->
+                <div id="tab-clients" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-800">Clients Awaiting Payment</h2>
+                                <p class="text-sm text-gray-500 mt-1">Companies with outstanding invoices</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button onclick="exportToGoogleSheets('clients-awaiting-payment')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center">
+                                    <i class="fas fa-table mr-2"></i>Export
+                                </button>
+                                <button onclick="loadClientsAwaitingPayment()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                    <i class="fas fa-sync-alt mr-2"></i>Load Clients
+                                </button>
+                            </div>
+                        </div>
+                        <div id="clientsList">
+                            <p class="text-gray-500 text-center py-8">Click "Load Clients" to view companies awaiting payment</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Trends Tab -->
+                <div id="tab-trends" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-xl font-bold text-gray-800">
+                                <i class="fas fa-chart-line mr-2 text-blue-600"></i>
+                                Payment Trends Analysis
+                            </h2>
+                            <div class="flex space-x-2">
+                                <select id="trendsViewType" class="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="weekly">Weekly (8 weeks)</option>
+                                    <option value="monthly" selected>Monthly (6 months)</option>
+                                    <option value="quarterly">Quarterly (4 quarters)</option>
+                                </select>
+                                <button onclick="exportToGoogleSheets('payment-trends')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center">
+                                    <i class="fas fa-table mr-2"></i>Export
+                                </button>
+                                <button onclick="loadPaymentTrends()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                    <i class="fas fa-sync-alt mr-2"></i>Load Trends
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+                                <div class="flex items-center justify-between">
+                                    <i class="fas fa-arrow-down text-green-600 text-2xl"></i>
+                                    <div class="text-right">
+                                        <p id="totalImprovement" class="text-2xl font-bold text-green-700">$0</p>
+                                        <p class="text-xs text-green-600">Total Improvement</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                                <div class="flex items-center justify-between">
+                                    <i class="fas fa-tachometer-alt text-blue-600 text-2xl"></i>
+                                    <div class="text-right">
+                                        <p id="avgPaymentVelocity" class="text-2xl font-bold text-blue-700">0</p>
+                                        <p class="text-xs text-blue-600">Avg Payment Days</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+                                <div class="flex items-center justify-between">
+                                    <i class="fas fa-trophy text-purple-600 text-2xl"></i>
+                                    <div class="text-right">
+                                        <p id="bestPeriodLabel" class="text-lg font-bold text-purple-700">--</p>
+                                        <p class="text-xs text-purple-600">Best Period</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+                                <div class="flex items-center justify-between">
+                                    <i class="fas fa-chart-line text-orange-600 text-2xl"></i>
+                                    <div class="text-right">
+                                        <p id="trendsDirection" class="text-lg font-bold text-orange-700">--</p>
+                                        <p class="text-xs text-orange-600">Trend Direction</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="trendsData" class="overflow-x-auto">
+                            <p class="text-gray-500 text-center py-8">Click "Load Trends" to see payment trends analysis</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google Sheets Links Tab -->
+                <div id="tab-sheets-links" class="tab-content hidden">
+                    <!-- Header -->
+                    <div class="bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500 p-6 mb-6 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-table text-green-600 text-3xl mr-4"></i>
+                                <div>
+                                    <h2 class="text-xl font-bold text-gray-800">Google Sheets Integration</h2>
+                                    <p class="text-sm text-gray-600 mt-1">Direct URLs ready to use with =IMPORTDATA() formula</p>
+                                </div>
+                            </div>
+                            <div id="sheetsAuthStatus" class="text-right">
+                                <!-- Status will be updated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Usage Instructions -->
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-blue-500 text-lg mr-3 mt-1"></i>
+                            <div class="flex-1">
+                                <p class="text-sm text-blue-900 font-semibold mb-2">How to use these URLs:</p>
+                                <ol class="text-sm text-blue-800 space-y-1 ml-4">
+                                    <li>1. Copy any full URL below (click to select all)</li>
+                                    <li>2. Open Google Sheets and select a cell</li>
+                                    <li>3. Paste: <code class="bg-white px-2 py-1 rounded text-xs">=IMPORTDATA("url")</code></li>
+                                    <li>4. Press Enter - Your Xero data appears!</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grid Layout for Categories -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Invoice Summary -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-chart-pie text-blue-600 mr-2"></i>
+                                Invoice Summary
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">Draft, Awaiting Payment, Overdue counts & amounts</p>
+                            <div class="bg-blue-50 p-3 rounded border border-blue-200">
+                                <code id="urlInvoiceSummary" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/summary")</code>
+                            </div>
+                        </div>
+
+                        <!-- All Invoices -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-file-invoice text-green-600 mr-2"></i>
+                                All Invoices
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">Complete list with Contact, Date, Amount, Status</p>
+                            <div class="bg-green-50 p-3 rounded border border-green-200">
+                                <code id="urlInvoices" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/invoices")</code>
+                            </div>
+                        </div>
+
+                        <!-- Bank Transactions -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-university text-purple-600 mr-2"></i>
+                                Bank Transactions
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">Date, Payee, Description, Amount, Balance</p>
+                            <div class="bg-purple-50 p-3 rounded border border-purple-200">
+                                <code id="urlTransactions" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/transactions")</code>
+                            </div>
+                        </div>
+
+                        <!-- Profit & Loss Report -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-chart-line text-red-600 mr-2"></i>
+                                Profit & Loss Report
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">Account, Amount breakdown for financial period</p>
+                            <div class="bg-red-50 p-3 rounded border border-red-200">
+                                <code id="urlProfitLoss" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/profit-loss")</code>
+                            </div>
+                        </div>
+
+                        <!-- Balance Sheet -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-balance-scale text-yellow-600 mr-2"></i>
+                                Balance Sheet
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">Assets, Liabilities, Equity snapshot</p>
+                            <div class="bg-yellow-50 p-3 rounded border border-yellow-200">
+                                <code id="urlBalanceSheet" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/balance-sheet")</code>
+                            </div>
+                        </div>
+
+                        <!-- Clients Awaiting Payment -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-users text-orange-600 mr-2"></i>
+                                Clients Awaiting Payment
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">Contact Name, Total Outstanding, Invoice Count, Oldest Date</p>
+                            <div class="bg-orange-50 p-3 rounded border border-orange-200">
+                                <code id="urlClientsAwaitingPayment" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/clients-awaiting-payment")</code>
+                            </div>
+                        </div>
+
+                        <!-- Invoices By Aging -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-hourglass-half text-indigo-600 mr-2"></i>
+                                Invoices By Aging
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">Category, Age Range, Invoice Count, Total Outstanding</p>
+                            <div class="bg-indigo-50 p-3 rounded border border-indigo-200">
+                                <code id="urlInvoicesAging" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/invoices-by-aging")</code>
+                            </div>
+                        </div>
+
+                        <!-- Payment Trends -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-chart-bar text-teal-600 mr-2"></i>
+                                Payment Trends
+                            </h3>
+                            <p class="text-xs text-gray-600 mb-3">Period, Outstanding, Overdue, Payments, Velocity metrics</p>
+                            <div class="bg-teal-50 p-3 rounded border border-teal-200">
+                                <code id="urlPaymentTrends" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/payment-trends")</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tips Section -->
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-6 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-lightbulb text-yellow-600 text-lg mr-3 mt-1"></i>
+                            <div class="flex-1">
+                                <p class="text-sm text-yellow-900 font-semibold mb-2">💡 Pro Tips:</p>
+                                <ul class="text-sm text-yellow-800 space-y-1 ml-4">
+                                    <li>• Data auto-refreshes every time you open the sheet</li>
+                                    <li>• Use these in multiple sheets/tabs for different views</li>
+                                    <li>• Combine with Google Sheets formulas for custom reports</li>
+                                    <li>• Share the sheet with your team - they see live data</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Authentication Notice -->
+                    <div class="bg-red-50 border-l-4 border-red-400 p-4 mt-6 rounded-lg" id="authNotice" style="display: none;">
+                        <div class="flex items-start">
+                            <i class="fas fa-exclamation-triangle text-red-600 text-lg mr-3 mt-1"></i>
+                            <div class="flex-1">
+                                <p class="text-sm text-red-900 font-semibold mb-1">🔒 Authentication Required</p>
+                                <p class="text-sm text-red-800">Some endpoints require Xero authentication. Make sure you're logged in to access all data.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
             </div>
         </div>
 
-        <!-- Dashboard Tab -->
-        <div id="dashboardTab" class="tab-content">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h3 class="text-gray-500 text-sm font-semibold mb-2">Total Outstanding</h3>
-                    <p id="totalOutstanding" class="text-3xl font-bold text-blue-600">$0.00</p>
-                </div>
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h3 class="text-gray-500 text-sm font-semibold mb-2">Total Overdue</h3>
-                    <p id="totalOverdue" class="text-3xl font-bold text-red-600">$0.00</p>
-                </div>
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h3 class="text-gray-500 text-sm font-semibold mb-2">Invoice Count</h3>
-                    <p id="invoiceCount" class="text-3xl font-bold text-gray-800">0</p>
-                </div>
-            </div>
-            
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h3 class="text-xl font-bold mb-4">Aging Analysis</h3>
-                <canvas id="agingChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Invoices Tab -->
-        <div id="invoicesTab" class="tab-content hidden">
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h3 class="text-xl font-bold mb-4">Outstanding Invoices</h3>
-                <div id="invoiceList">
-                    <p class="text-gray-500">Loading invoices...</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Clients Tab -->
-        <div id="clientsTab" class="tab-content hidden">
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold">Clients Awaiting Payment</h3>
-                    <button id="loadClientsBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
-                        <i class="fas fa-sync-alt mr-2"></i>Load Clients
-                    </button>
-                </div>
-                <div id="clientsListInfo" class="hidden mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
-                    <p class="text-yellow-800"><i class="fas fa-info-circle mr-2"></i>Showing demo data. Sign in with Xero to see your real clients.</p>
-                </div>
-                <div id="clientsList">
-                    <p class="text-gray-500 text-center py-8">Click "Load Clients" to view companies awaiting payment</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Trends Tab -->
-        <div id="trendsTab" class="tab-content hidden">
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold">Payment Trends</h3>
-                    <select id="trendsViewType" class="border rounded px-4 py-2">
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="quarterly">Quarterly</option>
-                    </select>
-                </div>
-                <div id="trendsData">
-                    <p class="text-gray-500">Loading trends...</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Sheets Links Tab -->
-        <div id="sheetsTab" class="tab-content hidden">
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <div class="mb-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-gray-900">
-                            <i class="fas fa-table text-green-600 mr-2"></i>
-                            Google Sheets Integration
-                        </h3>
-                        <div class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                            <i class="fas fa-check-circle mr-1"></i>
-                            Ready to Use
-                        </div>
-                    </div>
-                    <p class="text-gray-600 mb-4">Direct URLs ready to use with =IMPORTDATA() formula</p>
-                </div>
-
-                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                    <div class="flex items-start">
-                        <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
-                        <div>
-                            <p class="font-semibold text-blue-900 mb-2">How to use these URLs:</p>
-                            <ol class="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                                <li>Copy any full URL below (click to select all)</li>
-                                <li>Open Google Sheets and select a cell</li>
-                                <li>Paste: <code class="bg-blue-200 px-1 rounded">=IMPORTDATA("url")</code></li>
-                                <li>Press Enter - Your Xero data appears!</li>
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Invoice Summary -->
-                    <div class="border rounded-lg p-4 hover:shadow-md transition">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-file-invoice text-blue-600 text-2xl mr-3"></i>
-                            <div>
-                                <h4 class="font-semibold text-gray-900">Invoice Summary</h4>
-                                <p class="text-xs text-gray-500">Draft, Awaiting Payment, Overdue counts & amounts</p>
-                            </div>
-                        </div>
-                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlInvoiceSummary">=IMPORTDATA("https://finance.gershoncrm.com/api/export/summary")</code>
-                    </div>
-
-                    <!-- Clients Awaiting Payment -->
-                    <div class="border rounded-lg p-4 hover:shadow-md transition">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-users text-purple-600 text-2xl mr-3"></i>
-                            <div>
-                                <h4 class="font-semibold text-gray-900">Clients Awaiting Payment</h4>
-                                <p class="text-xs text-gray-500">Companies with outstanding invoices (Milvue, Overdue, USSOR, etc.)</p>
-                            </div>
-                        </div>
-                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlClientsAwaiting">=IMPORTDATA("https://finance.gershoncrm.com/api/export/clients-awaiting-payment")</code>
-                    </div>
-
-                    <!-- All Invoices -->
-                    <div class="border rounded-lg p-4 hover:shadow-md transition">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-list text-red-600 text-2xl mr-3"></i>
-                            <div>
-                                <h4 class="font-semibold text-gray-900">All Invoices</h4>
-                                <p class="text-xs text-gray-500">Complete invoice list with numbers, dates, amounts, status</p>
-                            </div>
-                        </div>
-                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlInvoices">=IMPORTDATA("https://finance.gershoncrm.com/api/export/invoices")</code>
-                    </div>
-
-                    <!-- Bank Transactions -->
-                    <div class="border rounded-lg p-4 hover:shadow-md transition">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-exchange-alt text-green-600 text-2xl mr-3"></i>
-                            <div>
-                                <h4 class="font-semibold text-gray-900">Bank Transactions</h4>
-                                <p class="text-xs text-gray-500">Transaction history (receive/spend) with dates and amounts</p>
-                            </div>
-                        </div>
-                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlTransactions">=IMPORTDATA("https://finance.gershoncrm.com/api/export/transactions")</code>
-                    </div>
-
-                    <!-- Profit & Loss -->
-                    <div class="border rounded-lg p-4 hover:shadow-md transition">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-chart-line text-indigo-600 text-2xl mr-3"></i>
-                            <div>
-                                <h4 class="font-semibold text-gray-900">Profit & Loss Report</h4>
-                                <p class="text-xs text-gray-500">Revenue and expenses breakdown by account</p>
-                            </div>
-                        </div>
-                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlProfitLoss">=IMPORTDATA("https://finance.gershoncrm.com/api/export/profit-loss")</code>
-                    </div>
-
-                    <!-- Balance Sheet -->
-                    <div class="border rounded-lg p-4 hover:shadow-md transition">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-balance-scale text-yellow-600 text-2xl mr-3"></i>
-                            <div>
-                                <h4 class="font-semibold text-gray-900">Balance Sheet Report</h4>
-                                <p class="text-xs text-gray-500">Assets, liabilities, and equity breakdown</p>
-                            </div>
-                        </div>
-                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlBalanceSheet">=IMPORTDATA("https://finance.gershoncrm.com/api/export/balance-sheet")</code>
-                    </div>
-
-                    <!-- Invoices by Aging -->
-                    <div class="border rounded-lg p-4 hover:shadow-md transition">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-clock text-orange-600 text-2xl mr-3"></i>
-                            <div>
-                                <h4 class="font-semibold text-gray-900">Invoices by Aging</h4>
-                                <p class="text-xs text-gray-500">CURRENT (0-99), AGED (100-199), CRITICAL (200+ days)</p>
-                            </div>
-                        </div>
-                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded" id="urlInvoicesAging">=IMPORTDATA("https://finance.gershoncrm.com/api/export/invoices-by-aging")</code>
-                    </div>
-
-                    <!-- Client Balance (New Feature) -->
-                    <div class="border rounded-lg p-4 hover:shadow-md transition bg-green-50">
-                        <div class="flex items-center mb-3">
-                            <i class="fas fa-dollar-sign text-green-600 text-2xl mr-3"></i>
-                            <div>
-                                <h4 class="font-semibold text-gray-900">Individual Client Balance 🆕</h4>
-                                <p class="text-xs text-gray-500">Get exact balance for any client (e.g., Urban Factory)</p>
-                            </div>
-                        </div>
-                        <code class="text-xs text-gray-800 break-all select-all block bg-gray-100 p-2 rounded">=IMPORTDATA("https://finance.gershoncrm.com/api/sheets/Urban Factory/due")</code>
-                        <p class="text-xs text-green-700 mt-2"><i class="fas fa-lightbulb mr-1"></i>Replace "Urban Factory" with any client name</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Loading Indicator -->
-    <div id="loadingIndicator" class="hidden fixed top-0 left-0 right-0 bg-blue-600 text-white text-center py-2">
-        <i class="fas fa-spinner fa-spin mr-2"></i>Loading...
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script src="/static/fix-urls.js"></script>
-    <script src="/static/app.js"></script>
-</body>
-</html>
+        <!-- Scripts -->
+        <script src="/static/fix-urls.js"></script>
+        <script src="/static/app.js"></script>
+    </body>
+    </html>
