@@ -153,6 +153,26 @@ function updateDashboard(data) {
   document.getElementById('totalOverdue').textContent = formatCurrency(data.overdueAmount || 0);
   document.getElementById('invoiceCount').textContent = data.totalInvoices || 0;
   
+  // Update status cards (Draft, Awaiting, Overdue)
+  if (document.getElementById('draftCount')) {
+    document.getElementById('draftCount').textContent = data.draftCount || 0;
+  }
+  if (document.getElementById('draftAmount')) {
+    document.getElementById('draftAmount').textContent = formatCurrency(data.draftAmount || 0);
+  }
+  if (document.getElementById('awaitingCount')) {
+    document.getElementById('awaitingCount').textContent = data.awaitingCount || 0;
+  }
+  if (document.getElementById('awaitingAmount')) {
+    document.getElementById('awaitingAmount').textContent = formatCurrency(data.awaitingAmount || 0);
+  }
+  if (document.getElementById('overdueCount')) {
+    document.getElementById('overdueCount').textContent = data.overdueCount || 0;
+  }
+  if (document.getElementById('overdueAmount')) {
+    document.getElementById('overdueAmount').textContent = formatCurrency(data.overdueAmount || 0);
+  }
+  
   // Try to update chart if it exists
   try {
     createInvoiceChart(data);
