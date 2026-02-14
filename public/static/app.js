@@ -1268,6 +1268,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Load data for the selected tab
       if (tabName === 'clients') {
         loadClientsAwaitingPayment();
+      } else if (tabName === 'invoices') {
+        loadInvoices();
       } else if (tabName === 'trends') {
         loadPaymentTrends();
       }
