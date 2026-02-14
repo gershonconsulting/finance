@@ -249,11 +249,13 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.3.5',
-    releaseDate: '2026-02-06T11:30:00Z',
+    version: '2.4.2',
+    releaseDate: '2026-02-10T14:00:00Z',
     server: 'nodejs-genspark',
-    server: 'nodejs-direct',
     fixes: [
+      'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
+      'v2.4.1: Remove ALL alert popups - errors only logged to console',
+      'v2.4.0: Fix dashboard element IDs mismatch',
       'v2.2.0: Fixed all URLs in src/index.tsx to use finance.gershoncrm.com',
       'v2.1.0: Added demo endpoints with totalOutstanding field',
       'v2.0.0: Converted to Node.js from Cloudflare Workers'
