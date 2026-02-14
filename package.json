@@ -1,6 +1,6 @@
 {
   "name": "gershon-finance",
-  "version": "2.4.3",
+  "version": "2.4.4",
   "description": "Gershon Finance Dashboard - Xero Accounts Receivable Reports",
   "type": "module",
   "scripts": {
