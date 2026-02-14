@@ -1256,7 +1256,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       // Show selected tab
-      const selectedTab = document.getElementById(tabName + 'Tab');
+      const selectedTab = document.getElementById('tab-' + tabName);
       if (selectedTab) {
         selectedTab.classList.remove('hidden');
       }
