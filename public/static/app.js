@@ -26,10 +26,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadDashboardData();
     updateSheetsAuthStatus();
   } else {
-    // Show login, hide dashboard
+    // Show login, hide dashboard - BUT still load demo data for preview
     document.getElementById('loginPage').classList.remove('hidden');
     document.getElementById('mainApp').classList.add('hidden');
     document.getElementById('logoutBtn').classList.add('hidden');
+    
+    // Load demo data anyway so user can see the dashboard preview
+    console.log('Not authenticated - loading demo data for preview');
+    await loadDashboardData(); // This will fall back to demo data
   }
 });
 
@@ -303,7 +307,12 @@ async function loadInvoices(status = null) {
 }
 
 // Display invoices in table
+// Store current invoice data for sorting
+let currentInvoiceData = [];
+let invoiceSortConfig = { column: null, direction: 'asc' };
+
 function displayInvoices(invoices) {
+  currentInvoiceData = invoices; // Store for sorting
   const listEl = document.getElementById('invoiceList');
   
   if (invoices.length === 0) {
@@ -315,13 +324,27 @@ function displayInvoices(invoices) {
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Due</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+          <th onclick="sortInvoices('InvoiceNumber')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+            Invoice # <i class="fas fa-sort ml-1"></i>
+          </th>
+          <th onclick="sortInvoices('Contact')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+            Contact <i class="fas fa-sort ml-1"></i>
+          </th>
+          <th onclick="sortInvoices('Date')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+            Date <i class="fas fa-sort ml-1"></i>
+          </th>
+          <th onclick="sortInvoices('DueDate')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+            Due Date <i class="fas fa-sort ml-1"></i>
+          </th>
+          <th onclick="sortInvoices('Total')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+            Total <i class="fas fa-sort ml-1"></i>
+          </th>
+          <th onclick="sortInvoices('AmountDue')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+            Amount Due <i class="fas fa-sort ml-1"></i>
+          </th>
+          <th onclick="sortInvoices('Status')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+            Status <i class="fas fa-sort ml-1"></i>
+          </th>
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
@@ -346,6 +369,63 @@ function displayInvoices(invoices) {
   
   listEl.innerHTML = html;
 }
+
+// Sort invoices by column
+function sortInvoices(column) {
+  // Toggle direction if same column, otherwise default to ascending
+  if (invoiceSortConfig.column === column) {
+    invoiceSortConfig.direction = invoiceSortConfig.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    invoiceSortConfig.column = column;
+    invoiceSortConfig.direction = 'asc';
+  }
+  
+  const sorted = [...currentInvoiceData].sort((a, b) => {
+    let aVal, bVal;
+    
+    switch(column) {
+      case 'InvoiceNumber':
+        aVal = a.InvoiceNumber || '';
+        bVal = b.InvoiceNumber || '';
+        break;
+      case 'Contact':
+        aVal = a.Contact?.Name || '';
+        bVal = b.Contact?.Name || '';
+        break;
+      case 'Date':
+        aVal = new Date(a.Date || 0);
+        bVal = new Date(b.Date || 0);
+        break;
+      case 'DueDate':
+        aVal = new Date(a.DueDate || 0);
+        bVal = new Date(b.DueDate || 0);
+        break;
+      case 'Total':
+        aVal = a.Total || 0;
+        bVal = b.Total || 0;
+        break;
+      case 'AmountDue':
+        aVal = a.AmountDue || 0;
+        bVal = b.AmountDue || 0;
+        break;
+      case 'Status':
+        aVal = a.Status || '';
+        bVal = b.Status || '';
+        break;
+      default:
+        return 0;
+    }
+    
+    if (aVal < bVal) return invoiceSortConfig.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return invoiceSortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+  
+  displayInvoices(sorted);
+}
+
+// Make sortInvoices globally available
+window.sortInvoices = sortInvoices;
 
 // Display demo invoices
 function displayDemoInvoices() {
@@ -567,8 +647,62 @@ async function loadClientsAwaitingPayment() {
   }
 }
 
+// Store current client data for sorting
+let currentClientData = [];
+let clientSortConfig = { column: null, direction: 'asc' };
+
+// Sort clients by column
+function sortClients(column) {
+  // Toggle direction if same column, otherwise default to ascending
+  if (clientSortConfig.column === column) {
+    clientSortConfig.direction = clientSortConfig.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    clientSortConfig.column = column;
+    clientSortConfig.direction = 'asc';
+  }
+  
+  const sorted = [...currentClientData].sort((a, b) => {
+    let aVal, bVal;
+    
+    switch(column) {
+      case 'contactName':
+        aVal = a.contactName || '';
+        bVal = b.contactName || '';
+        break;
+      case 'invoiceCount':
+        aVal = a.invoiceCount || 0;
+        bVal = b.invoiceCount || 0;
+        break;
+      case 'totalOutstanding':
+        aVal = a.totalOutstanding || 0;
+        bVal = b.totalOutstanding || 0;
+        break;
+      case 'averagePaymentDelay':
+        aVal = a.averagePaymentDelay || 0;
+        bVal = b.averagePaymentDelay || 0;
+        break;
+      case 'totalPaid':
+        aVal = a.totalPaid || 0;
+        bVal = b.totalPaid || 0;
+        break;
+      default:
+        return 0;
+    }
+    
+    if (aVal < bVal) return clientSortConfig.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return clientSortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+  
+  displayClientsAwaitingPayment(sorted, false);
+}
+
+// Make sortClients globally available
+window.sortClients = sortClients;
+
 // Display clients awaiting payment
 function displayClientsAwaitingPayment(clients, isDemo = false) {
+  currentClientData = clients; // Store for sorting
   const listEl = document.getElementById('clientsList');
   const infoEl = document.getElementById('clientsListInfo');
   
@@ -613,18 +747,24 @@ function displayClientsAwaitingPayment(clients, isDemo = false) {
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Name</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoices</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <th onclick="sortClients('contactName')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+            Company Name <i class="fas fa-sort ml-1"></i>
+          </th>
+          <th onclick="sortClients('invoiceCount')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+            Invoices <i class="fas fa-sort ml-1"></i>
+          </th>
+          <th onclick="sortClients('totalOutstanding')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+            Outstanding <i class="fas fa-sort ml-1"></i>
+          </th>
+          <th onclick="sortClients('averagePaymentDelay')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
             <span class="flex items-center">
-              Avg Delay
+              Avg Delay <i class="fas fa-sort ml-1"></i>
               <i class="fas fa-clock ml-1 text-orange-500" title="Average payment delay in days"></i>
             </span>
           </th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <th onclick="sortClients('totalPaid')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
             <span class="flex items-center">
-              Total Paid
+              Total Paid <i class="fas fa-sort ml-1"></i>
               <i class="fas fa-check-circle ml-1 text-green-500" title="Total paid historically"></i>
             </span>
           </th>
