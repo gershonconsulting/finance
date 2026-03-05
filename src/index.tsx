@@ -173,8 +173,8 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.5.1',
-    releaseDate: '2026-02-14T15:29:08Z',
+    version: '2.6.0',
+    releaseDate: '2026-03-05T10:53:18Z',
     server: 'cloudflare-workers',
     fixes: [
       'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
@@ -571,6 +571,66 @@ app.get('/api/payment-trends', async (c) => {
   }
 });
 
+// Get revenue metrics (ARR/MRR)
+app.get('/api/revenue/metrics', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    
+    // Get all clients with payment history
+    const clients = await xero.getClientsAwaitingPayment();
+    
+    // Calculate MRR: Sum of average revenue per client
+    // Logic: Each client is invoiced monthly, so avg invoice value = monthly revenue
+    let totalMRR = 0;
+    let activeClients = 0;
+    let ytdRevenue = 0;
+    
+    for (const client of clients) {
+      if (client.invoiceCount > 0) {
+        // Average revenue per invoice = totalPaid / invoiceCount
+        const avgRevenuePerInvoice = client.totalPaid / client.invoiceCount;
+        totalMRR += avgRevenuePerInvoice;
+        activeClients++;
+      }
+      ytdRevenue += client.totalPaid;
+    }
+    
+    // Calculate ARR and projections
+    const currentMonth = new Date().getMonth() + 1; // 1-12
+    const arr = totalMRR * 12;
+    const projectedEOY = (ytdRevenue / currentMonth) * 12;
+    
+    // Calculate growth rate (compare last 30 days vs previous 30 days)
+    // For now, use a simple estimation based on YTD vs run rate
+    const expectedYTD = (totalMRR * currentMonth);
+    const growthRate = expectedYTD > 0 ? ((ytdRevenue / expectedYTD - 1) * 100) : 0;
+    
+    return c.json({
+      mrr: Math.round(totalMRR * 100) / 100,
+      arr: Math.round(arr * 100) / 100,
+      ytdRevenue: Math.round(ytdRevenue * 100) / 100,
+      projectedEOY: Math.round(projectedEOY * 100) / 100,
+      growthRate: Math.round(growthRate * 10) / 10,
+      activeClients,
+      currentMonth,
+      monthsRemaining: 12 - currentMonth,
+      calculations: {
+        avgRevenuePerClient: Math.round((totalMRR / activeClients) * 100) / 100,
+        runRateARR: Math.round(arr * 100) / 100,
+        paceVsProjection: Math.round((arr / projectedEOY - 1) * 100 * 10) / 10
+      }
+    });
+  } catch (error: any) {
+    console.error('Error calculating revenue metrics:', error);
+    return c.json({ error: error.message || 'Failed to calculate revenue metrics' }, 500);
+  }
+});
+
 // Demo mode endpoint - for testing without Xero auth
 app.get('/api/demo/summary', (c) => {
   return c.json({
@@ -581,6 +641,51 @@ app.get('/api/demo/summary', (c) => {
     overdueCount: 38,
     overdueAmount: 63313.81,
     totalInvoices: 92,
+  });
+});
+
+// Demo endpoint for revenue metrics
+app.get('/api/demo/revenue/metrics', (c) => {
+  // Based on demo client data: 5 clients with totalPaid values
+  // ABC Corp: $45K, XYZ: $38K, Tech Solutions: $52K, Global: $28K, Prime: $61K
+  // Total: $224K, Average per client: $44.8K
+  const demoClients = [
+    { totalPaid: 45000, invoiceCount: 3 },
+    { totalPaid: 38000, invoiceCount: 2 },
+    { totalPaid: 52000, invoiceCount: 2 },
+    { totalPaid: 28000, invoiceCount: 1 },
+    { totalPaid: 61000, invoiceCount: 3 }
+  ];
+  
+  let totalMRR = 0;
+  let ytdRevenue = 0;
+  
+  for (const client of demoClients) {
+    const avgRevenue = client.totalPaid / client.invoiceCount;
+    totalMRR += avgRevenue;
+    ytdRevenue += client.totalPaid;
+  }
+  
+  const currentMonth = 2; // February
+  const arr = totalMRR * 12;
+  const projectedEOY = (ytdRevenue / currentMonth) * 12;
+  const expectedYTD = totalMRR * currentMonth;
+  const growthRate = ((ytdRevenue / expectedYTD - 1) * 100);
+  
+  return c.json({
+    mrr: Math.round(totalMRR * 100) / 100,
+    arr: Math.round(arr * 100) / 100,
+    ytdRevenue: Math.round(ytdRevenue * 100) / 100,
+    projectedEOY: Math.round(projectedEOY * 100) / 100,
+    growthRate: Math.round(growthRate * 10) / 10,
+    activeClients: demoClients.length,
+    currentMonth: 2,
+    monthsRemaining: 10,
+    calculations: {
+      avgRevenuePerClient: Math.round((totalMRR / demoClients.length) * 100) / 100,
+      runRateARR: Math.round(arr * 100) / 100,
+      paceVsProjection: Math.round((arr / projectedEOY - 1) * 100 * 10) / 10
+    }
   });
 });
 

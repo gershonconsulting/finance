@@ -108,6 +108,9 @@ async function loadDashboardData() {
     
     // Also load aging data
     await loadAgingData();
+    
+    // Load revenue metrics (ARR/MRR)
+    await loadRevenueMetrics();
   } catch (error) {
     console.error('Error loading dashboard data:', error);
     // Don't show alert - just log and continue
@@ -149,6 +152,67 @@ async function loadAgingData() {
     document.getElementById('criticalAmount').textContent = formatCurrency(demoAging.critical.total);
   }
 }
+
+// Load revenue metrics (ARR/MRR)
+async function loadRevenueMetrics() {
+  try {
+    let data;
+    
+    try {
+      console.log('Loading revenue metrics from /api/revenue/metrics...');
+      const response = await axios.get('/api/revenue/metrics');
+      data = response.data;
+      console.log('✅ Loaded real revenue metrics');
+    } catch (error) {
+      // Fall back to demo data
+      console.log('Loading demo revenue metrics...');
+      const response = await axios.get('/api/demo/revenue/metrics');
+      data = response.data;
+      console.log('✅ Loaded demo revenue metrics');
+    }
+    
+    // Update primary metrics
+    document.getElementById('currentMRR').textContent = formatCurrency(data.mrr);
+    document.getElementById('currentARR').textContent = formatCurrency(data.arr);
+    document.getElementById('ytdRevenue').textContent = formatCurrency(data.ytdRevenue);
+    document.getElementById('projectedEOY').textContent = formatCurrency(data.projectedEOY);
+    
+    // Update growth indicators
+    const growthSign = data.growthRate >= 0 ? '+' : '';
+    document.getElementById('mrrChange').textContent = `${growthSign}${data.growthRate.toFixed(1)}% vs expected`;
+    document.getElementById('arrGrowth').textContent = `${growthSign}${data.growthRate.toFixed(1)}% growth`;
+    
+    // Update secondary metrics
+    document.getElementById('activeClients').textContent = data.activeClients;
+    document.getElementById('avgRevenuePerClient').textContent = formatCurrency(data.calculations.avgRevenuePerClient);
+    document.getElementById('monthsRemaining').textContent = data.monthsRemaining;
+    
+    // Update month label
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthLabel = monthNames.slice(0, data.currentMonth).join('-');
+    document.getElementById('ytdMonths').textContent = `${monthLabel} (${data.currentMonth} months)`;
+    
+    // Update projection basis
+    const paceVsProjection = data.calculations.paceVsProjection;
+    const paceText = paceVsProjection >= 0 
+      ? `Running ${paceVsProjection.toFixed(1)}% ahead of projection` 
+      : `Running ${Math.abs(paceVsProjection).toFixed(1)}% behind projection`;
+    document.getElementById('projectionBasis').textContent = paceText;
+    
+    console.log('✅ Revenue metrics updated:', {
+      MRR: data.mrr,
+      ARR: data.arr,
+      YTD: data.ytdRevenue,
+      Projected: data.projectedEOY
+    });
+  } catch (error) {
+    console.error('Error loading revenue metrics:', error);
+    console.warn('Revenue metrics will show default values');
+  }
+}
+
+// Make it globally available
+window.loadRevenueMetrics = loadRevenueMetrics;
 
 // Update dashboard with data
 function updateDashboard(data) {
