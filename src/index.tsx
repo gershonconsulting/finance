@@ -173,8 +173,8 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.6.0',
-    releaseDate: '2026-03-05T10:53:18Z',
+    version: '2.6.1',
+    releaseDate: '2026-03-05T19:25:50Z',
     server: 'cloudflare-workers',
     fixes: [
       'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
@@ -581,48 +581,72 @@ app.get('/api/revenue/metrics', async (c) => {
 
     const xero = new XeroApiService(session.accessToken, session.tenantId);
     
-    // Get all clients with payment history
-    const clients = await xero.getClientsAwaitingPayment();
+    // Get ALL invoices (with dates) for proper calculation
+    const allInvoices = await xero.getInvoices();
     
-    // Calculate MRR: Sum of average revenue per client
-    // Logic: Each client is invoiced monthly, so avg invoice value = monthly revenue
-    let totalMRR = 0;
-    let activeClients = 0;
+    // Get current date info
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-12
+    const monthsRemaining = 12 - currentMonth;
+    
+    // Filter to 2026 invoices only
+    const invoices2026 = allInvoices.filter(inv => {
+      const invDate = inv.Date ? new Date(inv.Date) : null;
+      return invDate && invDate.getFullYear() === currentYear;
+    });
+    
+    // Calculate YTD Revenue (paid invoices in 2026 YTD)
     let ytdRevenue = 0;
+    const ytdInvoices = invoices2026.filter(inv => {
+      const invDate = inv.Date ? new Date(inv.Date) : null;
+      if (!invDate) return false;
+      return invDate.getMonth() + 1 <= currentMonth && inv.Status === 'PAID';
+    });
     
-    for (const client of clients) {
-      if (client.invoiceCount > 0) {
-        // Average revenue per invoice = totalPaid / invoiceCount
-        const avgRevenuePerInvoice = client.totalPaid / client.invoiceCount;
-        totalMRR += avgRevenuePerInvoice;
-        activeClients++;
-      }
-      ytdRevenue += client.totalPaid;
+    for (const inv of ytdInvoices) {
+      ytdRevenue += inv.Total || 0;
     }
     
-    // Calculate ARR and projections
-    const currentMonth = new Date().getMonth() + 1; // 1-12
-    const arr = totalMRR * 12;
+    // Calculate MRR (Monthly Recurring Revenue)
+    // Method: Average monthly revenue in 2026 YTD
+    const mrr = currentMonth > 0 ? ytdRevenue / currentMonth : 0;
+    
+    // Calculate ARR (Annual Run Rate)
+    const arr = mrr * 12;
+    
+    // Calculate Projected EOY (linear projection from YTD)
     const projectedEOY = (ytdRevenue / currentMonth) * 12;
     
-    // Calculate growth rate (compare last 30 days vs previous 30 days)
-    // For now, use a simple estimation based on YTD vs run rate
-    const expectedYTD = (totalMRR * currentMonth);
+    // Calculate growth rate
+    // Compare actual YTD vs expected YTD (based on run rate)
+    const expectedYTD = mrr * currentMonth;
     const growthRate = expectedYTD > 0 ? ((ytdRevenue / expectedYTD - 1) * 100) : 0;
     
+    // Count active clients (clients with invoices in 2026)
+    const activeClientIds = new Set();
+    for (const inv of invoices2026) {
+      if (inv.Contact?.ContactID) {
+        activeClientIds.add(inv.Contact.ContactID);
+      }
+    }
+    const activeClients = activeClientIds.size;
+    
     return c.json({
-      mrr: Math.round(totalMRR * 100) / 100,
+      mrr: Math.round(mrr * 100) / 100,
       arr: Math.round(arr * 100) / 100,
       ytdRevenue: Math.round(ytdRevenue * 100) / 100,
       projectedEOY: Math.round(projectedEOY * 100) / 100,
       growthRate: Math.round(growthRate * 10) / 10,
       activeClients,
       currentMonth,
-      monthsRemaining: 12 - currentMonth,
+      monthsRemaining,
       calculations: {
-        avgRevenuePerClient: Math.round((totalMRR / activeClients) * 100) / 100,
+        avgRevenuePerClient: activeClients > 0 ? Math.round((mrr / activeClients) * 100) / 100 : 0,
         runRateARR: Math.round(arr * 100) / 100,
-        paceVsProjection: Math.round((arr / projectedEOY - 1) * 100 * 10) / 10
+        paceVsProjection: projectedEOY > 0 ? Math.round((arr / projectedEOY - 1) * 100 * 10) / 10 : 0,
+        invoiceCount2026: invoices2026.length,
+        ytdInvoiceCount: ytdInvoices.length
       }
     });
   } catch (error: any) {
@@ -646,45 +670,47 @@ app.get('/api/demo/summary', (c) => {
 
 // Demo endpoint for revenue metrics
 app.get('/api/demo/revenue/metrics', (c) => {
-  // Based on demo client data: 5 clients with totalPaid values
-  // ABC Corp: $45K, XYZ: $38K, Tech Solutions: $52K, Global: $28K, Prime: $61K
-  // Total: $224K, Average per client: $44.8K
-  const demoClients = [
-    { totalPaid: 45000, invoiceCount: 3 },
-    { totalPaid: 38000, invoiceCount: 2 },
-    { totalPaid: 52000, invoiceCount: 2 },
-    { totalPaid: 28000, invoiceCount: 1 },
-    { totalPaid: 61000, invoiceCount: 3 }
-  ];
+  // Demo calculation based on realistic 2026 scenario
+  // Assume we have invoice data from Jan-March (3 months of 2026)
+  const currentMonth = new Date().getMonth() + 1; // Current month (1-12)
+  const currentYear = new Date().getFullYear();
   
-  let totalMRR = 0;
-  let ytdRevenue = 0;
+  // Demo: Total paid invoices YTD (realistic for Jan-Feb)
+  // Assuming $62,954.73 total outstanding (from demo summary)
+  // And historical payment pattern shows ~$30K paid per month
+  const ytdRevenue = 62954.73; // YTD paid invoices
   
-  for (const client of demoClients) {
-    const avgRevenue = client.totalPaid / client.invoiceCount;
-    totalMRR += avgRevenue;
-    ytdRevenue += client.totalPaid;
-  }
+  // MRR = Average monthly revenue
+  const mrr = ytdRevenue / currentMonth;
   
-  const currentMonth = 2; // February
-  const arr = totalMRR * 12;
+  // ARR = MRR × 12
+  const arr = mrr * 12;
+  
+  // Projected EOY = (YTD / months elapsed) × 12
   const projectedEOY = (ytdRevenue / currentMonth) * 12;
-  const expectedYTD = totalMRR * currentMonth;
-  const growthRate = ((ytdRevenue / expectedYTD - 1) * 100);
+  
+  // Growth rate: actual vs expected
+  const expectedYTD = mrr * currentMonth;
+  const growthRate = expectedYTD > 0 ? ((ytdRevenue / expectedYTD - 1) * 100) : 0;
+  
+  // Active clients (from demo data)
+  const activeClients = 14; // From demo clients list
   
   return c.json({
-    mrr: Math.round(totalMRR * 100) / 100,
+    mrr: Math.round(mrr * 100) / 100,
     arr: Math.round(arr * 100) / 100,
     ytdRevenue: Math.round(ytdRevenue * 100) / 100,
     projectedEOY: Math.round(projectedEOY * 100) / 100,
     growthRate: Math.round(growthRate * 10) / 10,
-    activeClients: demoClients.length,
-    currentMonth: 2,
-    monthsRemaining: 10,
+    activeClients,
+    currentMonth,
+    monthsRemaining: 12 - currentMonth,
     calculations: {
-      avgRevenuePerClient: Math.round((totalMRR / demoClients.length) * 100) / 100,
+      avgRevenuePerClient: Math.round((mrr / activeClients) * 100) / 100,
       runRateARR: Math.round(arr * 100) / 100,
-      paceVsProjection: Math.round((arr / projectedEOY - 1) * 100 * 10) / 10
+      paceVsProjection: projectedEOY > 0 ? Math.round((arr / projectedEOY - 1) * 100 * 10) / 10 : 0,
+      invoiceCount2026: 92, // From demo summary
+      ytdInvoiceCount: 92 // Assume all are YTD for demo
     }
   });
 });
