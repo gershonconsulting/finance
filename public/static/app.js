@@ -1285,8 +1285,24 @@ function renderTrendsTable() {
       
       switch(trendsSortState.column) {
         case 'period':
-          aVal = a.periodLabel;
-          bVal = b.periodLabel;
+          // Sort chronologically using periodStart (ISO date) if available,
+          // otherwise parse the month name from the label (e.g. "Jan 2026")
+          if (a.periodStart && b.periodStart) {
+            aVal = new Date(a.periodStart).getTime();
+            bVal = new Date(b.periodStart).getTime();
+          } else {
+            const monthOrder = { Jan:1, Feb:2, Mar:3, Apr:4, May:5, Jun:6, Jul:7, Aug:8, Sep:9, Oct:10, Nov:11, Dec:12 };
+            const parseLabel = (label) => {
+              const m = label.match(/([A-Za-z]+)\s+(\d{4})/);
+              if (m) return parseInt(m[2]) * 100 + (monthOrder[m[1]] || 0);
+              // Quarterly: "Q1 2026" -> 202601
+              const q = label.match(/Q(\d)\s+(\d{4})/);
+              if (q) return parseInt(q[2]) * 100 + (parseInt(q[1]) - 1) * 3 + 1;
+              return 0;
+            };
+            aVal = parseLabel(a.periodLabel);
+            bVal = parseLabel(b.periodLabel);
+          }
           break;
         case 'outstanding':
           aVal = a.totalOutstanding;
@@ -1466,6 +1482,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadInvoices();
       } else if (tabName === 'trends') {
         loadPaymentTrends();
+      } else if (tabName === 'sheets-links') {
+        loadClientSheetFormulas();
       }
     });
   });
@@ -1476,6 +1494,82 @@ document.addEventListener('DOMContentLoaded', () => {
     logoutBtn.addEventListener('click', logout);
   }
 });
+
+// Load per-client IMPORTDATA formulas for the Google Sheets Links tab
+async function loadClientSheetFormulas() {
+  const container = document.getElementById('clientSheetFormulas');
+  if (!container) return;
+
+  container.innerHTML = '<p class="text-sm text-gray-400 italic">Loading clients...</p>';
+
+  try {
+    let clients = [];
+
+    try {
+      const response = await axios.get('/api/clients/awaiting-payment');
+      clients = response.data;
+    } catch (err) {
+      const response = await axios.get('/api/demo/clients-awaiting-payment');
+      clients = response.data;
+    }
+
+    if (!clients || clients.length === 0) {
+      container.innerHTML = '<p class="text-sm text-gray-500">No clients with outstanding balances.</p>';
+      return;
+    }
+
+    // Sort alphabetically by client name
+    clients.sort((a, b) => (a.contactName || '').localeCompare(b.contactName || ''));
+
+    const baseUrl = 'https://finance.gershoncrm.com/api/sheets';
+
+    const rows = clients.map(client => {
+      const encoded = encodeURIComponent(client.contactName);
+      const formula = `=IMPORTDATA("${baseUrl}/${encoded}/due")`;
+      return `
+        <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-3 py-2 gap-3">
+          <span class="text-sm font-medium text-gray-800 w-48 shrink-0 truncate" title="${client.contactName}">${client.contactName}</span>
+          <code class="text-xs text-gray-700 flex-1 select-all break-all">${formula}</code>
+          <button onclick="copyText(this, '${formula.replace(/'/g, "\\'")}')"
+                  class="shrink-0 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition">
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = rows;
+  } catch (error) {
+    console.error('Error loading client sheet formulas:', error);
+    container.innerHTML = '<p class="text-sm text-red-500">Failed to load clients. Make sure you are connected to Xero.</p>';
+  }
+}
+
+// Copy text helper used by per-client copy buttons
+function copyText(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i>';
+    btn.classList.replace('bg-blue-600', 'bg-green-600');
+    btn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.classList.replace('bg-green-600', 'bg-blue-600');
+      btn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
+    }, 1500);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+}
+
+window.loadClientSheetFormulas = loadClientSheetFormulas;
+window.copyText = copyText;
 
 // Make functions globally available
 window.loadClientsAwaitingPayment = loadClientsAwaitingPayment;

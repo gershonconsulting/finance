@@ -173,18 +173,17 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.6.1',
-    releaseDate: '2026-03-05T19:25:50Z',
+    version: '2.8.0',
+    releaseDate: '2026-03-23T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.8.0: Fix Avg Revenue/Client (ContactID fallback to Name), move Refresh Data to nav, per-client IMPORTDATA on Sheets tab, period sort by month',
+      'v2.6.1: Stability improvements',
       'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
       'v2.4.1: Remove ALL alert popups - errors only logged to console',
       'v2.3.3: QA tested - removed duplicate auth endpoint, verified all features',
-      'v2.3.2: Added time to release date display',
-      'v2.3.1: Added release date/time to version display',
       'v2.3.0: Built dist with demo endpoints and correct URLs',
       'v2.2.0: Fixed URLs in src/index.tsx',
-      'v2.1.0: Added demo endpoints with totalOutstanding field',
       'v2.0.0: Node.js conversion',
     ]
   });
@@ -624,10 +623,12 @@ app.get('/api/revenue/metrics', async (c) => {
     const growthRate = expectedYTD > 0 ? ((ytdRevenue / expectedYTD - 1) * 100) : 0;
     
     // Count active clients (clients with invoices in 2026)
+    // Use ContactID as primary key, fall back to Name if ContactID is missing
     const activeClientIds = new Set();
     for (const inv of invoices2026) {
-      if (inv.Contact?.ContactID) {
-        activeClientIds.add(inv.Contact.ContactID);
+      const clientKey = inv.Contact?.ContactID || inv.Contact?.Name;
+      if (clientKey) {
+        activeClientIds.add(clientKey);
       }
     }
     const activeClients = activeClientIds.size;
