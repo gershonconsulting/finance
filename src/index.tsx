@@ -18,7 +18,7 @@ const app = new Hono<{ Bindings: Bindings }>();
 // Production credentials with fallbacks
 const PRODUCTION_CREDENTIALS = {
   XERO_CLIENT_ID: '0CA378B164364DB0821A6014520913E6',
-  XERO_CLIENT_SECRET: '-OvY_3_op75SDteQt6tOqvZVyZ3Ihq07aE32QYGOCWiqHhvh',
+  XERO_CLIENT_SECRET: 'Mq75ulsu-AJPj80E5NOFV7aaZfgh898xEqjnplXPMYL9SdNE',
   // Dynamically set redirect URI based on host
   getRedirectUri: (host: string) => {
     if (host.includes('finance.gershoncrm.com')) {
