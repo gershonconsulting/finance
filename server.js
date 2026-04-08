@@ -249,8 +249,8 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.6.1',
-    releaseDate: '2026-03-05T19:25:50Z',
+    version: '2.7.0',
+    releaseDate: '2026-04-08T12:21:36Z',
     server: 'nodejs-genspark',
     fixes: [
       'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
@@ -465,6 +465,135 @@ app.get('/api/sheets/clients/list', async (c) => {
       'Content-Type': 'text/csv'
     })
   }
+})
+
+// Executive Dashboard: summary KPIs
+app.get('/api/executive/summary', async (c) => {
+  try {
+    const session = getSession(c)
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401)
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId)
+    const [invoices, bankTransactions] = await Promise.all([
+      xero.getInvoices(),
+      xero.getBankTransactions(),
+    ])
+    const now = new Date()
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+    const totalOutstanding = invoices.filter(i => i.Status === 'AUTHORISED').reduce((s, i) => s + (i.AmountDue || 0), 0)
+    const revenueWindow = invoices.filter(i => { const d = i.Date ? new Date(i.Date) : null; return d && d >= ninetyDaysAgo }).reduce((s, i) => s + (i.Total || 0), 0)
+    const dso = revenueWindow > 0 ? Math.round((totalOutstanding / revenueWindow) * 90) : 0
+    const cashPosition = bankTransactions.filter(tx => { const d = tx.Date ? new Date(tx.Date) : null; return d && d >= ninetyDaysAgo }).reduce((s, tx) => tx.Type === 'RECEIVE' ? s + tx.Total : s - tx.Total, 0)
+    const currentMonth = now.getMonth(), currentYear = now.getFullYear()
+    const priorMonth = currentMonth === 0 ? 11 : currentMonth - 1
+    const priorMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear
+    const paid = invoices.filter(i => i.Status === 'PAID' && i.Date)
+    const sumMonth = (y, m) => paid.filter(i => { const d = new Date(i.Date); return d.getFullYear() === y && d.getMonth() === m }).reduce((s, i) => s + (i.Total || 0), 0)
+    const curRev = sumMonth(currentYear, currentMonth)
+    const priorRev = sumMonth(priorMonthYear, priorMonth)
+    const momGrowth = priorRev > 0 ? Math.round(((curRev - priorRev) / priorRev) * 1000) / 10 : 0
+    const overdueAmount = invoices.filter(i => i.Status === 'AUTHORISED' && i.DueDate && new Date(i.DueDate) < now).reduce((s, i) => s + (i.AmountDue || 0), 0)
+    return c.json({ dso, grossMarginPct: 0, revenue: curRev, cogs: 0, cashPosition: Math.round(cashPosition * 100) / 100, revenueGrowth: { momGrowth, yoyGrowth: 0, currentMonthRevenue: Math.round(curRev * 100) / 100, priorMonthRevenue: Math.round(priorRev * 100) / 100 }, activeInvoices: invoices.filter(i => i.Status === 'AUTHORISED').length, overdueAmount: Math.round(overdueAmount * 100) / 100 })
+  } catch (error) {
+    console.error('Executive summary error:', error)
+    return c.json({ error: error.message }, 500)
+  }
+})
+
+// Executive Dashboard: 12-month revenue chart
+app.get('/api/executive/revenue-chart', async (c) => {
+  try {
+    const session = getSession(c)
+    if (!session?.accessToken || !session?.tenantId) return c.json({ error: 'Not authenticated' }, 401)
+    const xero = new XeroApiService(session.accessToken, session.tenantId)
+    const invoices = await xero.getInvoices()
+    const now = new Date()
+    const labels = [], data = []
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      labels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }))
+      data.push(invoices.filter(inv => { if (inv.Status !== 'PAID' || !inv.Date) return false; const id = new Date(inv.Date); return id.getFullYear() === d.getFullYear() && id.getMonth() === d.getMonth() }).reduce((s, inv) => s + (inv.Total || 0), 0))
+    }
+    return c.json({ labels, datasets: [{ label: 'Revenue', data, backgroundColor: 'rgba(59,130,246,0.6)' }] })
+  } catch (error) { return c.json({ error: error.message }, 500) }
+})
+
+// Cash Flow: 13-week forecast
+app.get('/api/cashflow/forecast', async (c) => {
+  try {
+    const session = getSession(c)
+    if (!session?.accessToken || !session?.tenantId) return c.json({ error: 'Not authenticated' }, 401)
+    const xero = new XeroApiService(session.accessToken, session.tenantId)
+    const [invoices, bankTransactions] = await Promise.all([xero.getInvoices(), xero.getBankTransactions()])
+    const now = new Date()
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+    const eightWeeksAgo = new Date(now.getTime() - 56 * 24 * 60 * 60 * 1000)
+    const recent = invoices.filter(i => { const d = i.Date ? new Date(i.Date) : null; return d && d >= ninetyDaysAgo })
+    const paid = recent.filter(i => i.Status === 'PAID').length
+    const collectionRate = recent.length > 0 ? paid / recent.length : 0.7
+    const avgWeeklySpend = bankTransactions.filter(tx => { const d = tx.Date ? new Date(tx.Date) : null; return d && d >= eightWeeksAgo && tx.Type === 'SPEND' }).reduce((s, tx) => s + tx.Total, 0) / 8
+    let balance = bankTransactions.filter(tx => { const d = tx.Date ? new Date(tx.Date) : null; return d && d >= ninetyDaysAgo }).reduce((s, tx) => tx.Type === 'RECEIVE' ? s + tx.Total : s - tx.Total, 0)
+    const weeks = Array.from({ length: 13 }, (_, i) => {
+      const ws = new Date(now.getTime() + i * 7 * 24 * 60 * 60 * 1000)
+      const we = new Date(ws.getTime() + 7 * 24 * 60 * 60 * 1000)
+      const inflows = invoices.filter(inv => { if (inv.Status !== 'AUTHORISED') return false; const due = inv.DueDate ? new Date(inv.DueDate) : null; return due && due >= ws && due < we }).reduce((s, inv) => s + (inv.AmountDue || 0), 0) * collectionRate
+      balance = balance + inflows - avgWeeklySpend
+      return { weekLabel: `Week ${i+1} (${ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`, weekStart: ws.toISOString().split('T')[0], expectedInflows: Math.round(inflows * 100) / 100, expectedOutflows: Math.round(avgWeeklySpend * 100) / 100, projectedBalance: Math.round(balance * 100) / 100 }
+    })
+    return c.json(weeks)
+  } catch (error) { return c.json({ error: error.message }, 500) }
+})
+
+// Cash Flow: trailing 12-week operating cash flow
+app.get('/api/cashflow/operating', async (c) => {
+  try {
+    const session = getSession(c)
+    if (!session?.accessToken || !session?.tenantId) return c.json({ error: 'Not authenticated' }, 401)
+    const xero = new XeroApiService(session.accessToken, session.tenantId)
+    const bankTransactions = await xero.getBankTransactions()
+    const now = new Date()
+    const result = Array.from({ length: 12 }, (_, i) => {
+      const we = new Date(now.getTime() - (11 - i) * 7 * 24 * 60 * 60 * 1000)
+      const ws = new Date(we.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const weekTx = bankTransactions.filter(tx => { const d = tx.Date ? new Date(tx.Date) : null; return d && d >= ws && d < we })
+      const inflows = weekTx.filter(tx => tx.Type === 'RECEIVE').reduce((s, tx) => s + tx.Total, 0)
+      const outflows = weekTx.filter(tx => tx.Type === 'SPEND').reduce((s, tx) => s + tx.Total, 0)
+      return { weekLabel: ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), inflows: Math.round(inflows * 100) / 100, outflows: Math.round(outflows * 100) / 100, netCashFlow: Math.round((inflows - outflows) * 100) / 100 }
+    })
+    return c.json(result)
+  } catch (error) { return c.json({ error: error.message }, 500) }
+})
+
+// Demo: executive summary
+app.get('/api/demo/executive-summary', (c) => {
+  return c.json({ dso: 47, grossMarginPct: 68.5, revenue: 124500, cogs: 39217, cashPosition: 45200, revenueGrowth: { momGrowth: 12.3, yoyGrowth: 28.7, currentMonthRevenue: 24500, priorMonthRevenue: 21815 }, activeInvoices: 38, overdueAmount: 63313 })
+})
+
+// Demo: executive revenue chart
+app.get('/api/demo/executive-revenue-chart', (c) => {
+  const now = new Date()
+  const base = [18200, 21500, 19800, 23100, 20400, 22900, 24100, 21700, 25300, 23800, 21815, 24500]
+  const labels = [], data = []
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    labels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }))
+    data.push(base[11 - i])
+  }
+  return c.json({ labels, datasets: [{ label: 'Revenue', data, backgroundColor: 'rgba(59,130,246,0.6)' }] })
+})
+
+// Demo: 13-week cash flow forecast
+app.get('/api/demo/cashflow-forecast', (c) => {
+  const now = new Date()
+  let balance = 45200
+  const inflows = [12400, 8900, 15200, 6800, 11300, 9700, 13500, 7200, 10800, 14100, 8300, 11900, 9500]
+  const weeks = inflows.map((inflow, i) => {
+    const ws = new Date(now.getTime() + i * 7 * 24 * 60 * 60 * 1000)
+    balance = balance + inflow - 8200
+    return { weekLabel: `Week ${i+1} (${ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`, weekStart: ws.toISOString().split('T')[0], expectedInflows: inflow, expectedOutflows: 8200, projectedBalance: Math.round(balance * 100) / 100 }
+  })
+  return c.json(weeks)
 })
 
 // Demo data endpoints (for unauthenticated users)
