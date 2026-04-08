@@ -6,6 +6,7 @@ import { XeroApiService } from './services/xero-api';
 import { ExportService } from './services/export-service';
 import { XeroOAuthService } from './services/xero-oauth';
 import { PaymentTrendsService } from './services/payment-trends';
+import { CfoAnalyticsService } from './services/cfo-analytics';
 
 type Bindings = {
   XERO_CLIENT_ID: string;
@@ -173,7 +174,7 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.6.1',
+    version: '2.7.0',
     releaseDate: '2026-03-05T19:25:50Z',
     server: 'cloudflare-workers',
     fixes: [
@@ -653,6 +654,153 @@ app.get('/api/revenue/metrics', async (c) => {
     console.error('Error calculating revenue metrics:', error);
     return c.json({ error: error.message || 'Failed to calculate revenue metrics' }, 500);
   }
+});
+
+// Executive Dashboard: combined KPI summary
+app.get('/api/executive/summary', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const [invoices, plReport, bankTransactions] = await Promise.all([
+      xero.getInvoices(),
+      xero.getProfitAndLossReport(),
+      xero.getBankTransactions(),
+    ]);
+
+    const dso = CfoAnalyticsService.calculateDSO(invoices);
+    const grossMargin = CfoAnalyticsService.calculateGrossMargin(plReport);
+    const cashPosition = CfoAnalyticsService.calculateCashPosition(bankTransactions);
+    const revenueGrowth = CfoAnalyticsService.calculateRevenueGrowth(invoices);
+
+    const activeInvoices = invoices.filter(inv => inv.Status === 'AUTHORISED').length;
+    const overdueAmount = invoices
+      .filter(inv => inv.Status === 'AUTHORISED' && inv.DueDate && new Date(inv.DueDate) < new Date())
+      .reduce((sum, inv) => sum + (inv.AmountDue || 0), 0);
+
+    return c.json({
+      dso,
+      grossMarginPct: grossMargin.grossMarginPct,
+      revenue: grossMargin.revenue,
+      cogs: grossMargin.cogs,
+      cashPosition: Math.round(cashPosition * 100) / 100,
+      revenueGrowth,
+      activeInvoices,
+      overdueAmount: Math.round(overdueAmount * 100) / 100,
+    });
+  } catch (error: any) {
+    console.error('Error fetching executive summary:', error);
+    return c.json({ error: error.message || 'Failed to fetch executive summary' }, 500);
+  }
+});
+
+// Executive Dashboard: monthly revenue chart data
+app.get('/api/executive/revenue-chart', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const invoices = await xero.getInvoices();
+    return c.json(CfoAnalyticsService.buildRevenueChart(invoices));
+  } catch (error: any) {
+    console.error('Error fetching revenue chart:', error);
+    return c.json({ error: error.message || 'Failed to fetch revenue chart' }, 500);
+  }
+});
+
+// Cash Flow: 13-week forecast
+app.get('/api/cashflow/forecast', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const [invoices, bankTransactions] = await Promise.all([
+      xero.getInvoices(),
+      xero.getBankTransactions(),
+    ]);
+    return c.json(CfoAnalyticsService.build13WeekForecast(invoices, bankTransactions));
+  } catch (error: any) {
+    console.error('Error fetching cash flow forecast:', error);
+    return c.json({ error: error.message || 'Failed to fetch cash flow forecast' }, 500);
+  }
+});
+
+// Cash Flow: trailing 12-week operating cash flow
+app.get('/api/cashflow/operating', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const bankTransactions = await xero.getBankTransactions();
+    return c.json(CfoAnalyticsService.buildOperatingCashFlow(bankTransactions, 12));
+  } catch (error: any) {
+    console.error('Error fetching operating cash flow:', error);
+    return c.json({ error: error.message || 'Failed to fetch operating cash flow' }, 500);
+  }
+});
+
+// Demo: executive summary
+app.get('/api/demo/executive-summary', (c) => {
+  return c.json({
+    dso: 47,
+    grossMarginPct: 68.5,
+    revenue: 124500,
+    cogs: 39217,
+    cashPosition: 45200,
+    revenueGrowth: {
+      momGrowth: 12.3,
+      yoyGrowth: 28.7,
+      currentMonthRevenue: 24500,
+      priorMonthRevenue: 21815,
+    },
+    activeInvoices: 38,
+    overdueAmount: 63313,
+  });
+});
+
+// Demo: executive revenue chart
+app.get('/api/demo/executive-revenue-chart', (c) => {
+  const now = new Date();
+  const labels = [];
+  const data = [];
+  const base = [18200, 21500, 19800, 23100, 20400, 22900, 24100, 21700, 25300, 23800, 21815, 24500];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    labels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+    data.push(base[11 - i]);
+  }
+  return c.json({
+    labels,
+    datasets: [{ label: 'Revenue', data, backgroundColor: 'rgba(59, 130, 246, 0.6)' }],
+  });
+});
+
+// Demo: 13-week cash flow forecast
+app.get('/api/demo/cashflow-forecast', (c) => {
+  const now = new Date();
+  let balance = 45200;
+  const inflows = [12400, 8900, 15200, 6800, 11300, 9700, 13500, 7200, 10800, 14100, 8300, 11900, 9500];
+  const outflows = [8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200];
+  const weeks = inflows.map((inflow, i) => {
+    const weekStart = new Date(now.getTime() + i * 7 * 24 * 60 * 60 * 1000);
+    balance = balance + inflow - outflows[i];
+    return {
+      weekLabel: `Week ${i + 1} (${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
+      weekStart: weekStart.toISOString().split('T')[0],
+      expectedInflows: inflow,
+      expectedOutflows: outflows[i],
+      projectedBalance: Math.round(balance * 100) / 100,
+    };
+  });
+  return c.json(weeks);
 });
 
 // Demo mode endpoint - for testing without Xero auth

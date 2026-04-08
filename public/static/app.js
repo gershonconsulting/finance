@@ -370,6 +370,18 @@ async function loadInvoices(status = null) {
   }
 }
 
+// Returns a risk badge for an invoice based on days overdue
+function getInvoiceRiskBadge(inv) {
+  if (inv.Status === 'PAID' || inv.Status === 'DRAFT') return '';
+  const dueDate = inv.DueDate ? new Date(inv.DueDate) : null;
+  if (!dueDate) return '';
+  const daysOverdue = Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysOverdue <= 0) return '<span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">Low</span>';
+  if (daysOverdue <= 30) return '<span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">Low</span>';
+  if (daysOverdue <= 60) return '<span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-full">Medium</span>';
+  return '<span class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full">High</span>';
+}
+
 // Display invoices in table
 // Store current invoice data for sorting
 let currentInvoiceData = [];
@@ -409,6 +421,9 @@ function displayInvoices(invoices) {
           <th onclick="sortInvoices('Status')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
             Status <i class="fas fa-sort ml-1"></i>
           </th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            Risk
+          </th>
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
@@ -425,6 +440,7 @@ function displayInvoices(invoices) {
                 ${inv.Status}
               </span>
             </td>
+            <td class="px-6 py-4 whitespace-nowrap">${getInvoiceRiskBadge(inv)}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -711,6 +727,18 @@ async function loadClientsAwaitingPayment() {
   }
 }
 
+// Returns a Diamond/Gold/Silver segment badge based on client payment profile
+function getClientSegmentBadge(client) {
+  const outstanding = client.totalOutstanding || 0;
+  const delay = client.averagePaymentDelay || 0;
+  if (outstanding > 10000 && delay < 30) {
+    return '<span class="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full font-semibold">💎 Diamond</span>';
+  } else if (outstanding > 5000 || delay < 60) {
+    return '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full font-semibold">🥇 Gold</span>';
+  }
+  return '<span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full font-semibold">🥈 Silver</span>';
+}
+
 // Store current client data for sorting
 let currentClientData = [];
 let clientSortConfig = { column: null, direction: 'asc' };
@@ -843,7 +871,7 @@ function displayClientsAwaitingPayment(clients, isDemo = false) {
                   <i class="fas fa-building text-blue-600"></i>
                 </div>
                 <div class="ml-4">
-                  <div class="text-sm font-medium text-gray-900">${client.contactName}</div>
+                  <div class="text-sm font-medium text-gray-900">${client.contactName}${getClientSegmentBadge(client)}</div>
                 </div>
               </div>
             </td>
@@ -1466,6 +1494,10 @@ document.addEventListener('DOMContentLoaded', () => {
         loadInvoices();
       } else if (tabName === 'trends') {
         loadPaymentTrends();
+      } else if (tabName === 'executive') {
+        loadExecutiveDashboard();
+      } else if (tabName === 'cashflow') {
+        loadCashFlow();
       }
     });
   });
@@ -1479,3 +1511,138 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Make functions globally available
 window.loadClientsAwaitingPayment = loadClientsAwaitingPayment;
+
+// ---- Executive Dashboard ----
+let executiveRevenueChartInstance = null;
+
+async function loadExecutiveDashboard() {
+  try {
+    let summary, chartData;
+    try {
+      const [s, c] = await Promise.all([
+        axios.get('/api/executive/summary'),
+        axios.get('/api/executive/revenue-chart'),
+      ]);
+      summary = s.data;
+      chartData = c.data;
+    } catch (e) {
+      const [s, c] = await Promise.all([
+        axios.get('/api/demo/executive-summary'),
+        axios.get('/api/demo/executive-revenue-chart'),
+      ]);
+      summary = s.data;
+      chartData = c.data;
+    }
+
+    // DSO card with traffic-light colour
+    const dsoEl = document.getElementById('execDso');
+    const dsoCard = document.getElementById('dsoCard');
+    const dsoStatus = document.getElementById('dsoStatus');
+    if (dsoEl) dsoEl.textContent = `${summary.dso} days`;
+    if (dsoCard && dsoStatus) {
+      dsoCard.classList.remove('border-gray-300', 'border-green-500', 'border-yellow-500', 'border-red-500');
+      if (summary.dso < 30) {
+        dsoCard.classList.add('border-green-500');
+        dsoStatus.textContent = 'Excellent';
+        dsoStatus.className = 'text-xs text-green-600 mt-1';
+      } else if (summary.dso < 60) {
+        dsoCard.classList.add('border-yellow-500');
+        dsoStatus.textContent = 'Acceptable';
+        dsoStatus.className = 'text-xs text-yellow-600 mt-1';
+      } else {
+        dsoCard.classList.add('border-red-500');
+        dsoStatus.textContent = 'Needs Attention';
+        dsoStatus.className = 'text-xs text-red-600 mt-1';
+      }
+    }
+
+    const gmEl = document.getElementById('execGrossMargin');
+    if (gmEl) gmEl.textContent = `${summary.grossMarginPct.toFixed(1)}%`;
+
+    const cpEl = document.getElementById('execCashPosition');
+    if (cpEl) cpEl.textContent = formatCurrency(summary.cashPosition);
+
+    const mom = summary.revenueGrowth ? summary.revenueGrowth.momGrowth : 0;
+    const rgEl = document.getElementById('execRevenueGrowth');
+    if (rgEl) {
+      rgEl.textContent = `${mom >= 0 ? '+' : ''}${mom.toFixed(1)}%`;
+      rgEl.className = `text-3xl font-bold mt-2 ${mom >= 0 ? 'text-green-700' : 'text-red-700'}`;
+    }
+    const rdEl = document.getElementById('execRevenueDetail');
+    if (rdEl && summary.revenueGrowth) {
+      rdEl.textContent = `${formatCurrency(summary.revenueGrowth.currentMonthRevenue)} vs ${formatCurrency(summary.revenueGrowth.priorMonthRevenue)}`;
+    }
+
+    // Revenue chart
+    const canvas = document.getElementById('executiveRevenueChart');
+    if (canvas && chartData) {
+      const ctx = canvas.getContext('2d');
+      if (executiveRevenueChartInstance) executiveRevenueChartInstance.destroy();
+      executiveRevenueChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: v => '$' + Number(v).toLocaleString() },
+            },
+          },
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Error loading executive dashboard:', error);
+  }
+}
+window.loadExecutiveDashboard = loadExecutiveDashboard;
+
+// ---- Cash Flow ----
+async function loadCashFlow() {
+  try {
+    let forecast;
+    try {
+      const response = await axios.get('/api/cashflow/forecast');
+      forecast = response.data;
+    } catch (e) {
+      const response = await axios.get('/api/demo/cashflow-forecast');
+      forecast = response.data;
+    }
+
+    const tableEl = document.getElementById('cashflowForecastTable');
+    if (!tableEl) return;
+
+    const rows = forecast.map((week, i) => {
+      const isNegative = week.projectedBalance < 0;
+      const rowClass = isNegative ? 'bg-red-50' : i % 2 === 0 ? '' : 'bg-gray-50';
+      const alertCell = isNegative
+        ? '<td class="px-4 py-3"><span class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full font-semibold">⚠ Cash Warning</span></td>'
+        : '<td class="px-4 py-3"></td>';
+      return `<tr class="${rowClass}">
+        <td class="px-4 py-3 text-sm font-medium ${isNegative ? 'text-red-700' : 'text-gray-900'}">${week.weekLabel}</td>
+        <td class="px-4 py-3 text-sm text-green-700">${formatCurrency(week.expectedInflows)}</td>
+        <td class="px-4 py-3 text-sm text-red-700">(${formatCurrency(week.expectedOutflows)})</td>
+        <td class="px-4 py-3 text-sm font-bold ${isNegative ? 'text-red-700' : 'text-blue-700'}">${formatCurrency(week.projectedBalance)}</td>
+        ${alertCell}
+      </tr>`;
+    }).join('');
+
+    tableEl.innerHTML = `<table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Week</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Inflows</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Outflows</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Projected Balance</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Alert</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">${rows}</tbody>
+    </table>`;
+  } catch (error) {
+    console.error('Error loading cash flow:', error);
+  }
+}
+window.loadCashFlow = loadCashFlow;
