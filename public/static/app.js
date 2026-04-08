@@ -157,11 +157,13 @@ async function loadAgingData() {
 async function loadRevenueMetrics() {
   try {
     let data;
-    
+    let isLive = false;
+
     try {
       console.log('Loading revenue metrics from /api/revenue/metrics...');
       const response = await axios.get('/api/revenue/metrics');
       data = response.data;
+      isLive = true;
       console.log('✅ Loaded real revenue metrics');
     } catch (error) {
       // Fall back to demo data
@@ -170,44 +172,106 @@ async function loadRevenueMetrics() {
       data = response.data;
       console.log('✅ Loaded demo revenue metrics');
     }
-    
+
+    updateLiveIndicator(isLive, new Date().toISOString());
+
     // Update primary metrics
     document.getElementById('currentMRR').textContent = formatCurrency(data.mrr);
     document.getElementById('currentARR').textContent = formatCurrency(data.arr);
     document.getElementById('ytdRevenue').textContent = formatCurrency(data.ytdRevenue);
     document.getElementById('projectedEOY').textContent = formatCurrency(data.projectedEOY);
-    
-    // Update growth indicators
-    const growthSign = data.growthRate >= 0 ? '+' : '';
-    document.getElementById('mrrChange').textContent = `${growthSign}${data.growthRate.toFixed(1)}% vs expected`;
-    document.getElementById('arrGrowth').textContent = `${growthSign}${data.growthRate.toFixed(1)}% growth`;
-    
+
+    // Update MoM growth
+    const momSign = (data.momGrowth || 0) >= 0 ? '+' : '';
+    document.getElementById('mrrChange').textContent = `${momSign}${(data.momGrowth || 0).toFixed(1)}% vs last month`;
+    document.getElementById('arrGrowth').textContent = `${momSign}${(data.momGrowth || 0).toFixed(1)}% MoM`;
+
     // Update secondary metrics
     document.getElementById('activeClients').textContent = data.activeClients;
     document.getElementById('avgRevenuePerClient').textContent = formatCurrency(data.calculations.avgRevenuePerClient);
     document.getElementById('monthsRemaining').textContent = data.monthsRemaining;
-    
+
     // Update month label
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const monthLabel = monthNames.slice(0, data.currentMonth).join('-');
     document.getElementById('ytdMonths').textContent = `${monthLabel} (${data.currentMonth} months)`;
-    
+
     // Update projection basis
     const paceVsProjection = data.calculations.paceVsProjection;
-    const paceText = paceVsProjection >= 0 
-      ? `Running ${paceVsProjection.toFixed(1)}% ahead of projection` 
+    const paceText = paceVsProjection >= 0
+      ? `Running ${paceVsProjection.toFixed(1)}% ahead of projection`
       : `Running ${Math.abs(paceVsProjection).toFixed(1)}% behind projection`;
     document.getElementById('projectionBasis').textContent = paceText;
-    
+
+    // Update new this-month dashboard cards
+    const thisMonthEl = document.getElementById('thisMonthInvoiced');
+    if (thisMonthEl) thisMonthEl.textContent = formatCurrency(data.thisMonthInvoiced || data.mrr);
+
+    const momLabel = document.getElementById('momGrowthLabel');
+    if (momLabel) {
+      const sign = (data.momGrowth || 0) >= 0 ? '+' : '';
+      const prevFmt = formatCurrency(data.prevMonthInvoiced || 0);
+      momLabel.textContent = `${sign}${(data.momGrowth || 0).toFixed(1)}% vs ${prevFmt} last month`;
+    }
+
+    const activeMonthEl = document.getElementById('activeClientsThisMonth');
+    if (activeMonthEl) activeMonthEl.textContent = data.activeClients;
+
+    const paidEl = document.getElementById('paidThisMonth');
+    if (paidEl) paidEl.textContent = data.paidThisMonth || 0;
+
+    const unpaidEl = document.getElementById('unpaidThisMonth');
+    if (unpaidEl) unpaidEl.textContent = data.unpaidThisMonth || 0;
+
+    const lateEl = document.getElementById('lateThisMonth');
+    if (lateEl) lateEl.textContent = data.lateThisMonth || 0;
+
+    const crLabel = document.getElementById('collectionRateLabel');
+    if (crLabel) crLabel.textContent = `collection rate: ${(data.collectionRate || 0).toFixed(1)}%`;
+
+    // Sync analytics tab cards if visible
+    const analyticsArEl = document.getElementById('analyticsMRR');
+    if (analyticsArEl) analyticsArEl.textContent = formatCurrency(data.mrr);
+    const analyticsArrEl = document.getElementById('analyticsARR');
+    if (analyticsArrEl) analyticsArrEl.textContent = formatCurrency(data.arr);
+    const analyticsCrEl = document.getElementById('analyticsCollectionRate');
+    if (analyticsCrEl) analyticsCrEl.textContent = `${(data.collectionRate || 0).toFixed(1)}%`;
+    const analyticsLateEl = document.getElementById('analyticsLate');
+    if (analyticsLateEl) analyticsLateEl.textContent = data.lateThisMonth || 0;
+
     console.log('✅ Revenue metrics updated:', {
       MRR: data.mrr,
+      thisMonthInvoiced: data.thisMonthInvoiced,
+      prevMonthInvoiced: data.prevMonthInvoiced,
       ARR: data.arr,
-      YTD: data.ytdRevenue,
-      Projected: data.projectedEOY
     });
   } catch (error) {
     console.error('Error loading revenue metrics:', error);
-    console.warn('Revenue metrics will show default values');
+  }
+}
+
+// Live / Not Live indicator
+function updateLiveIndicator(isLive, lastRefreshISO) {
+  const indicator = document.getElementById('liveIndicator');
+  const text = document.getElementById('liveIndicatorText');
+  const syncTime = document.getElementById('lastSyncTime');
+
+  if (!indicator || !text) return;
+
+  if (isLive) {
+    indicator.className = 'flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white';
+    indicator.querySelector('span').className = 'w-2 h-2 rounded-full bg-green-200 mr-2 animate-pulse';
+    text.textContent = 'Live Data';
+  } else {
+    indicator.className = 'flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500 text-white';
+    indicator.querySelector('span').className = 'w-2 h-2 rounded-full bg-yellow-200 mr-2';
+    text.textContent = 'Not Live';
+  }
+
+  if (syncTime && lastRefreshISO) {
+    const dt = new Date(lastRefreshISO);
+    syncTime.textContent = `Last synced: ${dt.toLocaleTimeString()}`;
+    syncTime.classList.remove('hidden');
   }
 }
 
@@ -1490,14 +1554,14 @@ document.addEventListener('DOMContentLoaded', () => {
       // Load data for the selected tab
       if (tabName === 'clients') {
         loadClientsAwaitingPayment();
+        loadClientLifetime();
       } else if (tabName === 'invoices') {
         loadInvoices();
       } else if (tabName === 'trends') {
         loadPaymentTrends();
-      } else if (tabName === 'executive') {
-        loadExecutiveDashboard();
-      } else if (tabName === 'cashflow') {
-        loadCashFlow();
+        loadMonthlyTrends();
+      } else if (tabName === 'analytics') {
+        loadAnalyticsGoals();
       }
     });
   });
@@ -1646,3 +1710,158 @@ async function loadCashFlow() {
   }
 }
 window.loadCashFlow = loadCashFlow;
+
+// ---- Monthly Trends Table ----
+async function loadMonthlyTrends() {
+  const el = document.getElementById('monthlyTrendsTable');
+  if (!el) return;
+  el.innerHTML = '<p class="text-gray-400 text-center py-6">Loading...</p>';
+
+  try {
+    const res = await axios.get('/api/monthly/trends');
+    const { months, lastRefresh } = res.data;
+    updateLiveIndicator(true, lastRefresh);
+    renderMonthlyTrendsTable(months);
+  } catch (e) {
+    el.innerHTML = '<p class="text-red-500 text-center py-6">Unable to load — sign in with Xero to see live data</p>';
+  }
+}
+
+function renderMonthlyTrendsTable(months) {
+  const el = document.getElementById('monthlyTrendsTable');
+  if (!el) return;
+
+  const rows = months.map(m => {
+    const crColor = m.collectionRate >= 80 ? 'text-green-600' : m.collectionRate >= 50 ? 'text-yellow-600' : 'text-red-600';
+    return `<tr class="hover:bg-gray-50 border-b border-gray-100">
+      <td class="px-4 py-3 text-sm font-medium text-gray-800 whitespace-nowrap">${m.month}</td>
+      <td class="px-4 py-3 text-sm text-right font-semibold text-blue-700">${formatCurrency(m.totalInvoiced)}</td>
+      <td class="px-4 py-3 text-sm text-right text-gray-700">${m.activeClients}</td>
+      <td class="px-4 py-3 text-sm text-right text-gray-600">${formatCurrency(m.avgPerClient)}</td>
+      <td class="px-4 py-3 text-sm text-right text-gray-600">${m.invoiceCount}</td>
+      <td class="px-4 py-3 text-sm text-right text-green-600">${m.paidCount}</td>
+      <td class="px-4 py-3 text-sm text-right text-orange-500">${m.unpaidCount}</td>
+      <td class="px-4 py-3 text-sm text-right text-red-500">${m.lateCount}</td>
+      <td class="px-4 py-3 text-sm text-right font-semibold ${crColor}">${m.collectionRate.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<table class="min-w-full text-left">
+    <thead>
+      <tr class="bg-gray-50 text-xs uppercase text-gray-500 tracking-wider">
+        <th class="px-4 py-3">Month</th>
+        <th class="px-4 py-3 text-right">Total Invoiced</th>
+        <th class="px-4 py-3 text-right">Active Clients</th>
+        <th class="px-4 py-3 text-right">Avg / Client</th>
+        <th class="px-4 py-3 text-right">Invoices</th>
+        <th class="px-4 py-3 text-right">Paid</th>
+        <th class="px-4 py-3 text-right">Unpaid</th>
+        <th class="px-4 py-3 text-right">Late</th>
+        <th class="px-4 py-3 text-right">Collection Rate</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+window.loadMonthlyTrends = loadMonthlyTrends;
+
+// ---- Client Lifetime / Retention ----
+async function loadClientLifetime() {
+  const el = document.getElementById('clientLifetimeTable');
+  if (!el) return;
+  el.innerHTML = '<p class="text-gray-400 text-center py-6">Loading...</p>';
+
+  try {
+    const res = await axios.get('/api/clients/lifetime');
+    const { clients, lastRefresh } = res.data;
+    updateLiveIndicator(true, lastRefresh);
+
+    if (!clients.length) {
+      el.innerHTML = '<p class="text-gray-500 text-center py-6">No client data found</p>';
+      return;
+    }
+
+    const rows = clients.map(c => `
+      <tr class="hover:bg-gray-50 border-b border-gray-100">
+        <td class="px-4 py-3 text-sm font-medium text-gray-900">${c.contactName}</td>
+        <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">${c.firstInvoiceDate}</td>
+        <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">${c.latestInvoiceDate}</td>
+        <td class="px-4 py-3 text-sm text-center font-semibold text-blue-700">${c.elapsedMonths}</td>
+        <td class="px-4 py-3 text-sm text-center font-semibold text-purple-700">${c.billedMonths}</td>
+        <td class="px-4 py-3 text-sm text-right text-gray-800 font-semibold">${formatCurrency(c.totalInvoiced)}</td>
+        <td class="px-4 py-3 text-sm text-right text-gray-600">${formatCurrency(c.latestInvoiceAmount)}</td>
+      </tr>`).join('');
+
+    el.innerHTML = `<table class="min-w-full text-left">
+      <thead>
+        <tr class="bg-gray-50 text-xs uppercase text-gray-500 tracking-wider">
+          <th class="px-4 py-3">Client</th>
+          <th class="px-4 py-3">First Invoice</th>
+          <th class="px-4 py-3">Latest Invoice</th>
+          <th class="px-4 py-3 text-center">Elapsed Months</th>
+          <th class="px-4 py-3 text-center">Billed Months</th>
+          <th class="px-4 py-3 text-right">Total Invoiced</th>
+          <th class="px-4 py-3 text-right">Latest Invoice</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="text-xs text-gray-400 mt-3">
+      <strong>Elapsed months:</strong> first invoice month to latest invoice month, inclusive. &nbsp;
+      <strong>Billed months:</strong> distinct months with at least one invoice.
+    </p>`;
+  } catch (e) {
+    el.innerHTML = '<p class="text-red-500 text-center py-6">Unable to load — sign in with Xero to see live data</p>';
+  }
+}
+
+window.loadClientLifetime = loadClientLifetime;
+
+// ---- Analytics & Goals ----
+async function loadAnalyticsGoals() {
+  // Populate KPI cards from already-loaded revenue metrics
+  await loadRevenueMetrics();
+
+  // Load monthly table for analytics tab
+  const el = document.getElementById('analyticsMonthlyTable');
+  if (!el) return;
+  el.innerHTML = '<p class="text-gray-400 text-center py-6">Loading...</p>';
+
+  try {
+    const res = await axios.get('/api/monthly/trends');
+    const { months } = res.data;
+
+    const rows = months.map(m => {
+      const crColor = m.collectionRate >= 80 ? 'text-green-600' : m.collectionRate >= 50 ? 'text-yellow-600' : 'text-red-600';
+      return `<tr class="hover:bg-gray-50 border-b border-gray-100">
+        <td class="px-4 py-3 text-sm font-medium text-gray-800">${m.month}</td>
+        <td class="px-4 py-3 text-sm text-right text-blue-700 font-semibold">${formatCurrency(m.totalInvoiced)}</td>
+        <td class="px-4 py-3 text-sm text-right text-green-600">${formatCurrency(m.paidAmount)}</td>
+        <td class="px-4 py-3 text-sm text-right text-orange-500">${formatCurrency(m.unpaidAmount)}</td>
+        <td class="px-4 py-3 text-sm text-right text-red-500">${formatCurrency(m.lateAmount)}</td>
+        <td class="px-4 py-3 text-sm text-right font-semibold ${crColor}">${m.collectionRate.toFixed(1)}%</td>
+        <td class="px-4 py-3 text-sm text-right text-gray-600">${m.activeClients}</td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `<table class="min-w-full text-left">
+      <thead>
+        <tr class="bg-gray-50 text-xs uppercase text-gray-500 tracking-wider">
+          <th class="px-4 py-3">Month</th>
+          <th class="px-4 py-3 text-right">Total Invoiced</th>
+          <th class="px-4 py-3 text-right">Paid</th>
+          <th class="px-4 py-3 text-right">Unpaid</th>
+          <th class="px-4 py-3 text-right">Late / Overdue</th>
+          <th class="px-4 py-3 text-right">Collection Rate</th>
+          <th class="px-4 py-3 text-right">Active Clients</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch (e) {
+    el.innerHTML = '<p class="text-red-500 text-center py-6">Unable to load — sign in with Xero to see live data</p>';
+  }
+}
+
+window.loadAnalyticsGoals = loadAnalyticsGoals;

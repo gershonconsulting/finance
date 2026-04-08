@@ -249,8 +249,8 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.7.0',
-    releaseDate: '2026-04-08T12:21:36Z',
+    version: '2.8.0',
+    releaseDate: '2026-04-08T23:58:44Z',
     server: 'nodejs-genspark',
     fixes: [
       'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
