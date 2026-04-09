@@ -15,7 +15,7 @@ const app = new Hono()
 // Production credentials embedded
 const XERO_CREDENTIALS = {
   CLIENT_ID: '0CA378B164364DB0821A6014520913E6',
-  CLIENT_SECRET: '-OvY_3_op75SDteQt6tOqvZVyZ3Ihq07aE32QYGOCWiqHhvh',
+  CLIENT_SECRET: 'Mq75ulsu-AJPj80E5NOFV7aaZfgh898xEqjnplXPMYL9SdNE',
   getRedirectUri: (host) => {
     if (host.includes('finance.gershoncrm.com')) {
       return 'https://finance.gershoncrm.com/auth/callback'
@@ -253,12 +253,11 @@ app.get('/api/health', (c) => {
     releaseDate: '2026-04-08T23:58:44Z',
     server: 'nodejs-genspark',
     fixes: [
+      'v2.8.0: Fix Avg Revenue/Client, move Refresh Data to nav, per-client IMPORTDATA on Sheets tab, period sort by month',
       'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
       'v2.4.1: Remove ALL alert popups - errors only logged to console',
       'v2.4.0: Fix dashboard element IDs mismatch',
       'v2.2.0: Fixed all URLs in src/index.tsx to use finance.gershoncrm.com',
-      'v2.1.0: Added demo endpoints with totalOutstanding field',
-      'v2.0.0: Converted to Node.js from Cloudflare Workers'
     ]
   })
 })

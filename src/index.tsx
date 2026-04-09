@@ -19,7 +19,7 @@ const app = new Hono<{ Bindings: Bindings }>();
 // Production credentials with fallbacks
 const PRODUCTION_CREDENTIALS = {
   XERO_CLIENT_ID: '0CA378B164364DB0821A6014520913E6',
-  XERO_CLIENT_SECRET: '-OvY_3_op75SDteQt6tOqvZVyZ3Ihq07aE32QYGOCWiqHhvh',
+  XERO_CLIENT_SECRET: 'Mq75ulsu-AJPj80E5NOFV7aaZfgh898xEqjnplXPMYL9SdNE',
   // Dynamically set redirect URI based on host
   getRedirectUri: (host: string) => {
     if (host.includes('finance.gershoncrm.com')) {
@@ -178,14 +178,13 @@ app.get('/api/health', (c) => {
     releaseDate: '2026-04-08T23:58:44Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.8.0: Fix Avg Revenue/Client (ContactID fallback to Name), move Refresh Data to nav, per-client IMPORTDATA on Sheets tab, period sort by month',
+      'v2.6.1: Stability improvements',
       'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
       'v2.4.1: Remove ALL alert popups - errors only logged to console',
       'v2.3.3: QA tested - removed duplicate auth endpoint, verified all features',
-      'v2.3.2: Added time to release date display',
-      'v2.3.1: Added release date/time to version display',
       'v2.3.0: Built dist with demo endpoints and correct URLs',
       'v2.2.0: Fixed URLs in src/index.tsx',
-      'v2.1.0: Added demo endpoints with totalOutstanding field',
       'v2.0.0: Node.js conversion',
     ]
   });
