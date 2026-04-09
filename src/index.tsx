@@ -6,6 +6,7 @@ import { XeroApiService } from './services/xero-api';
 import { ExportService } from './services/export-service';
 import { XeroOAuthService } from './services/xero-oauth';
 import { PaymentTrendsService } from './services/payment-trends';
+import { CfoAnalyticsService } from './services/cfo-analytics';
 
 type Bindings = {
   XERO_CLIENT_ID: string;
@@ -174,7 +175,7 @@ app.get('/api/health', (c) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     version: '2.8.0',
-    releaseDate: '2026-03-23T00:00:00Z',
+    releaseDate: '2026-04-08T23:58:44Z',
     server: 'cloudflare-workers',
     fixes: [
       'v2.8.0: Fix Avg Revenue/Client (ContactID fallback to Name), move Refresh Data to nav, per-client IMPORTDATA on Sheets tab, period sort by month',
@@ -579,81 +580,424 @@ app.get('/api/revenue/metrics', async (c) => {
     }
 
     const xero = new XeroApiService(session.accessToken, session.tenantId);
-    
-    // Get ALL invoices (with dates) for proper calculation
     const allInvoices = await xero.getInvoices();
-    
-    // Get current date info
+
     const now = new Date();
     const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // 1-12
-    const monthsRemaining = 12 - currentMonth;
-    
-    // Filter to 2026 invoices only
-    const invoices2026 = allInvoices.filter(inv => {
-      const invDate = inv.Date ? new Date(inv.Date) : null;
-      return invDate && invDate.getFullYear() === currentYear;
-    });
-    
-    // Calculate YTD Revenue (paid invoices in 2026 YTD)
-    let ytdRevenue = 0;
-    const ytdInvoices = invoices2026.filter(inv => {
-      const invDate = inv.Date ? new Date(inv.Date) : null;
-      if (!invDate) return false;
-      return invDate.getMonth() + 1 <= currentMonth && inv.Status === 'PAID';
-    });
-    
-    for (const inv of ytdInvoices) {
-      ytdRevenue += inv.Total || 0;
-    }
-    
-    // Calculate MRR (Monthly Recurring Revenue)
-    // Method: Average monthly revenue in 2026 YTD
-    const mrr = currentMonth > 0 ? ytdRevenue / currentMonth : 0;
-    
-    // Calculate ARR (Annual Run Rate)
-    const arr = mrr * 12;
-    
-    // Calculate Projected EOY (linear projection from YTD)
-    const projectedEOY = (ytdRevenue / currentMonth) * 12;
-    
-    // Calculate growth rate
-    // Compare actual YTD vs expected YTD (based on run rate)
-    const expectedYTD = mrr * currentMonth;
-    const growthRate = expectedYTD > 0 ? ((ytdRevenue / expectedYTD - 1) * 100) : 0;
-    
-    // Count active clients (clients with invoices in 2026)
-    // Use ContactID as primary key, fall back to Name if ContactID is missing
-    const activeClientIds = new Set();
-    for (const inv of invoices2026) {
-      const clientKey = inv.Contact?.ContactID || inv.Contact?.Name;
-      if (clientKey) {
-        activeClientIds.add(clientKey);
+    const currentMonth = now.getMonth(); // 0-indexed
+    const monthsRemaining = 11 - currentMonth;
+
+    // Helper: parse Xero date strings
+    const parseDate = (d: any): Date | null => {
+      if (!d) return null;
+      if (typeof d === 'string' && d.includes('/Date(')) {
+        const m = d.match(/\/Date\((\d+)/);
+        return m ? new Date(parseInt(m[1])) : null;
       }
-    }
+      const dt = new Date(d);
+      return isNaN(dt.getTime()) ? null : dt;
+    };
+
+    const validStatuses = ['PAID', 'AUTHORISED', 'SUBMITTED'];
+
+    // Current month: total invoiced (all non-void invoices issued this month)
+    const thisMonthInvoices = allInvoices.filter(inv => {
+      const d = parseDate(inv.Date);
+      return d && d.getFullYear() === currentYear && d.getMonth() === currentMonth
+        && validStatuses.includes(inv.Status);
+    });
+    const thisMonthInvoiced = thisMonthInvoices.reduce((s, i) => s + (i.Total || 0), 0);
+
+    // Previous month
+    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    const prevMonthInvoices = allInvoices.filter(inv => {
+      const d = parseDate(inv.Date);
+      return d && d.getFullYear() === prevMonthYear && d.getMonth() === prevMonth
+        && validStatuses.includes(inv.Status);
+    });
+    const prevMonthInvoiced = prevMonthInvoices.reduce((s, i) => s + (i.Total || 0), 0);
+
+    // MRR = actual invoiced this month (Option A: simple actual billing MRR)
+    const mrr = thisMonthInvoiced;
+    const arr = mrr * 12;
+
+    // YTD Revenue: paid invoices this year
+    const ytdPaidInvoices = allInvoices.filter(inv => {
+      const d = parseDate(inv.Date);
+      return d && d.getFullYear() === currentYear && inv.Status === 'PAID';
+    });
+    const ytdRevenue = ytdPaidInvoices.reduce((s, i) => s + (i.Total || 0), 0);
+
+    // Projected EOY from YTD paid pace
+    const monthsElapsed = currentMonth + 1;
+    const projectedEOY = monthsElapsed > 0 ? (ytdRevenue / monthsElapsed) * 12 : 0;
+
+    // MoM growth
+    const momGrowth = prevMonthInvoiced > 0
+      ? ((thisMonthInvoiced - prevMonthInvoiced) / prevMonthInvoiced) * 100 : 0;
+
+    // Active clients this month (unique clients with at least one invoice)
+    const activeClientIds = new Set<string>();
+    thisMonthInvoices.forEach(inv => {
+      if (inv.Contact?.ContactID) activeClientIds.add(inv.Contact.ContactID);
+    });
     const activeClients = activeClientIds.size;
-    
+
+    // Paid/unpaid/late this month
+    const paidThisMonth = thisMonthInvoices.filter(i => i.Status === 'PAID').length;
+    const unpaidThisMonth = thisMonthInvoices.filter(i => i.Status !== 'PAID').length;
+    const lateThisMonth = thisMonthInvoices.filter(i => {
+      const due = parseDate(i.DueDate);
+      return i.Status !== 'PAID' && due && due < now;
+    }).length;
+
+    // Collection rate (paid amount / total invoiced this month)
+    const paidAmountThisMonth = thisMonthInvoices
+      .filter(i => i.Status === 'PAID')
+      .reduce((s, i) => s + (i.Total || 0), 0);
+    const collectionRate = thisMonthInvoiced > 0
+      ? Math.round((paidAmountThisMonth / thisMonthInvoiced) * 1000) / 10 : 0;
+
     return c.json({
       mrr: Math.round(mrr * 100) / 100,
       arr: Math.round(arr * 100) / 100,
       ytdRevenue: Math.round(ytdRevenue * 100) / 100,
       projectedEOY: Math.round(projectedEOY * 100) / 100,
-      growthRate: Math.round(growthRate * 10) / 10,
+      thisMonthInvoiced: Math.round(thisMonthInvoiced * 100) / 100,
+      prevMonthInvoiced: Math.round(prevMonthInvoiced * 100) / 100,
+      momGrowth: Math.round(momGrowth * 10) / 10,
+      growthRate: Math.round(momGrowth * 10) / 10,
       activeClients,
-      currentMonth,
+      currentMonth: currentMonth + 1,
       monthsRemaining,
+      mrrFormula: 'MRR = Total invoiced in current month (actual billing)',
+      paidThisMonth,
+      unpaidThisMonth,
+      lateThisMonth,
+      collectionRate,
       calculations: {
         avgRevenuePerClient: activeClients > 0 ? Math.round((mrr / activeClients) * 100) / 100 : 0,
         runRateARR: Math.round(arr * 100) / 100,
         paceVsProjection: projectedEOY > 0 ? Math.round((arr / projectedEOY - 1) * 100 * 10) / 10 : 0,
-        invoiceCount2026: invoices2026.length,
-        ytdInvoiceCount: ytdInvoices.length
+        invoiceCount2026: allInvoices.filter(i => { const d = parseDate(i.Date); return d && d.getFullYear() === currentYear; }).length,
+        ytdInvoiceCount: ytdPaidInvoices.length
       }
     });
   } catch (error: any) {
     console.error('Error calculating revenue metrics:', error);
     return c.json({ error: error.message || 'Failed to calculate revenue metrics' }, 500);
   }
+});
+
+// Monthly trends: month-by-month breakdown for the past 12 months
+app.get('/api/monthly/trends', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const allInvoices = await xero.getInvoices();
+    const now = new Date();
+
+    const parseDate = (d: any): Date | null => {
+      if (!d) return null;
+      if (typeof d === 'string' && d.includes('/Date(')) {
+        const m = d.match(/\/Date\((\d+)/);
+        return m ? new Date(parseInt(m[1])) : null;
+      }
+      const dt = new Date(d);
+      return isNaN(dt.getTime()) ? null : dt;
+    };
+
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const yr = d.getFullYear();
+      const mo = d.getMonth();
+
+      const monthInvoices = allInvoices.filter(inv => {
+        const id = parseDate(inv.Date);
+        return id && id.getFullYear() === yr && id.getMonth() === mo
+          && ['PAID', 'AUTHORISED', 'SUBMITTED'].includes(inv.Status);
+      });
+
+      const totalInvoiced = monthInvoices.reduce((s, i) => s + (i.Total || 0), 0);
+      const invoiceCount = monthInvoices.length;
+
+      const activeClientSet = new Set<string>();
+      monthInvoices.forEach(inv => {
+        if (inv.Contact?.ContactID) activeClientSet.add(inv.Contact.ContactID);
+      });
+      const activeClients = activeClientSet.size;
+
+      const paidInvoices = monthInvoices.filter(i => i.Status === 'PAID');
+      const paidAmount = paidInvoices.reduce((s, i) => s + (i.Total || 0), 0);
+      const unpaidInvoices = monthInvoices.filter(i => i.Status !== 'PAID');
+      const lateInvoices = monthInvoices.filter(i => {
+        const due = parseDate(i.DueDate);
+        return i.Status !== 'PAID' && due && due < now;
+      });
+
+      const collectionRate = totalInvoiced > 0
+        ? Math.round((paidAmount / totalInvoiced) * 1000) / 10 : 0;
+
+      months.push({
+        month: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        year: yr,
+        monthNum: mo + 1,
+        totalInvoiced: Math.round(totalInvoiced * 100) / 100,
+        invoiceCount,
+        activeClients,
+        avgPerClient: activeClients > 0 ? Math.round((totalInvoiced / activeClients) * 100) / 100 : 0,
+        paidCount: paidInvoices.length,
+        paidAmount: Math.round(paidAmount * 100) / 100,
+        unpaidCount: unpaidInvoices.length,
+        unpaidAmount: Math.round(unpaidInvoices.reduce((s, i) => s + (i.AmountDue || i.Total || 0), 0) * 100) / 100,
+        lateCount: lateInvoices.length,
+        lateAmount: Math.round(lateInvoices.reduce((s, i) => s + (i.AmountDue || i.Total || 0), 0) * 100) / 100,
+        collectionRate,
+      });
+    }
+
+    return c.json({ months, lastRefresh: now.toISOString() });
+  } catch (error: any) {
+    console.error('Monthly trends error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Client lifetime: retention metrics per client
+app.get('/api/clients/lifetime', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const allInvoices = await xero.getInvoices();
+    const now = new Date();
+
+    const parseDate = (d: any): Date | null => {
+      if (!d) return null;
+      if (typeof d === 'string' && d.includes('/Date(')) {
+        const m = d.match(/\/Date\((\d+)/);
+        return m ? new Date(parseInt(m[1])) : null;
+      }
+      const dt = new Date(d);
+      return isNaN(dt.getTime()) ? null : dt;
+    };
+
+    const clientMap = new Map<string, any>();
+
+    for (const inv of allInvoices) {
+      if (!['PAID', 'AUTHORISED', 'SUBMITTED'].includes(inv.Status)) continue;
+      const contactId = inv.Contact?.ContactID;
+      const contactName = inv.Contact?.Name || 'Unknown';
+      if (!contactId) continue;
+
+      const invDate = parseDate(inv.Date);
+      if (!invDate) continue;
+
+      const monthKey = `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, '0')}`;
+
+      if (!clientMap.has(contactId)) {
+        clientMap.set(contactId, {
+          contactId,
+          contactName,
+          firstInvoiceDate: invDate,
+          latestInvoiceDate: invDate,
+          billedMonths: new Set([monthKey]),
+          totalInvoiced: 0,
+          latestInvoiceAmount: 0,
+          invoiceCount: 0,
+        });
+      }
+
+      const client = clientMap.get(contactId);
+      if (invDate < client.firstInvoiceDate) client.firstInvoiceDate = invDate;
+      if (invDate >= client.latestInvoiceDate) {
+        client.latestInvoiceDate = invDate;
+        client.latestInvoiceAmount = inv.Total || 0;
+      }
+      client.billedMonths.add(monthKey);
+      client.totalInvoiced += inv.Total || 0;
+      client.invoiceCount += 1;
+    }
+
+    const clients = Array.from(clientMap.values()).map(c => {
+      const firstDate = c.firstInvoiceDate as Date;
+      const latestDate = c.latestInvoiceDate as Date;
+      // Elapsed lifetime: months between first and latest, inclusive
+      const elapsedMonths = (latestDate.getFullYear() - firstDate.getFullYear()) * 12
+        + (latestDate.getMonth() - firstDate.getMonth()) + 1;
+      return {
+        contactName: c.contactName,
+        firstInvoiceDate: firstDate.toISOString().split('T')[0],
+        latestInvoiceDate: latestDate.toISOString().split('T')[0],
+        elapsedMonths,
+        billedMonths: c.billedMonths.size,
+        totalInvoiced: Math.round(c.totalInvoiced * 100) / 100,
+        latestInvoiceAmount: Math.round(c.latestInvoiceAmount * 100) / 100,
+        invoiceCount: c.invoiceCount,
+      };
+    }).sort((a, b) => b.totalInvoiced - a.totalInvoiced);
+
+    return c.json({ clients, lastRefresh: now.toISOString() });
+  } catch (error: any) {
+    console.error('Client lifetime error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Executive Dashboard: combined KPI summary
+app.get('/api/executive/summary', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const [invoices, plReport, bankTransactions] = await Promise.all([
+      xero.getInvoices(),
+      xero.getProfitAndLossReport(),
+      xero.getBankTransactions(),
+    ]);
+
+    const dso = CfoAnalyticsService.calculateDSO(invoices);
+    const grossMargin = CfoAnalyticsService.calculateGrossMargin(plReport);
+    const cashPosition = CfoAnalyticsService.calculateCashPosition(bankTransactions);
+    const revenueGrowth = CfoAnalyticsService.calculateRevenueGrowth(invoices);
+
+    const activeInvoices = invoices.filter(inv => inv.Status === 'AUTHORISED').length;
+    const overdueAmount = invoices
+      .filter(inv => inv.Status === 'AUTHORISED' && inv.DueDate && new Date(inv.DueDate) < new Date())
+      .reduce((sum, inv) => sum + (inv.AmountDue || 0), 0);
+
+    return c.json({
+      dso,
+      grossMarginPct: grossMargin.grossMarginPct,
+      revenue: grossMargin.revenue,
+      cogs: grossMargin.cogs,
+      cashPosition: Math.round(cashPosition * 100) / 100,
+      revenueGrowth,
+      activeInvoices,
+      overdueAmount: Math.round(overdueAmount * 100) / 100,
+    });
+  } catch (error: any) {
+    console.error('Error fetching executive summary:', error);
+    return c.json({ error: error.message || 'Failed to fetch executive summary' }, 500);
+  }
+});
+
+// Executive Dashboard: monthly revenue chart data
+app.get('/api/executive/revenue-chart', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const invoices = await xero.getInvoices();
+    return c.json(CfoAnalyticsService.buildRevenueChart(invoices));
+  } catch (error: any) {
+    console.error('Error fetching revenue chart:', error);
+    return c.json({ error: error.message || 'Failed to fetch revenue chart' }, 500);
+  }
+});
+
+// Cash Flow: 13-week forecast
+app.get('/api/cashflow/forecast', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const [invoices, bankTransactions] = await Promise.all([
+      xero.getInvoices(),
+      xero.getBankTransactions(),
+    ]);
+    return c.json(CfoAnalyticsService.build13WeekForecast(invoices, bankTransactions));
+  } catch (error: any) {
+    console.error('Error fetching cash flow forecast:', error);
+    return c.json({ error: error.message || 'Failed to fetch cash flow forecast' }, 500);
+  }
+});
+
+// Cash Flow: trailing 12-week operating cash flow
+app.get('/api/cashflow/operating', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const bankTransactions = await xero.getBankTransactions();
+    return c.json(CfoAnalyticsService.buildOperatingCashFlow(bankTransactions, 12));
+  } catch (error: any) {
+    console.error('Error fetching operating cash flow:', error);
+    return c.json({ error: error.message || 'Failed to fetch operating cash flow' }, 500);
+  }
+});
+
+// Demo: executive summary
+app.get('/api/demo/executive-summary', (c) => {
+  return c.json({
+    dso: 47,
+    grossMarginPct: 68.5,
+    revenue: 124500,
+    cogs: 39217,
+    cashPosition: 45200,
+    revenueGrowth: {
+      momGrowth: 12.3,
+      yoyGrowth: 28.7,
+      currentMonthRevenue: 24500,
+      priorMonthRevenue: 21815,
+    },
+    activeInvoices: 38,
+    overdueAmount: 63313,
+  });
+});
+
+// Demo: executive revenue chart
+app.get('/api/demo/executive-revenue-chart', (c) => {
+  const now = new Date();
+  const labels = [];
+  const data = [];
+  const base = [18200, 21500, 19800, 23100, 20400, 22900, 24100, 21700, 25300, 23800, 21815, 24500];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    labels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+    data.push(base[11 - i]);
+  }
+  return c.json({
+    labels,
+    datasets: [{ label: 'Revenue', data, backgroundColor: 'rgba(59, 130, 246, 0.6)' }],
+  });
+});
+
+// Demo: 13-week cash flow forecast
+app.get('/api/demo/cashflow-forecast', (c) => {
+  const now = new Date();
+  let balance = 45200;
+  const inflows = [12400, 8900, 15200, 6800, 11300, 9700, 13500, 7200, 10800, 14100, 8300, 11900, 9500];
+  const outflows = [8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200, 8200];
+  const weeks = inflows.map((inflow, i) => {
+    const weekStart = new Date(now.getTime() + i * 7 * 24 * 60 * 60 * 1000);
+    balance = balance + inflow - outflows[i];
+    return {
+      weekLabel: `Week ${i + 1} (${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
+      weekStart: weekStart.toISOString().split('T')[0],
+      expectedInflows: inflow,
+      expectedOutflows: outflows[i],
+      projectedBalance: Math.round(balance * 100) / 100,
+    };
+  });
+  return c.json(weeks);
 });
 
 // Demo mode endpoint - for testing without Xero auth
@@ -671,47 +1015,42 @@ app.get('/api/demo/summary', (c) => {
 
 // Demo endpoint for revenue metrics
 app.get('/api/demo/revenue/metrics', (c) => {
-  // Demo calculation based on realistic 2026 scenario
-  // Assume we have invoice data from Jan-March (3 months of 2026)
-  const currentMonth = new Date().getMonth() + 1; // Current month (1-12)
-  const currentYear = new Date().getFullYear();
-  
-  // Demo: Total paid invoices YTD (realistic for Jan-Feb)
-  // Assuming $62,954.73 total outstanding (from demo summary)
-  // And historical payment pattern shows ~$30K paid per month
-  const ytdRevenue = 62954.73; // YTD paid invoices
-  
-  // MRR = Average monthly revenue
-  const mrr = ytdRevenue / currentMonth;
-  
-  // ARR = MRR × 12
+  const currentMonth = new Date().getMonth() + 1;
+  // Demo: this month invoiced (realistic — NOT averaged with prior months)
+  const thisMonthInvoiced = 18200;
+  const prevMonthInvoiced = 21500;
+  const mrr = thisMonthInvoiced;
   const arr = mrr * 12;
-  
-  // Projected EOY = (YTD / months elapsed) × 12
-  const projectedEOY = (ytdRevenue / currentMonth) * 12;
-  
-  // Growth rate: actual vs expected
-  const expectedYTD = mrr * currentMonth;
-  const growthRate = expectedYTD > 0 ? ((ytdRevenue / expectedYTD - 1) * 100) : 0;
-  
-  // Active clients (from demo data)
-  const activeClients = 14; // From demo clients list
-  
+  const ytdRevenue = 62954.73;
+  const monthsElapsed = currentMonth;
+  const projectedEOY = (ytdRevenue / monthsElapsed) * 12;
+  const momGrowth = prevMonthInvoiced > 0
+    ? ((thisMonthInvoiced - prevMonthInvoiced) / prevMonthInvoiced) * 100 : 0;
+  const activeClients = 8;
+
   return c.json({
     mrr: Math.round(mrr * 100) / 100,
     arr: Math.round(arr * 100) / 100,
     ytdRevenue: Math.round(ytdRevenue * 100) / 100,
     projectedEOY: Math.round(projectedEOY * 100) / 100,
-    growthRate: Math.round(growthRate * 10) / 10,
+    thisMonthInvoiced,
+    prevMonthInvoiced,
+    momGrowth: Math.round(momGrowth * 10) / 10,
+    growthRate: Math.round(momGrowth * 10) / 10,
     activeClients,
     currentMonth,
     monthsRemaining: 12 - currentMonth,
+    mrrFormula: 'MRR = Total invoiced in current month (actual billing)',
+    paidThisMonth: 5,
+    unpaidThisMonth: 3,
+    lateThisMonth: 1,
+    collectionRate: 62.5,
     calculations: {
       avgRevenuePerClient: Math.round((mrr / activeClients) * 100) / 100,
       runRateARR: Math.round(arr * 100) / 100,
       paceVsProjection: projectedEOY > 0 ? Math.round((arr / projectedEOY - 1) * 100 * 10) / 10 : 0,
-      invoiceCount2026: 92, // From demo summary
-      ytdInvoiceCount: 92 // Assume all are YTD for demo
+      invoiceCount2026: 92,
+      ytdInvoiceCount: 72
     }
   });
 });
