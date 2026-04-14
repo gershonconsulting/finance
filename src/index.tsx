@@ -1,4 +1,4 @@
-// BUILD TIMESTAMP: 1771032719 - Force rebuild v2.4.4
+h// BUILD TIMESTAMP: 1771032719 - Force rebuild v2.4.4
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serveStatic } from 'hono/cloudflare-workers';
@@ -11,7 +11,7 @@ import { CfoAnalyticsService } from './services/cfo-analytics';
 type Bindings = {
   XERO_CLIENT_ID: string;
   XERO_CLIENT_SECRET: string;
-  XERO_REDIRECT_URI: string;
+  XERO_REDIRECT_URI: string;h
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -1610,13 +1610,12 @@ app.get('/', (c) => {
                         <p class="text-blue-100 text-sm">
                             <i class="fas fa-lock mr-2"></i>
                             Secure OAuth 2.0 Authentication
-                        </p>
-                    </div>
+<button id="logoutBtn" onclick="logout()"                    </div>
                 </div>
             </div>
 
             <!-- Dashboard (hidden by default, shown after login) -->
-            <div id="dashboardPage" class="hidden">
+            <div id="mainApp" class="hidden">
                 <!-- Navigation -->
                 <nav class="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
