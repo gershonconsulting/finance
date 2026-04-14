@@ -1,4 +1,4 @@
-h// BUILD TIMESTAMP: 1771032719 - Force rebuild v2.4.4
+// BUILD TIMESTAMP: 1771032719 - Force rebuild v2.4.4
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serveStatic } from 'hono/cloudflare-workers';
@@ -11,7 +11,7 @@ import { CfoAnalyticsService } from './services/cfo-analytics';
 type Bindings = {
   XERO_CLIENT_ID: string;
   XERO_CLIENT_SECRET: string;
-  XERO_REDIRECT_URI: string;h
+  XERO_REDIRECT_URI: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
