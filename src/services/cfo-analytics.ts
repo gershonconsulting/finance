@@ -44,7 +44,7 @@ export class CfoAnalyticsService {
 
     const revenueWindow = invoices
       .filter(inv => {
-        const d = inv.Date ? new Date(inv.Date) : null;
+        const d = inv.DueDate ? new Date(inv.DueDate) : null;
         return d && d >= ninetyDaysAgo && (inv.Status === 'PAID' || inv.Status === 'AUTHORISED');
       })
       .reduce((sum, inv) => sum + (inv.Total || 0), 0);
@@ -126,12 +126,12 @@ export class CfoAnalyticsService {
     const priorMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
     const lastYear = currentYear - 1;
 
-    const paidInvoices = invoices.filter(inv => inv.Status === 'PAID' && inv.Date);
+    const paidInvoices = invoices.filter(inv => inv.Status === 'PAID' && inv.DueDate);
 
     const sumForPeriod = (year: number, month: number): number =>
       paidInvoices
         .filter(inv => {
-          const d = new Date(inv.Date);
+          const d = new Date(inv.DueDate);
           return d.getFullYear() === year && d.getMonth() === month;
         })
         .reduce((sum, inv) => sum + (inv.Total || 0), 0);
@@ -168,7 +168,7 @@ export class CfoAnalyticsService {
     // Historical collection rate (last 90 days)
     const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     const recentInvoices = invoices.filter(inv => {
-      const d = inv.Date ? new Date(inv.Date) : null;
+      const d = inv.DueDate ? new Date(inv.DueDate) : null;
       return d && d >= ninetyDaysAgo && (inv.Status === 'PAID' || inv.Status === 'AUTHORISED');
     });
     const paid = recentInvoices.filter(inv => inv.Status === 'PAID').length;
@@ -277,8 +277,8 @@ export class CfoAnalyticsService {
 
       const monthRevenue = invoices
         .filter(inv => {
-          if (inv.Status !== 'PAID' || !inv.Date) return false;
-          const d = new Date(inv.Date);
+          if (inv.Status !== 'PAID' || !inv.DueDate) return false;
+          const d = new Date(inv.DueDate);
           return d.getFullYear() === year && d.getMonth() === month;
         })
         .reduce((sum, inv) => sum + (inv.Total || 0), 0);

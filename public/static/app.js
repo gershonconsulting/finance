@@ -1615,7 +1615,7 @@ async function loadClientSheetFormulas() {
     // Sort alphabetically by client name
     clients.sort((a, b) => (a.contactName || '').localeCompare(b.contactName || ''));
 
-    const baseUrl = 'https://finance.gershoncrm.com/api/sheets';
+    const baseUrl = `${window.location.origin}/api/sheets`;
 
     const rows = clients.map(client => {
       const encoded = encodeURIComponent(client.contactName);

@@ -174,10 +174,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.8.0',
+    version: '2.9.1',
     releaseDate: '2026-04-08T23:58:44Z',
     server: 'cloudflare-workers',
     fixes: [
+              'v2.9.1: Fix February issue - group invoices by DueDate instead of Date, fix per-client Google Sheets IMPORTDATA URLs',
       'v2.8.0: Fix Avg Revenue/Client (ContactID fallback to Name), move Refresh Data to nav, per-client IMPORTDATA on Sheets tab, period sort by month',
       'v2.6.1: Stability improvements',
       'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
@@ -602,7 +603,7 @@ app.get('/api/revenue/metrics', async (c) => {
 
     // Current month: total invoiced (all non-void invoices issued this month)
     const thisMonthInvoices = allInvoices.filter(inv => {
-      const d = parseDate(inv.Date);
+      const d = parseDate(inv.DueDate);
       return d && d.getFullYear() === currentYear && d.getMonth() === currentMonth
         && validStatuses.includes(inv.Status);
     });
@@ -612,7 +613,7 @@ app.get('/api/revenue/metrics', async (c) => {
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
     const prevMonthInvoices = allInvoices.filter(inv => {
-      const d = parseDate(inv.Date);
+      const d = parseDate(inv.DueDate);
       return d && d.getFullYear() === prevMonthYear && d.getMonth() === prevMonth
         && validStatuses.includes(inv.Status);
     });
@@ -624,7 +625,7 @@ app.get('/api/revenue/metrics', async (c) => {
 
     // YTD Revenue: paid invoices this year
     const ytdPaidInvoices = allInvoices.filter(inv => {
-      const d = parseDate(inv.Date);
+      const d = parseDate(inv.DueDate);
       return d && d.getFullYear() === currentYear && inv.Status === 'PAID';
     });
     const ytdRevenue = ytdPaidInvoices.reduce((s, i) => s + (i.Total || 0), 0);
@@ -719,7 +720,7 @@ app.get('/api/monthly/trends', async (c) => {
       const mo = d.getMonth();
 
       const monthInvoices = allInvoices.filter(inv => {
-        const id = parseDate(inv.Date);
+        const id = parseDate(inv.DueDate);
         return id && id.getFullYear() === yr && id.getMonth() === mo
           && ['PAID', 'AUTHORISED', 'SUBMITTED'].includes(inv.Status);
       });
