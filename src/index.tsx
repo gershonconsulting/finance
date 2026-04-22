@@ -174,11 +174,13 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.9.1',
-    releaseDate: '2026-04-08T23:58:44Z',
+    version: '2.11.0',
+    releaseDate: '2026-04-21T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
-              'v2.9.1: Fix February issue - group invoices by DueDate instead of Date, fix per-client Google Sheets IMPORTDATA URLs',
+      'v2.11.0: Split Analytics & Goals into separate tabs; Goals tab with editable revenue/client/collection targets (localStorage), progress bars, pace indicator, monthly tracking table, revenue projection chart, AI Insights for Goals',
+      'v2.10.0: Analytics charts (4 types), AI Insights on all 6 tabs, Client LTV analysis for pending-payment clients, universal sortable tables, fix Copy-to-Clipboard on Sheets Links tab',
+      'v2.9.1: Group monthly data by DueDate instead of invoice Date; fix per-client Sheets formulas baseUrl',
       'v2.8.0: Fix Avg Revenue/Client (ContactID fallback to Name), move Refresh Data to nav, per-client IMPORTDATA on Sheets tab, period sort by month',
       'v2.6.1: Stability improvements',
       'v2.4.2: CRITICAL - Added /api/sheets endpoints for Google Sheets IMPORTDATA',
@@ -601,7 +603,7 @@ app.get('/api/revenue/metrics', async (c) => {
 
     const validStatuses = ['PAID', 'AUTHORISED', 'SUBMITTED'];
 
-    // Current month: total invoiced (all non-void invoices issued this month)
+    // Current month: total invoiced (all non-void invoices due this month)
     const thisMonthInvoices = allInvoices.filter(inv => {
       const d = parseDate(inv.DueDate);
       return d && d.getFullYear() === currentYear && d.getMonth() === currentMonth

@@ -1578,6 +1578,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadMonthlyTrends();
       } else if (tabName === 'analytics') {
         loadAnalyticsGoals();
+      } else if (tabName === 'goals') {
+        loadGoalProgress();
       }
     });
   });
@@ -1617,14 +1619,22 @@ async function loadClientSheetFormulas() {
 
     const baseUrl = `${window.location.origin}/api/sheets`;
 
+    const escapeHtml = (s) => String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
     const rows = clients.map(client => {
       const encoded = encodeURIComponent(client.contactName);
       const formula = `=IMPORTDATA("${baseUrl}/${encoded}/due")`;
+      const formulaAttr = escapeHtml(formula);
+      const nameAttr = escapeHtml(client.contactName);
       return `
         <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-3 py-2 gap-3">
-          <span class="text-sm font-medium text-gray-800 w-48 shrink-0 truncate" title="${client.contactName}">${client.contactName}</span>
-          <code class="text-xs text-gray-700 flex-1 select-all break-all">${formula}</code>
-          <button onclick="copyText(this, '${formula.replace(/'/g, "\\'")}')"
+          <span class="text-sm font-medium text-gray-800 w-48 shrink-0 truncate" title="${nameAttr}">${nameAttr}</span>
+          <code class="text-xs text-gray-700 flex-1 select-all break-all">${formulaAttr}</code>
+          <button type="button" data-formula="${formulaAttr}" onclick="copyText(this)"
                   class="shrink-0 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition">
             <i class="fas fa-copy"></i>
           </button>
@@ -1638,9 +1648,23 @@ async function loadClientSheetFormulas() {
   }
 }
 
-// Copy text helper used by per-client copy buttons
+// Copy text helper used by per-client copy buttons.
+// Accepts either (btn) — reads from btn.dataset.formula or the sibling <code>
+// — or (btn, text) for backward compatibility with any older call sites.
 function copyText(btn, text) {
-  navigator.clipboard.writeText(text).then(() => {
+  // Resolve the text to copy
+  let payload = text;
+  if (payload == null || payload === '') {
+    if (btn && btn.dataset && btn.dataset.formula) {
+      payload = btn.dataset.formula;
+    } else if (btn && btn.parentElement) {
+      const codeEl = btn.parentElement.querySelector('code');
+      if (codeEl) payload = codeEl.textContent;
+    }
+  }
+  payload = String(payload || '');
+
+  const flashSuccess = () => {
     const orig = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-check"></i>';
     btn.classList.replace('bg-blue-600', 'bg-green-600');
@@ -1650,16 +1674,35 @@ function copyText(btn, text) {
       btn.classList.replace('bg-green-600', 'bg-blue-600');
       btn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
     }, 1500);
-  }).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  });
+  };
+
+  const fallbackCopy = () => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = payload;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) flashSuccess();
+      else window.prompt('Copy the formula below:', payload);
+    } catch (e) {
+      window.prompt('Copy the formula below:', payload);
+    }
+  };
+
+  // navigator.clipboard requires a secure context (https or localhost).
+  // Fall back to execCommand when unavailable.
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(payload).then(flashSuccess).catch(fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
 }
 
 window.loadClientSheetFormulas = loadClientSheetFormulas;
@@ -1957,3 +2000,1164 @@ async function loadAnalyticsGoals() {
 }
 
 window.loadAnalyticsGoals = loadAnalyticsGoals;
+
+// ============================================================
+// v2.10.0+ ENHANCEMENTS: sortable tables, analytics charts,
+// client LTV analysis, AI-style insights per tab.
+// All additive — no existing logic replaced in-place.
+// ============================================================
+
+// ---------- 1. Generic axios response capture for AI context ----------
+window.__aiContext = window.__aiContext || {};
+(function installAxiosCapture() {
+  try {
+    axios.interceptors.response.use((response) => {
+      try {
+        const url = (response.config && response.config.url ? response.config.url : '').split('?')[0];
+        const key = url
+          .replace(/^\/api\//, '')
+          .replace(/[^a-zA-Z0-9]/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_+|_+$/g, '') || 'root';
+        window.__aiContext[key] = response.data;
+      } catch (e) { /* non-fatal */ }
+      return response;
+    });
+  } catch (e) { console.warn('axios capture install failed', e); }
+})();
+
+// ---------- 2. Generic sortable-table helper ----------
+// Attaches to any newly-rendered <table> inside the given container.
+// Skips tables where any <th> already has an onclick attribute (to avoid
+// conflicting with existing sortInvoices / sortClients / sortTrends logic).
+function __getCellSortValue(cell) {
+  if (!cell) return '';
+  if (cell.dataset && cell.dataset.sortValue != null && cell.dataset.sortValue !== '') {
+    const n = Number(cell.dataset.sortValue);
+    return isNaN(n) ? cell.dataset.sortValue : n;
+  }
+  const txt = (cell.textContent || '').trim();
+  if (!txt) return '';
+  // Currency: $1,234.56 or -$1,234.56
+  if (/^-?\$[\d,]+(\.\d+)?/.test(txt)) return parseFloat(txt.replace(/[$,]/g, ''));
+  // Percentage: 85.4% or -10.0%
+  if (/^-?\d+(\.\d+)?\s*%$/.test(txt)) return parseFloat(txt);
+  // Numeric with optional suffix (days, months, mo)
+  const num = txt.match(/^-?[\d,]+(\.\d+)?(\s*(days?|months?|mo))?$/i);
+  if (num) return parseFloat(txt.replace(/,/g, ''));
+  // ISO date
+  if (/^\d{4}-\d{2}-\d{2}/.test(txt)) return new Date(txt).getTime();
+  // Short month label "Apr 26" or "Jan 2026" or "Q1 2026"
+  const mo = txt.match(/^([A-Za-z]{3})\s+(\d{2,4})$/);
+  if (mo) {
+    const monthOrder = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+    const year = mo[2].length === 2 ? 2000 + parseInt(mo[2], 10) : parseInt(mo[2], 10);
+    return year * 12 + (monthOrder[mo[1]] || 0);
+  }
+  const qtr = txt.match(/^Q([1-4])\s+(\d{4})$/);
+  if (qtr) return parseInt(qtr[2], 10) * 10 + parseInt(qtr[1], 10);
+  return txt.toLowerCase();
+}
+
+function __sortTableByColumn(table, colIdx, th) {
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  // Preserve a "TOTAL" row at bottom
+  const totalRow = rows.find(r =>
+    r.classList.contains('font-bold') ||
+    /^(total|grand\s*total)/i.test((r.textContent || '').trim().slice(0, 40))
+  );
+  const sortable = rows.filter(r => r !== totalRow);
+
+  const newDir = th.dataset._sortDir === 'asc' ? 'desc' : 'asc';
+  // Reset all header indicators in this table
+  table.querySelectorAll('thead th').forEach(h => {
+    h.dataset._sortDir = '';
+    const ic = h.querySelector('i.__auto-sort-icon');
+    if (ic) ic.className = 'fas fa-sort ml-1 text-gray-400 __auto-sort-icon';
+  });
+  th.dataset._sortDir = newDir;
+  const icon = th.querySelector('i.__auto-sort-icon');
+  if (icon) icon.className = (newDir === 'asc'
+    ? 'fas fa-sort-up ml-1 text-blue-600 __auto-sort-icon'
+    : 'fas fa-sort-down ml-1 text-blue-600 __auto-sort-icon');
+
+  sortable.sort((a, b) => {
+    const av = __getCellSortValue(a.cells[colIdx]);
+    const bv = __getCellSortValue(b.cells[colIdx]);
+    if (typeof av === 'number' && typeof bv === 'number') {
+      return newDir === 'asc' ? av - bv : bv - av;
+    }
+    const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
+    return newDir === 'asc' ? cmp : -cmp;
+  });
+
+  sortable.forEach(r => tbody.appendChild(r));
+  if (totalRow) tbody.appendChild(totalRow);
+}
+
+function __applySortableToTables(container) {
+  if (!container) return;
+  const tables = container.querySelectorAll('table');
+  tables.forEach(table => {
+    if (table.dataset._autoSortable === '1') return;
+    const ths = table.querySelectorAll('thead th');
+    if (!ths.length) return;
+    // Skip if any th already has an onclick (existing custom sort)
+    let hasOwnSort = false;
+    ths.forEach(th => { if (th.getAttribute('onclick')) hasOwnSort = true; });
+    if (hasOwnSort) return;
+    table.dataset._autoSortable = '1';
+    ths.forEach((th, idx) => {
+      // Skip columns explicitly marked non-sortable
+      if (th.dataset && th.dataset.nosort === '1') return;
+      th.style.cursor = 'pointer';
+      th.classList.add('hover:bg-gray-100', 'select-none');
+      // Append sort icon if not present
+      if (!th.querySelector('i.__auto-sort-icon')) {
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-sort ml-1 text-gray-400 __auto-sort-icon';
+        th.appendChild(document.createTextNode(' '));
+        th.appendChild(icon);
+      }
+      th.addEventListener('click', () => __sortTableByColumn(table, idx, th));
+    });
+  });
+}
+
+function autoSortableContainer(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  __applySortableToTables(el);
+  const observer = new MutationObserver(() => __applySortableToTables(el));
+  observer.observe(el, { childList: true, subtree: true });
+}
+
+// Activate on all tab panels
+document.addEventListener('DOMContentLoaded', () => {
+  [
+    'tab-dashboard', 'tab-invoices', 'tab-clients',
+    'tab-trends', 'tab-analytics', 'tab-goals', 'tab-sheets-links'
+  ].forEach(id => autoSortableContainer(id));
+});
+
+// ---------- 3. Analytics charts (Invoiced, Stacked, Collection, Clients) ----------
+window.__analyticsCharts = window.__analyticsCharts || {};
+function __mkChart(id, config) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (window.__analyticsCharts[id]) {
+    try { window.__analyticsCharts[id].destroy(); } catch (e) {}
+  }
+  window.__analyticsCharts[id] = new Chart(el, config);
+}
+
+function renderAnalyticsCharts(months) {
+  if (!Array.isArray(months) || !months.length) return;
+  const labels = months.map(m => m.month);
+  const invoiced = months.map(m => Number(m.totalInvoiced) || 0);
+  const paid = months.map(m => Number(m.paidAmount) || 0);
+  const late = months.map(m => Number(m.lateAmount) || 0);
+  const unpaidNotLate = months.map((m, i) => Math.max(0, (Number(m.unpaidAmount) || 0) - (Number(m.lateAmount) || 0)));
+  const collRate = months.map(m => Number(m.collectionRate) || 0);
+  const activeClients = months.map(m => Number(m.activeClients) || 0);
+
+  __mkChart('analyticsInvoicedChart', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Invoiced',  data: invoiced, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.15)', fill: true,  tension: 0.3 },
+        { label: 'Paid',      data: paid,     borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.05)', fill: false, tension: 0.3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } } }
+    }
+  });
+
+  __mkChart('analyticsPaidStackedChart', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Paid',   data: paid,          backgroundColor: '#16a34a' },
+        { label: 'Unpaid', data: unpaidNotLate, backgroundColor: '#f97316' },
+        { label: 'Late',   data: late,          backgroundColor: '#dc2626' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } }
+      }
+    }
+  });
+
+  __mkChart('analyticsCollectionChart', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Collection Rate %', data: collRate, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.12)', fill: true, tension: 0.3 },
+        { label: 'Target 90%',        data: Array(labels.length).fill(90), borderColor: '#a16207', borderDash: [5,5], fill: false, pointRadius: 0, tension: 0 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true, max: 110, ticks: { callback: v => v + '%' } } }
+    }
+  });
+
+  __mkChart('analyticsActiveClientsChart', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Active Clients', data: activeClients, backgroundColor: '#8b5cf6' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+// Wrap loadAnalyticsGoals to also draw charts and load LTV
+(function wrapLoadAnalytics() {
+  const original = window.loadAnalyticsGoals;
+  if (typeof original !== 'function') return;
+  window.loadAnalyticsGoals = async function () {
+    try { await original.apply(this, arguments); } catch (e) { console.warn(e); }
+    try {
+      const res = await axios.get('/api/monthly/trends');
+      const months = (res && res.data && res.data.months) || [];
+      window.__aiContext.monthlyTrends = months;
+      renderAnalyticsCharts(months);
+    } catch (e) { console.warn('Could not render analytics charts:', e); }
+    try { await loadClientLTVAnalytics(); } catch (e) { console.warn('LTV analytics failed:', e); }
+  };
+})();
+
+// ---------- 4. Client LTV analytics (active pending-payment clients only) ----------
+window.__ltvCharts = window.__ltvCharts || {};
+function __mkLtvChart(id, config) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (window.__ltvCharts[id]) {
+    try { window.__ltvCharts[id].destroy(); } catch (e) {}
+  }
+  window.__ltvCharts[id] = new Chart(el, config);
+}
+
+async function loadClientLTVAnalytics() {
+  const tableEl = document.getElementById('ltvSummaryTable');
+  if (!tableEl) return;
+  tableEl.innerHTML = '<p class="text-gray-400 text-center py-6">Loading...</p>';
+
+  const setKPI = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+  ['ltvAvgLifetime','ltvAvgInvoices','ltvAvgInvoiceValue','ltvAvgLTV'].forEach(id => setKPI(id, '--'));
+
+  try {
+    const [lifetimeRes, pendingRes] = await Promise.all([
+      axios.get('/api/clients/lifetime').catch(() => null),
+      axios.get('/api/clients/awaiting-payment').catch(() => null)
+    ]);
+
+    const allClients = (lifetimeRes && lifetimeRes.data && lifetimeRes.data.clients) || [];
+    const pendingRaw = pendingRes && pendingRes.data
+      ? (pendingRes.data.clients || pendingRes.data)
+      : [];
+    const pendingArr = Array.isArray(pendingRaw) ? pendingRaw : [];
+
+    if (!allClients.length) {
+      tableEl.innerHTML = '<p class="text-gray-500 text-center py-6">No client lifetime data available</p>';
+      return;
+    }
+    if (!pendingArr.length) {
+      tableEl.innerHTML = '<p class="text-gray-500 text-center py-6">No active pending-payment clients right now</p>';
+      return;
+    }
+
+    const norm = (s) => (s || '').toString().toLowerCase().trim();
+    const pendingNames = new Set(pendingArr.map(c => norm(c.contactName || c.name)));
+    const pendingLookup = {};
+    pendingArr.forEach(c => { pendingLookup[norm(c.contactName || c.name)] = c; });
+
+    const filtered = allClients.filter(c => pendingNames.has(norm(c.contactName))).map(c => ({
+      ...c,
+      pendingOutstanding: (pendingLookup[norm(c.contactName)] || {}).totalOutstanding || 0,
+      pendingInvoices:    (pendingLookup[norm(c.contactName)] || {}).invoiceCount || 0
+    }));
+
+    if (!filtered.length) {
+      tableEl.innerHTML = '<p class="text-gray-500 text-center py-6">No overlap between lifetime history and active pending-payment clients</p>';
+      return;
+    }
+
+    const totalClients = filtered.length;
+    const invoicesOf = (c) => Number(c.invoiceCount) || Number(c.billedMonths) || 0;
+    const totalInvoices = filtered.reduce((s, c) => s + invoicesOf(c), 0);
+    const totalInvoiced = filtered.reduce((s, c) => s + (Number(c.totalInvoiced) || 0), 0);
+    const avgLifetime = filtered.reduce((s, c) => s + (Number(c.elapsedMonths) || 0), 0) / totalClients;
+    const avgInvoices = totalInvoices / totalClients;
+    const avgInvoiceValue = totalInvoices > 0 ? totalInvoiced / totalInvoices : 0;
+    const avgLTV = totalInvoiced / totalClients;
+
+    setKPI('ltvAvgLifetime', avgLifetime.toFixed(1) + ' mo');
+    setKPI('ltvAvgInvoices', avgInvoices.toFixed(1));
+    setKPI('ltvAvgInvoiceValue', formatCurrency(avgInvoiceValue));
+    setKPI('ltvAvgLTV', formatCurrency(avgLTV));
+
+    // Retention histogram
+    const buckets = [
+      { label: '< 3 mo',   min: 0,  max: 2.99 },
+      { label: '3–6 mo',   min: 3,  max: 5.99 },
+      { label: '6–12 mo',  min: 6,  max: 11.99 },
+      { label: '12–24 mo', min: 12, max: 23.99 },
+      { label: '24+ mo',   min: 24, max: Infinity }
+    ];
+    const bucketCounts = buckets.map(b =>
+      filtered.filter(c => {
+        const m = Number(c.elapsedMonths) || 0;
+        return m >= b.min && m <= b.max;
+      }).length
+    );
+
+    __mkLtvChart('ltvRetentionChart', {
+      type: 'bar',
+      data: {
+        labels: buckets.map(b => b.label),
+        datasets: [{ label: 'Pending-payment clients', data: bucketCounts, backgroundColor: '#8b5cf6' }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+      }
+    });
+
+    __mkLtvChart('ltvScatterChart', {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          label: 'Clients',
+          data: filtered.map(c => ({
+            x: invoicesOf(c),
+            y: Number(c.totalInvoiced) || 0,
+            name: c.contactName
+          })),
+          backgroundColor: 'rgba(37,99,235,0.75)',
+          pointRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.raw.name}: ${ctx.raw.x} invoices, ${formatCurrency(ctx.raw.y)}`
+            }
+          }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Invoices (all-time)' }, beginAtZero: true, ticks: { precision: 0 } },
+          y: { title: { display: true, text: 'Total Invoiced' },      beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } }
+        }
+      }
+    });
+
+    // Summary table (sortable via auto-sort helper)
+    const sorted = [...filtered].sort((a, b) => (Number(b.totalInvoiced) || 0) - (Number(a.totalInvoiced) || 0));
+    const rows = sorted.map(c => {
+      const invCount = invoicesOf(c);
+      const avgPerInv = invCount > 0 ? (Number(c.totalInvoiced) || 0) / invCount : 0;
+      return `<tr class="hover:bg-gray-50 border-b border-gray-100">
+        <td class="px-4 py-3 text-sm font-medium text-gray-800">${c.contactName || ''}</td>
+        <td class="px-4 py-3 text-sm text-right text-blue-700">${c.elapsedMonths || 0} mo</td>
+        <td class="px-4 py-3 text-sm text-right text-purple-700">${c.billedMonths || 0}</td>
+        <td class="px-4 py-3 text-sm text-right text-gray-700">${invCount}</td>
+        <td class="px-4 py-3 text-sm text-right font-semibold text-green-700">${formatCurrency(c.totalInvoiced || 0)}</td>
+        <td class="px-4 py-3 text-sm text-right text-gray-600">${formatCurrency(avgPerInv)}</td>
+        <td class="px-4 py-3 text-sm text-right text-red-600">${formatCurrency(c.pendingOutstanding || 0)}</td>
+      </tr>`;
+    }).join('');
+
+    tableEl.innerHTML = `<table class="min-w-full text-left">
+      <thead>
+        <tr class="bg-gray-50 text-xs uppercase text-gray-500 tracking-wider">
+          <th class="px-4 py-3">Client</th>
+          <th class="px-4 py-3 text-right">Lifetime</th>
+          <th class="px-4 py-3 text-right">Billed Months</th>
+          <th class="px-4 py-3 text-right">Invoices</th>
+          <th class="px-4 py-3 text-right">Total Invoiced</th>
+          <th class="px-4 py-3 text-right">Avg / Invoice</th>
+          <th class="px-4 py-3 text-right">Outstanding</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="text-xs text-gray-400 mt-3">
+      Scope: ${totalClients} active pending-payment client${totalClients === 1 ? '' : 's'}.
+      Lifetime = months from first to latest invoice (inclusive). Avg / Invoice = Total Invoiced ÷ Invoices.
+    </p>`;
+
+    window.__aiContext.ltv = {
+      totalClients, avgLifetime, avgInvoices, avgInvoiceValue, avgLTV,
+      totalInvoices, totalInvoiced,
+      clients: filtered,
+      bucketLabels: buckets.map(b => b.label),
+      bucketCounts
+    };
+  } catch (e) {
+    console.error('LTV analytics error:', e);
+    tableEl.innerHTML = '<p class="text-red-500 text-center py-6">Unable to load — sign in with Xero to see live data</p>';
+  }
+}
+window.loadClientLTVAnalytics = loadClientLTVAnalytics;
+
+// ---------- 5. AI Insights (rule-based, per tab) ----------
+function __fmt$(n) { return formatCurrency(Number(n) || 0); }
+function __pct(n)  { return (Number(n) || 0).toFixed(1) + '%'; }
+
+function __trendDirection(arr) {
+  if (!Array.isArray(arr) || arr.length < 3) return 'flat';
+  const n = arr.length;
+  const first3 = arr.slice(0, 3).reduce((s, v) => s + (Number(v) || 0), 0) / 3;
+  const last3  = arr.slice(n - 3).reduce((s, v) => s + (Number(v) || 0), 0) / 3;
+  if (last3 > first3 * 1.05) return 'rising';
+  if (last3 < first3 * 0.95) return 'falling';
+  return 'flat';
+}
+
+function __insightHTML(title, sections) {
+  // sections: [{ heading, bullets: [string, ...], tone: 'good'|'warn'|'bad'|'neutral' }]
+  const toneColor = {
+    good:   'border-green-300 bg-green-50',
+    warn:   'border-yellow-300 bg-yellow-50',
+    bad:    'border-red-300 bg-red-50',
+    neutral:'border-gray-200 bg-white'
+  };
+  const toneIcon = {
+    good: 'fa-circle-check text-green-600',
+    warn: 'fa-triangle-exclamation text-yellow-600',
+    bad:  'fa-circle-xmark text-red-600',
+    neutral: 'fa-circle-info text-gray-500'
+  };
+  let html = `<div class="space-y-3">`;
+  html += `<p class="text-xs text-gray-500">Generated ${new Date().toLocaleString()} — heuristic analysis from data currently on this page.</p>`;
+  for (const s of sections) {
+    const tone = s.tone || 'neutral';
+    html += `<div class="border ${toneColor[tone]} rounded-lg p-3">
+      <p class="text-sm font-semibold text-gray-800 mb-1"><i class="fas ${toneIcon[tone]} mr-2"></i>${s.heading}</p>
+      <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
+        ${s.bullets.map(b => `<li>${b}</li>`).join('')}
+      </ul>
+    </div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function __insightsForDashboard() {
+  const sections = [];
+  const rev = window.__aiContext.revenue_metrics || window.__aiContext.demo_revenue_metrics;
+  const aging = window.__aiContext.invoices_by_aging;
+  const summary = window.__aiContext.invoices_summary || window.__aiContext.demo_summary;
+
+  if (rev) {
+    const momSign = (rev.momGrowth || 0) >= 0 ? '+' : '';
+    sections.push({
+      heading: 'Revenue snapshot',
+      tone: (rev.momGrowth || 0) >= 0 ? 'good' : 'warn',
+      bullets: [
+        `MRR is <strong>${__fmt$(rev.mrr)}</strong> (ARR run-rate <strong>${__fmt$(rev.arr)}</strong>).`,
+        `Month-over-month change: <strong>${momSign}${(rev.momGrowth || 0).toFixed(1)}%</strong> vs last month (${__fmt$(rev.prevMonthInvoiced || 0)}).`,
+        `YTD revenue is <strong>${__fmt$(rev.ytdRevenue)}</strong>; projected EOY <strong>${__fmt$(rev.projectedEOY)}</strong>.`,
+        `Active clients this month: <strong>${rev.activeClients}</strong>, avg revenue / client <strong>${__fmt$((rev.calculations || {}).avgRevenuePerClient || 0)}</strong>.`
+      ]
+    });
+
+    const crNum = Number(rev.collectionRate) || 0;
+    sections.push({
+      heading: 'Collection health',
+      tone: crNum >= 85 ? 'good' : crNum >= 60 ? 'warn' : 'bad',
+      bullets: [
+        `Collection rate this month is <strong>${__pct(crNum)}</strong>.`,
+        `Late invoices this month: <strong>${rev.lateThisMonth || 0}</strong>, paid <strong>${rev.paidThisMonth || 0}</strong>, unpaid <strong>${rev.unpaidThisMonth || 0}</strong>.`,
+        crNum < 60 ? 'A collection rate under 60% usually signals invoices went out very recently — expect it to rise as due dates hit.' : 'Collection pace looks healthy for the period.'
+      ]
+    });
+  }
+
+  if (aging) {
+    const tot = (aging.current && aging.current.total || 0) + (aging.aged && aging.aged.total || 0) + (aging.critical && aging.critical.total || 0);
+    const critPct = tot > 0 ? (aging.critical.total / tot) * 100 : 0;
+    sections.push({
+      heading: 'Invoice aging',
+      tone: critPct > 20 ? 'bad' : critPct > 10 ? 'warn' : 'good',
+      bullets: [
+        `Current (0–99d): <strong>${aging.current.count}</strong> inv / <strong>${__fmt$(aging.current.total)}</strong>.`,
+        `Aged (100–199d): <strong>${aging.aged.count}</strong> inv / <strong>${__fmt$(aging.aged.total)}</strong>.`,
+        `Critical (200+ d): <strong>${aging.critical.count}</strong> inv / <strong>${__fmt$(aging.critical.total)}</strong> — <strong>${critPct.toFixed(1)}%</strong> of outstanding.`,
+        critPct > 20 ? '🚨 More than a fifth of outstanding AR is deeply overdue — consider legal escalation or write-offs.' : 'Aging distribution is within a manageable range.'
+      ]
+    });
+  }
+
+  if (summary) {
+    sections.push({
+      heading: 'Invoice pipeline',
+      tone: 'neutral',
+      bullets: [
+        `Draft: <strong>${summary.draftCount || 0}</strong> (${__fmt$(summary.draftAmount || 0)}).`,
+        `Awaiting payment: <strong>${summary.awaitingCount || 0}</strong> (${__fmt$(summary.awaitingAmount || 0)}).`,
+        `Overdue: <strong>${summary.overdueCount || 0}</strong> (${__fmt$(summary.overdueAmount || 0)}).`
+      ]
+    });
+  }
+
+  if (!sections.length) {
+    sections.push({
+      heading: 'No data yet',
+      tone: 'neutral',
+      bullets: ['Interact with the dashboard (or sign in with Xero) to load data, then try again.']
+    });
+  }
+  return sections;
+}
+
+function __insightsForInvoices() {
+  const invs = (typeof currentInvoiceData !== 'undefined' ? currentInvoiceData : []) || [];
+  if (!invs.length) {
+    return [{ heading: 'No invoices loaded', tone: 'neutral', bullets: ['Click one of the status buttons above to load invoices, then regenerate.'] }];
+  }
+  const byStatus = {};
+  let totalDue = 0, totalAmt = 0;
+  let oldestOverdue = null;
+  const now = Date.now();
+  invs.forEach(inv => {
+    const st = inv.Status || 'UNKNOWN';
+    byStatus[st] = (byStatus[st] || 0) + 1;
+    totalAmt += Number(inv.Total) || 0;
+    totalDue += Number(inv.AmountDue) || 0;
+    if ((Number(inv.AmountDue) || 0) > 0 && inv.DueDate) {
+      const d = new Date(inv.DueDate).getTime();
+      if (d < now) {
+        if (!oldestOverdue || d < new Date(oldestOverdue.DueDate).getTime()) oldestOverdue = inv;
+      }
+    }
+  });
+  const sections = [{
+    heading: `Invoice list — ${invs.length} invoice${invs.length === 1 ? '' : 's'}`,
+    tone: totalDue > 0 ? 'warn' : 'good',
+    bullets: [
+      `Total billed: <strong>${__fmt$(totalAmt)}</strong>, outstanding: <strong>${__fmt$(totalDue)}</strong>.`,
+      'Status breakdown: ' + Object.entries(byStatus).map(([k, v]) => `<strong>${v}</strong> ${k}`).join(', ') + '.'
+    ]
+  }];
+  if (oldestOverdue) {
+    const daysLate = Math.floor((now - new Date(oldestOverdue.DueDate).getTime()) / 86400000);
+    sections.push({
+      heading: 'Oldest outstanding invoice',
+      tone: daysLate > 90 ? 'bad' : 'warn',
+      bullets: [
+        `<strong>${oldestOverdue.InvoiceNumber || 'N/A'}</strong> — ${(oldestOverdue.Contact && oldestOverdue.Contact.Name) || 'Unknown'}: ${__fmt$(oldestOverdue.AmountDue)} is <strong>${daysLate} day${daysLate === 1 ? '' : 's'}</strong> past due.`
+      ]
+    });
+  }
+  return sections;
+}
+
+function __insightsForClients() {
+  const sections = [];
+  const pending = (typeof currentClientData !== 'undefined' ? currentClientData : []) || [];
+  const lifetime = (window.__aiContext.clients_lifetime && window.__aiContext.clients_lifetime.clients) || [];
+
+  if (pending.length) {
+    const totOut = pending.reduce((s, c) => s + (c.totalOutstanding || 0), 0);
+    const sorted = [...pending].sort((a, b) => (b.totalOutstanding || 0) - (a.totalOutstanding || 0));
+    const top3 = sorted.slice(0, 3);
+    const worstDelay = [...pending].sort((a, b) => (b.averagePaymentDelay || 0) - (a.averagePaymentDelay || 0))[0];
+    const concentration = top3.reduce((s, c) => s + (c.totalOutstanding || 0), 0) / Math.max(1, totOut) * 100;
+    sections.push({
+      heading: `Pending-payment clients (${pending.length})`,
+      tone: concentration > 60 ? 'warn' : 'neutral',
+      bullets: [
+        `Total outstanding: <strong>${__fmt$(totOut)}</strong>.`,
+        `Top 3 by outstanding concentrate <strong>${concentration.toFixed(1)}%</strong> of AR: ${top3.map(c => `${c.contactName} (${__fmt$(c.totalOutstanding)})`).join(', ')}.`,
+        worstDelay ? `Worst avg delay: <strong>${worstDelay.contactName}</strong> at <strong>${worstDelay.averagePaymentDelay} days</strong>.` : ''
+      ].filter(Boolean)
+    });
+  }
+
+  if (lifetime.length) {
+    const avgLT = lifetime.reduce((s, c) => s + (c.elapsedMonths || 0), 0) / lifetime.length;
+    const longTerm = lifetime.filter(c => (c.elapsedMonths || 0) >= 12).length;
+    sections.push({
+      heading: 'Retention',
+      tone: avgLT >= 12 ? 'good' : avgLT >= 6 ? 'warn' : 'bad',
+      bullets: [
+        `Avg elapsed lifetime across <strong>${lifetime.length}</strong> clients: <strong>${avgLT.toFixed(1)} months</strong>.`,
+        `${longTerm} client${longTerm === 1 ? '' : 's'} retained ≥ 12 months (${((longTerm / lifetime.length) * 100).toFixed(0)}%).`
+      ]
+    });
+  }
+
+  if (!sections.length) {
+    sections.push({ heading: 'No client data yet', tone: 'neutral', bullets: ['Click Load on the Retention or Awaiting-Payment cards, then regenerate.'] });
+  }
+  return sections;
+}
+
+function __insightsForTrends() {
+  const sections = [];
+  const trends = currentTrendsData;
+  const monthly = window.__aiContext.monthlyTrends || [];
+  if (trends && trends.periods && trends.periods.length) {
+    const last = trends.periods[trends.periods.length - 1];
+    const first = trends.periods[0];
+    const collTrend = __trendDirection(trends.periods.map(p => p.collectionRate));
+    sections.push({
+      heading: `Payment trends — ${trends.periods.length} periods`,
+      tone: collTrend === 'rising' ? 'good' : collTrend === 'falling' ? 'bad' : 'neutral',
+      bullets: [
+        `Average payment velocity: <strong>${trends.averagePaymentVelocity} days</strong>.`,
+        `Total improvement over period: <strong>${__fmt$(trends.totalImprovement)}</strong>.`,
+        `Best period: <strong>${trends.bestPeriod.periodLabel}</strong>.`,
+        `Collection rate trend: <strong>${collTrend}</strong> (${first.collectionRate.toFixed(1)}% → ${last.collectionRate.toFixed(1)}%).`
+      ]
+    });
+  }
+  if (monthly.length) {
+    const invTrend = __trendDirection(monthly.map(m => m.totalInvoiced));
+    const clientTrend = __trendDirection(monthly.map(m => m.activeClients));
+    sections.push({
+      heading: 'Monthly breakdown (12 mo)',
+      tone: invTrend === 'rising' ? 'good' : invTrend === 'falling' ? 'warn' : 'neutral',
+      bullets: [
+        `Invoiced trend: <strong>${invTrend}</strong>.`,
+        `Active-client trend: <strong>${clientTrend}</strong>.`
+      ]
+    });
+  }
+  if (!sections.length) sections.push({ heading: 'No trends loaded', tone: 'neutral', bullets: ['Click "Load Trends" or "Load" in the Monthly Breakdown card, then regenerate.'] });
+  return sections;
+}
+
+function __insightsForAnalytics() {
+  const sections = [];
+  const months = window.__aiContext.monthlyTrends || [];
+  const rev    = window.__aiContext.revenue_metrics || window.__aiContext.demo_revenue_metrics;
+  const ltv    = window.__aiContext.ltv;
+
+  if (months.length) {
+    const invAvg    = months.reduce((s, m) => s + (m.totalInvoiced || 0), 0) / months.length;
+    const crAvg     = months.reduce((s, m) => s + (m.collectionRate || 0), 0) / months.length;
+    const clientAvg = months.reduce((s, m) => s + (m.activeClients || 0), 0) / months.length;
+    const invTrend  = __trendDirection(months.map(m => m.totalInvoiced));
+    const crTrend   = __trendDirection(months.map(m => m.collectionRate));
+    const best      = [...months].sort((a, b) => (b.totalInvoiced || 0) - (a.totalInvoiced || 0))[0];
+    sections.push({
+      heading: '12-month overview',
+      tone: invTrend === 'rising' ? 'good' : invTrend === 'falling' ? 'warn' : 'neutral',
+      bullets: [
+        `Average monthly invoiced: <strong>${__fmt$(invAvg)}</strong> (trend: <strong>${invTrend}</strong>).`,
+        `Average collection rate: <strong>${crAvg.toFixed(1)}%</strong> (trend: <strong>${crTrend}</strong>).`,
+        `Average active clients per month: <strong>${clientAvg.toFixed(1)}</strong>.`,
+        best ? `Best invoiced month: <strong>${best.month}</strong> (${__fmt$(best.totalInvoiced)}).` : ''
+      ].filter(Boolean)
+    });
+  }
+
+  if (rev) {
+    sections.push({
+      heading: 'Run-rate & projection',
+      tone: (rev.momGrowth || 0) >= 0 ? 'good' : 'warn',
+      bullets: [
+        `Current MRR / ARR: <strong>${__fmt$(rev.mrr)}</strong> / <strong>${__fmt$(rev.arr)}</strong>.`,
+        `Projected EOY: <strong>${__fmt$(rev.projectedEOY)}</strong> — pace vs projection <strong>${((rev.calculations && rev.calculations.paceVsProjection) || 0).toFixed(1)}%</strong>.`
+      ]
+    });
+  }
+
+  if (ltv) {
+    const topClient = [...(ltv.clients || [])].sort((a, b) => (b.totalInvoiced || 0) - (a.totalInvoiced || 0))[0];
+    const longRetained = (ltv.clients || []).filter(c => (c.elapsedMonths || 0) >= 12).length;
+    const retentionPct = ltv.totalClients > 0 ? (longRetained / ltv.totalClients) * 100 : 0;
+    sections.push({
+      heading: `LTV — active pending-payment clients (${ltv.totalClients})`,
+      tone: ltv.avgLifetime >= 12 ? 'good' : ltv.avgLifetime >= 6 ? 'warn' : 'bad',
+      bullets: [
+        `On average we keep a pending-payment client <strong>${ltv.avgLifetime.toFixed(1)} months</strong> and send <strong>${ltv.avgInvoices.toFixed(1)} invoices</strong>.`,
+        `Average charge per invoice is <strong>${__fmt$(ltv.avgInvoiceValue)}</strong>; average LTV is <strong>${__fmt$(ltv.avgLTV)}</strong>.`,
+        `${longRetained} of ${ltv.totalClients} pending clients have been retained ≥ 12 months (<strong>${retentionPct.toFixed(0)}%</strong>).`,
+        topClient ? `Highest-value pending client: <strong>${topClient.contactName}</strong> (${__fmt$(topClient.totalInvoiced)} across ${topClient.invoiceCount || topClient.billedMonths || 0} invoices).` : ''
+      ].filter(Boolean)
+    });
+  }
+
+  if (!sections.length) sections.push({ heading: 'No analytics loaded', tone: 'neutral', bullets: ['Click "Load" on this page to compute analytics, then regenerate.'] });
+  return sections;
+}
+
+function __insightsForSheetsLinks() {
+  return [{
+    heading: 'How to get the most out of these links',
+    tone: 'neutral',
+    bullets: [
+      'Paste <code>=IMPORTDATA("…")</code> into Google Sheets — it auto-refreshes when you open the sheet.',
+      'Combine <strong>Clients Awaiting Payment</strong> + <strong>Payment Trends</strong> on one tab for a quick weekly AR review.',
+      'Use <strong>Invoices by Aging</strong> as the source for conditional-formatting-driven collection priorities.',
+      'Per-client <code>/api/sheets/{ClientName}/due</code> URLs are ideal as cells in a client-by-client tracker.'
+    ]
+  }];
+}
+
+function generateAIInsights(tab) {
+  const target = document.getElementById('aiInsights-' + tab);
+  if (!target) return;
+  target.classList.remove('hidden');
+  target.innerHTML = '<p class="text-sm text-gray-500 py-2"><i class="fas fa-spinner fa-spin mr-2"></i>Analyzing data on this page…</p>';
+  let sections;
+  try {
+    switch (tab) {
+      case 'dashboard':     sections = __insightsForDashboard(); break;
+      case 'invoices':      sections = __insightsForInvoices();  break;
+      case 'clients':       sections = __insightsForClients();   break;
+      case 'trends':        sections = __insightsForTrends();    break;
+      case 'analytics':     sections = __insightsForAnalytics(); break;
+      case 'goals':         sections = __insightsForGoals(); break;
+      case 'sheets-links':  sections = __insightsForSheetsLinks(); break;
+      default: sections = [{ heading: 'No analyzer for this tab', tone: 'neutral', bullets: ['—'] }];
+    }
+  } catch (e) {
+    console.error('AI insights error:', e);
+    sections = [{ heading: 'Could not analyze', tone: 'bad', bullets: ['An error occurred while analyzing this page: ' + (e.message || e)] }];
+  }
+  // tiny delay so the spinner is visible
+  setTimeout(() => {
+    target.innerHTML = __insightHTML('AI Insights', sections);
+  }, 150);
+}
+window.generateAIInsights = generateAIInsights;
+
+// ============================================================
+// v2.11.0 GOALS TAB — editable targets stored in localStorage,
+// progress bars, projections, monthly tracking table.
+// ============================================================
+
+const GOALS_STORAGE_KEY = 'gershon_finance_goals';
+
+function __loadGoalsFromStorage() {
+  try {
+    const raw = localStorage.getItem(GOALS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* ignore */ }
+  return { revenue: null, clients: null, collection: null };
+}
+
+function __saveGoalsToStorage(goals) {
+  localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals));
+}
+
+// Populate inputs from localStorage on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const goals = __loadGoalsFromStorage();
+  const rEl = document.getElementById('goalRevenue');
+  const cEl = document.getElementById('goalClients');
+  const colEl = document.getElementById('goalCollection');
+  if (rEl && goals.revenue != null) rEl.value = goals.revenue;
+  if (cEl && goals.clients != null) cEl.value = goals.clients;
+  if (colEl && goals.collection != null) colEl.value = goals.collection;
+});
+
+function saveGoals() {
+  const revenue = parseFloat(document.getElementById('goalRevenue')?.value) || null;
+  const clients = parseInt(document.getElementById('goalClients')?.value, 10) || null;
+  const collection = parseFloat(document.getElementById('goalCollection')?.value) || null;
+  __saveGoalsToStorage({ revenue, clients, collection });
+
+  // visual feedback
+  const btn = event.target.closest('button');
+  if (btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check mr-2"></i>Saved!';
+    btn.classList.replace('bg-blue-600', 'bg-green-600');
+    btn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.classList.replace('bg-green-600', 'bg-blue-600');
+      btn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
+    }, 1500);
+  }
+  // auto-refresh progress
+  loadGoalProgress();
+}
+window.saveGoals = saveGoals;
+
+// ---- Progress rendering ----
+
+function __pctColor(pct) {
+  if (pct >= 90) return { bar: 'bg-green-500', text: 'text-green-700', badge: 'bg-green-100 text-green-800' };
+  if (pct >= 60) return { bar: 'bg-yellow-400', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-800' };
+  return { bar: 'bg-red-500', text: 'text-red-700', badge: 'bg-red-100 text-red-800' };
+}
+
+function __onTrackLabel(pct, dayOfMonth, daysInMonth) {
+  // Expected pct at this point in the month
+  const expectedPct = (dayOfMonth / daysInMonth) * 100;
+  const diff = pct - expectedPct;
+  if (diff >= 5) return { label: 'Ahead of pace', icon: 'fa-rocket', cls: 'text-green-600' };
+  if (diff >= -5) return { label: 'On track', icon: 'fa-check-circle', cls: 'text-blue-600' };
+  if (diff >= -20) return { label: 'Slightly behind', icon: 'fa-exclamation-triangle', cls: 'text-yellow-600' };
+  return { label: 'Off pace', icon: 'fa-times-circle', cls: 'text-red-600' };
+}
+
+function __buildProgressCard(label, icon, iconColor, actual, target, unit, dayOfMonth, daysInMonth) {
+  const isPercent = unit === '%';
+  const pct = target > 0 ? Math.min((actual / target) * 100, 120) : 0;
+  const pctClamped = Math.min(pct, 100);
+  const colors = __pctColor(pctClamped);
+  const pace = __onTrackLabel(pctClamped, dayOfMonth, daysInMonth);
+  const fmtActual = isPercent ? actual.toFixed(1) + '%' : (typeof formatCurrency === 'function' ? formatCurrency(actual) : '$' + actual.toLocaleString());
+  const fmtTarget = isPercent ? target + '%' : (typeof formatCurrency === 'function' ? formatCurrency(target) : '$' + target.toLocaleString());
+
+  return `
+    <div class="border border-gray-200 rounded-lg p-5">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center">
+          <i class="fas ${icon} ${iconColor} mr-2"></i>
+          <span class="font-semibold text-gray-800">${label}</span>
+        </div>
+        <span class="text-xs px-2 py-0.5 rounded-full ${colors.badge} font-medium">${pctClamped.toFixed(0)}%</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
+        <div class="${colors.bar} h-4 rounded-full transition-all duration-500" style="width:${Math.min(pctClamped, 100)}%"></div>
+      </div>
+      <div class="flex items-center justify-between text-sm">
+        <span class="${colors.text} font-medium">${fmtActual}</span>
+        <span class="text-gray-400">of ${fmtTarget}</span>
+      </div>
+      <div class="flex items-center mt-2 text-xs ${pace.cls}">
+        <i class="fas ${pace.icon} mr-1"></i>${pace.label}
+        <span class="text-gray-400 ml-2">(day ${dayOfMonth} of ${daysInMonth})</span>
+      </div>
+    </div>`;
+}
+
+async function loadGoalProgress() {
+  const goals = __loadGoalsFromStorage();
+  const container = document.getElementById('goalsProgressContainer');
+  const tableContainer = document.getElementById('goalsMonthlyTable');
+  const monthLabel = document.getElementById('goalsCurrentMonthLabel');
+  if (!container) return;
+
+  // Need at least one goal set
+  if (!goals.revenue && !goals.clients && !goals.collection) {
+    container.innerHTML = '<p class="text-gray-500 text-center py-8">Set at least one goal above, then click "Refresh"</p>';
+    return;
+  }
+
+  container.innerHTML = '<p class="text-sm text-gray-500 py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Loading actuals from Xero…</p>';
+
+  try {
+    // Fetch analytics/goals data (same endpoint that powers the Analytics tab)
+    const response = await axios.get('/api/analytics/goals');
+    const months = response.data;
+    if (!months || !months.length) {
+      container.innerHTML = '<p class="text-gray-500 text-center py-8">No data returned from analytics endpoint</p>';
+      return;
+    }
+
+    // Cache for AI insights
+    window.__goalsData = { goals, months };
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const dayOfMonth = now.getDate();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    if (monthLabel) monthLabel.textContent = `Actuals vs targets for ${monthName} — day ${dayOfMonth} of ${daysInMonth}`;
+
+    // Find current month data
+    const currentData = months.find(m => {
+      const d = m.month ? new Date(m.month + '-01') : null;
+      return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }) || months[months.length - 1]; // fallback to most recent
+
+    const actualRevenue = currentData.totalInvoiced || 0;
+    const actualClients = currentData.activeClients || 0;
+    const actualCollection = currentData.totalInvoiced > 0
+      ? ((currentData.paidAmount || 0) / currentData.totalInvoiced) * 100
+      : 0;
+
+    // Build progress cards
+    let cards = '';
+    if (goals.revenue) {
+      cards += __buildProgressCard('Monthly Revenue', 'fa-dollar-sign', 'text-green-600',
+        actualRevenue, goals.revenue, '$', dayOfMonth, daysInMonth);
+    }
+    if (goals.clients) {
+      cards += __buildProgressCard('Active Clients', 'fa-users', 'text-purple-600',
+        actualClients, goals.clients, '#', dayOfMonth, daysInMonth);
+    }
+    if (goals.collection) {
+      cards += __buildProgressCard('Collection Rate', 'fa-percentage', 'text-orange-600',
+        actualCollection, goals.collection, '%', dayOfMonth, daysInMonth);
+    }
+
+    container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-${Math.min(3, [goals.revenue, goals.clients, goals.collection].filter(Boolean).length)} gap-6">${cards}</div>`;
+
+    // ---- Monthly tracking table ----
+    if (tableContainer && months.length) {
+      const sorted = [...months].sort((a, b) => (b.month || '').localeCompare(a.month || ''));
+      let rows = sorted.map(m => {
+        const inv = m.totalInvoiced || 0;
+        const paid = m.paidAmount || 0;
+        const colRate = inv > 0 ? (paid / inv * 100) : 0;
+        const clients = m.activeClients || 0;
+        const revPct = goals.revenue ? ((inv / goals.revenue) * 100).toFixed(0) : '—';
+        const cliPct = goals.clients ? ((clients / goals.clients) * 100).toFixed(0) : '—';
+        const colPct = goals.collection ? ((colRate / goals.collection) * 100).toFixed(0) : '—';
+        const revClass = goals.revenue ? (inv >= goals.revenue ? 'text-green-600 font-semibold' : 'text-red-600') : '';
+        const cliClass = goals.clients ? (clients >= goals.clients ? 'text-green-600 font-semibold' : 'text-red-600') : '';
+        const colClass = goals.collection ? (colRate >= goals.collection ? 'text-green-600 font-semibold' : 'text-red-600') : '';
+        const fmt = typeof formatCurrency === 'function' ? formatCurrency : v => '$' + Number(v).toLocaleString();
+        return `<tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="px-4 py-2 text-sm font-medium text-gray-800">${m.month || '—'}</td>
+          <td class="px-4 py-2 text-sm text-right ${revClass}">${fmt(inv)}</td>
+          <td class="px-4 py-2 text-sm text-right text-gray-500">${goals.revenue ? revPct + '%' : '—'}</td>
+          <td class="px-4 py-2 text-sm text-right ${cliClass}">${clients}</td>
+          <td class="px-4 py-2 text-sm text-right text-gray-500">${goals.clients ? cliPct + '%' : '—'}</td>
+          <td class="px-4 py-2 text-sm text-right ${colClass}">${colRate.toFixed(1)}%</td>
+          <td class="px-4 py-2 text-sm text-right text-gray-500">${goals.collection ? colPct + '%' : '—'}</td>
+        </tr>`;
+      }).join('');
+
+      tableContainer.innerHTML = `
+        <table class="w-full text-left">
+          <thead><tr class="bg-gray-50 text-xs uppercase text-gray-500">
+            <th class="px-4 py-2">Month</th>
+            <th class="px-4 py-2 text-right">Revenue</th>
+            <th class="px-4 py-2 text-right">% of Goal</th>
+            <th class="px-4 py-2 text-right">Clients</th>
+            <th class="px-4 py-2 text-right">% of Goal</th>
+            <th class="px-4 py-2 text-right">Collection</th>
+            <th class="px-4 py-2 text-right">% of Goal</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    // ---- Projection chart ----
+    __renderGoalsProjectionChart(months, goals);
+
+  } catch (err) {
+    console.error('Goals: failed to load actuals', err);
+    container.innerHTML = '<p class="text-red-500 text-center py-8"><i class="fas fa-exclamation-triangle mr-2"></i>Failed to load data — make sure you are connected to Xero.</p>';
+  }
+}
+window.loadGoalProgress = loadGoalProgress;
+
+// ---- Projection chart ----
+window.__goalsCharts = window.__goalsCharts || {};
+
+function __renderGoalsProjectionChart(months, goals) {
+  const canvasId = 'goalsProjectionChart';
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  if (window.__goalsCharts[canvasId]) { window.__goalsCharts[canvasId].destroy(); }
+
+  // Sort ascending
+  const sorted = [...months].sort((a, b) => (a.month || '').localeCompare(b.month || ''));
+  const labels = sorted.map(m => {
+    const d = m.month ? new Date(m.month + '-01') : null;
+    return d ? d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) : (m.month || '');
+  });
+  const revenues = sorted.map(m => m.totalInvoiced || 0);
+
+  // Rolling 3-month avg for projection
+  const last3 = revenues.slice(-3);
+  const rolling = last3.length > 0 ? last3.reduce((s, v) => s + v, 0) / last3.length : 0;
+
+  // Add 3 projected months
+  const now = new Date();
+  const projLabels = [];
+  const projValues = [];
+  for (let i = 1; i <= 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    projLabels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+    projValues.push(Math.round(rolling));
+  }
+
+  const allLabels = [...labels, ...projLabels];
+  const actualData = [...revenues, ...Array(3).fill(null)];
+  const projData = [...Array(revenues.length - 1).fill(null), revenues[revenues.length - 1], ...projValues];
+
+  const datasets = [
+    {
+      label: 'Actual Revenue',
+      data: actualData,
+      borderColor: 'rgb(59, 130, 246)',
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 3
+    },
+    {
+      label: 'Projected (3-mo avg)',
+      data: projData,
+      borderColor: 'rgb(99, 102, 241)',
+      borderDash: [6, 3],
+      borderWidth: 2,
+      fill: false,
+      tension: 0.3,
+      pointRadius: 3,
+      pointStyle: 'triangle'
+    }
+  ];
+
+  if (goals.revenue) {
+    datasets.push({
+      label: 'Revenue Target',
+      data: Array(allLabels.length).fill(goals.revenue),
+      borderColor: 'rgba(239, 68, 68, 0.6)',
+      borderDash: [4, 4],
+      borderWidth: 1.5,
+      fill: false,
+      pointRadius: 0
+    });
+  }
+
+  window.__goalsCharts[canvasId] = new Chart(el, {
+    type: 'line',
+    data: { labels: allLabels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              if (v == null) return '';
+              const fmt = typeof formatCurrency === 'function' ? formatCurrency : val => '$' + Number(val).toLocaleString();
+              return ctx.dataset.label + ': ' + fmt(v);
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => {
+              const fmt = typeof formatCurrency === 'function' ? formatCurrency : val => '$' + Number(val).toLocaleString();
+              return fmt(v);
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ---- AI Insights for Goals tab ----
+function __insightsForGoals() {
+  const data = window.__goalsData;
+  if (!data || !data.months || !data.months.length) {
+    return [{ heading: 'No goals data loaded', tone: 'neutral', bullets: ['Click "Refresh" on the Goals tab first, then try again.'] }];
+  }
+  const { goals, months } = data;
+  const sections = [];
+  const fmt = typeof formatCurrency === 'function' ? formatCurrency : v => '$' + Number(v).toLocaleString();
+
+  // Sort descending
+  const sorted = [...months].sort((a, b) => (b.month || '').localeCompare(a.month || ''));
+  const current = sorted[0] || {};
+  const currRev = current.totalInvoiced || 0;
+  const currClients = current.activeClients || 0;
+  const currCol = current.totalInvoiced > 0 ? ((current.paidAmount || 0) / current.totalInvoiced) * 100 : 0;
+
+  // Revenue insights
+  if (goals.revenue) {
+    const pct = ((currRev / goals.revenue) * 100).toFixed(0);
+    const now = new Date();
+    const dayOfMonth = now.getDate();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const runRate = dayOfMonth > 0 ? (currRev / dayOfMonth) * daysInMonth : 0;
+    const metMonths = sorted.filter(m => (m.totalInvoiced || 0) >= goals.revenue).length;
+    const tone = parseInt(pct) >= 90 ? 'good' : parseInt(pct) >= 60 ? 'warn' : 'bad';
+
+    sections.push({
+      heading: `Revenue Goal: ${fmt(goals.revenue)}/mo`,
+      tone,
+      bullets: [
+        `Current month: <strong>${fmt(currRev)}</strong> invoiced so far — <strong>${pct}%</strong> of your target.`,
+        `At current pace, month-end run-rate projection: <strong>${fmt(Math.round(runRate))}</strong>.`,
+        runRate >= goals.revenue
+          ? `You're on track to <strong>meet or exceed</strong> your revenue target this month.`
+          : `You need <strong>${fmt(Math.round(goals.revenue - currRev))}</strong> more in the remaining ${daysInMonth - dayOfMonth} days to hit target.`,
+        `Over the last 12 months, you hit the revenue target in <strong>${metMonths}</strong> of ${sorted.length} months.`
+      ]
+    });
+  }
+
+  // Client count insights
+  if (goals.clients) {
+    const pct = ((currClients / goals.clients) * 100).toFixed(0);
+    const tone = parseInt(pct) >= 90 ? 'good' : parseInt(pct) >= 60 ? 'warn' : 'bad';
+    const avgClients = sorted.reduce((s, m) => s + (m.activeClients || 0), 0) / sorted.length;
+
+    sections.push({
+      heading: `Client Count Goal: ${goals.clients} active`,
+      tone,
+      bullets: [
+        `Current month: <strong>${currClients}</strong> active clients — <strong>${pct}%</strong> of target.`,
+        `12-month average: <strong>${avgClients.toFixed(1)}</strong> active clients per month.`,
+        currClients >= goals.clients
+          ? 'You\'ve already hit your client count target this month.'
+          : `You need <strong>${goals.clients - currClients}</strong> more active client${goals.clients - currClients > 1 ? 's' : ''} to reach your goal.`
+      ]
+    });
+  }
+
+  // Collection rate insights
+  if (goals.collection) {
+    const pct = goals.collection > 0 ? ((currCol / goals.collection) * 100).toFixed(0) : 0;
+    const tone = parseInt(pct) >= 90 ? 'good' : parseInt(pct) >= 60 ? 'warn' : 'bad';
+    const avgCol = sorted.reduce((s, m) => {
+      const inv = m.totalInvoiced || 0;
+      return s + (inv > 0 ? ((m.paidAmount || 0) / inv) * 100 : 0);
+    }, 0) / sorted.length;
+
+    sections.push({
+      heading: `Collection Rate Goal: ${goals.collection}%`,
+      tone,
+      bullets: [
+        `Current month: <strong>${currCol.toFixed(1)}%</strong> collected — <strong>${pct}%</strong> of target.`,
+        `12-month average collection rate: <strong>${avgCol.toFixed(1)}%</strong>.`,
+        currCol >= goals.collection
+          ? 'Collection rate is meeting or exceeding your target.'
+          : `Gap to target: <strong>${(goals.collection - currCol).toFixed(1)} percentage points</strong>. Focus on outstanding invoices to close the gap.`
+      ]
+    });
+  }
+
+  if (!sections.length) {
+    sections.push({ heading: 'No goals set', tone: 'neutral', bullets: ['Set at least one goal above, then analyze.'] });
+  }
+  return sections;
+}
