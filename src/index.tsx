@@ -174,10 +174,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.12.0',
+    version: '2.12.1',
     releaseDate: '2026-04-22T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.12.1: Fix Goals tab — use correct /api/monthly/trends endpoint, fix month matching',
       'v2.12.0: Revenue Performance Summary chart on Analytics tab — bar chart with 12-month average line, best month highlight, and summary KPI cards',
       'v2.11.0: Split Analytics & Goals into separate tabs; Goals tab with editable revenue/client/collection targets (localStorage), progress bars, pace indicator, monthly tracking table, revenue projection chart, AI Insights for Goals',
       'v2.10.0: Analytics charts (4 types), AI Insights on all 6 tabs, Client LTV analysis for pending-payment clients, universal sortable tables, fix Copy-to-Clipboard on Sheets Links tab',

@@ -2954,9 +2954,9 @@ async function loadGoalProgress() {
   container.innerHTML = '<p class="text-sm text-gray-500 py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Loading actuals from Xero…</p>';
 
   try {
-    // Fetch analytics/goals data (same endpoint that powers the Analytics tab)
-    const response = await axios.get('/api/analytics/goals');
-    const months = response.data;
+    // Fetch monthly trends data (same endpoint that powers the Analytics tab)
+    const response = await axios.get('/api/monthly/trends');
+    const months = (response.data && response.data.months) || response.data;
     if (!months || !months.length) {
       container.innerHTML = '<p class="text-gray-500 text-center py-8">No data returned from analytics endpoint</p>';
       return;
@@ -2973,10 +2973,11 @@ async function loadGoalProgress() {
     const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     if (monthLabel) monthLabel.textContent = `Actuals vs targets for ${monthName} — day ${dayOfMonth} of ${daysInMonth}`;
 
-    // Find current month data
+    // Find current month data — use monthNum/year fields if available, else parse label
     const currentData = months.find(m => {
-      const d = m.month ? new Date(m.month + '-01') : null;
-      return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      if (m.monthNum && m.year) return m.monthNum === (currentMonth + 1) && m.year === currentYear;
+      const d = m.month ? new Date(m.month + ' 1, ' + currentYear) : null;
+      return d && !isNaN(d) && d.getMonth() === currentMonth;
     }) || months[months.length - 1]; // fallback to most recent
 
     const actualRevenue = currentData.totalInvoiced || 0;
@@ -3174,11 +3175,4 @@ function __insightsForGoals() {
   const current = sorted[0] || {};
   const currRev = current.totalInvoiced || 0;
   const currClients = current.activeClients || 0;
-  const currCol = current.totalInvoiced > 0 ? ((current.paidAmount || 0) / current.totalInvoiced) * 100 : 0;
-
-  // Revenue insights
-  if (goals.revenue) {
-    const pct = ((currRev / goals.revenue) * 100).toFixed(0);
-    const now = new Date();
-    const dayOfMonth = now.getDate();
-    const daysInM
+  const currCol = current.totalInvoiced > 0 ? ((current.paidAmount || 0) / current.totalInvoiced) * 100 : 
