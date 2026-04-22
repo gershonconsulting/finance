@@ -2229,6 +2229,90 @@ function renderAnalyticsCharts(months) {
   });
 }
 
+// ---------- 3b. Revenue Performance Summary — bar chart + avg line + best month ----------
+function renderRevPerfSummary(months) {
+  if (!Array.isArray(months) || !months.length) return;
+  const labels = months.map(m => m.month);
+  const invoiced = months.map(m => Number(m.totalInvoiced) || 0);
+  const activeClients = months.map(m => Number(m.activeClients) || 0);
+  const collRates = months.map(m => Number(m.collectionRate) || 0);
+
+  // Compute averages
+  const avgRev = invoiced.reduce((a, b) => a + b, 0) / invoiced.length;
+  const avgClients = activeClients.reduce((a, b) => a + b, 0) / activeClients.length;
+  const avgColl = collRates.reduce((a, b) => a + b, 0) / collRates.length;
+
+  // Best month
+  const bestIdx = invoiced.indexOf(Math.max(...invoiced));
+  const bestMonth = labels[bestIdx];
+  const bestAmount = invoiced[bestIdx];
+
+  // Update KPI cards
+  const el = id => document.getElementById(id);
+  if (el('revPerfAvgRev')) el('revPerfAvgRev').textContent = '$' + Math.round(avgRev).toLocaleString();
+  if (el('revPerfBestMonth')) el('revPerfBestMonth').textContent = bestMonth;
+  if (el('revPerfBestAmount')) el('revPerfBestAmount').textContent = '$' + bestAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (el('revPerfAvgClients')) el('revPerfAvgClients').textContent = avgClients.toFixed(1);
+  if (el('revPerfAvgColl')) el('revPerfAvgColl').textContent = avgColl.toFixed(1) + '%';
+
+  // Bar colours — best month is gold, others are blue
+  const barColors = invoiced.map((v, i) => i === bestIdx ? '#f59e0b' : '#3b82f6');
+  const borderColors = invoiced.map((v, i) => i === bestIdx ? '#d97706' : '#2563eb');
+
+  __mkChart('revPerfBarChart', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Monthly Revenue',
+          data: invoiced,
+          backgroundColor: barColors,
+          borderColor: borderColors,
+          borderWidth: 1,
+          borderRadius: 4
+        },
+        {
+          label: 'Average ($' + Math.round(avgRev).toLocaleString() + ')',
+          data: Array(labels.length).fill(avgRev),
+          type: 'line',
+          borderColor: '#ef4444',
+          borderDash: [6, 4],
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+          tension: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: function (ctx) {
+              if (ctx.dataset.type === 'line') return ctx.dataset.label;
+              const val = '$' + ctx.parsed.y.toLocaleString(undefined, { minimumFractionDigits: 2 });
+              const diff = ctx.parsed.y - avgRev;
+              const pct = ((diff / avgRev) * 100).toFixed(1);
+              const sign = diff >= 0 ? '+' : '';
+              return val + ' (' + sign + pct + '% vs avg)';
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: v => '$' + v.toLocaleString() }
+        }
+      }
+    }
+  });
+}
+
 // Wrap loadAnalyticsGoals to also draw charts and load LTV
 (function wrapLoadAnalytics() {
   const original = window.loadAnalyticsGoals;
@@ -2240,6 +2324,7 @@ function renderAnalyticsCharts(months) {
       const months = (res && res.data && res.data.months) || [];
       window.__aiContext.monthlyTrends = months;
       renderAnalyticsCharts(months);
+      renderRevPerfSummary(months);
     } catch (e) { console.warn('Could not render analytics charts:', e); }
     try { await loadClientLTVAnalytics(); } catch (e) { console.warn('LTV analytics failed:', e); }
   };
@@ -3096,68 +3181,4 @@ function __insightsForGoals() {
     const pct = ((currRev / goals.revenue) * 100).toFixed(0);
     const now = new Date();
     const dayOfMonth = now.getDate();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const runRate = dayOfMonth > 0 ? (currRev / dayOfMonth) * daysInMonth : 0;
-    const metMonths = sorted.filter(m => (m.totalInvoiced || 0) >= goals.revenue).length;
-    const tone = parseInt(pct) >= 90 ? 'good' : parseInt(pct) >= 60 ? 'warn' : 'bad';
-
-    sections.push({
-      heading: `Revenue Goal: ${fmt(goals.revenue)}/mo`,
-      tone,
-      bullets: [
-        `Current month: <strong>${fmt(currRev)}</strong> invoiced so far — <strong>${pct}%</strong> of your target.`,
-        `At current pace, month-end run-rate projection: <strong>${fmt(Math.round(runRate))}</strong>.`,
-        runRate >= goals.revenue
-          ? `You're on track to <strong>meet or exceed</strong> your revenue target this month.`
-          : `You need <strong>${fmt(Math.round(goals.revenue - currRev))}</strong> more in the remaining ${daysInMonth - dayOfMonth} days to hit target.`,
-        `Over the last 12 months, you hit the revenue target in <strong>${metMonths}</strong> of ${sorted.length} months.`
-      ]
-    });
-  }
-
-  // Client count insights
-  if (goals.clients) {
-    const pct = ((currClients / goals.clients) * 100).toFixed(0);
-    const tone = parseInt(pct) >= 90 ? 'good' : parseInt(pct) >= 60 ? 'warn' : 'bad';
-    const avgClients = sorted.reduce((s, m) => s + (m.activeClients || 0), 0) / sorted.length;
-
-    sections.push({
-      heading: `Client Count Goal: ${goals.clients} active`,
-      tone,
-      bullets: [
-        `Current month: <strong>${currClients}</strong> active clients — <strong>${pct}%</strong> of target.`,
-        `12-month average: <strong>${avgClients.toFixed(1)}</strong> active clients per month.`,
-        currClients >= goals.clients
-          ? 'You\'ve already hit your client count target this month.'
-          : `You need <strong>${goals.clients - currClients}</strong> more active client${goals.clients - currClients > 1 ? 's' : ''} to reach your goal.`
-      ]
-    });
-  }
-
-  // Collection rate insights
-  if (goals.collection) {
-    const pct = goals.collection > 0 ? ((currCol / goals.collection) * 100).toFixed(0) : 0;
-    const tone = parseInt(pct) >= 90 ? 'good' : parseInt(pct) >= 60 ? 'warn' : 'bad';
-    const avgCol = sorted.reduce((s, m) => {
-      const inv = m.totalInvoiced || 0;
-      return s + (inv > 0 ? ((m.paidAmount || 0) / inv) * 100 : 0);
-    }, 0) / sorted.length;
-
-    sections.push({
-      heading: `Collection Rate Goal: ${goals.collection}%`,
-      tone,
-      bullets: [
-        `Current month: <strong>${currCol.toFixed(1)}%</strong> collected — <strong>${pct}%</strong> of target.`,
-        `12-month average collection rate: <strong>${avgCol.toFixed(1)}%</strong>.`,
-        currCol >= goals.collection
-          ? 'Collection rate is meeting or exceeding your target.'
-          : `Gap to target: <strong>${(goals.collection - currCol).toFixed(1)} percentage points</strong>. Focus on outstanding invoices to close the gap.`
-      ]
-    });
-  }
-
-  if (!sections.length) {
-    sections.push({ heading: 'No goals set', tone: 'neutral', bullets: ['Set at least one goal above, then analyze.'] });
-  }
-  return sections;
-}
+    const daysInM
