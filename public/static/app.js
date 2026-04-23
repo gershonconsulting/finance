@@ -3175,4 +3175,75 @@ function __insightsForGoals() {
   const current = sorted[0] || {};
   const currRev = current.totalInvoiced || 0;
   const currClients = current.activeClients || 0;
-  const currCol = current.totalInvoiced > 0 ? ((current.paidAmount || 0) / current.totalInvoiced) * 100 : 
+  const currCol = current.totalInvoiced > 0 ? ((current.paidAmount || 0) / current.totalInvoiced) * 100 : 0;
+
+  // Revenue insights
+  if (goals.revenue) {
+    const pct = ((currRev / goals.revenue) * 100).toFixed(0);
+    const now = new Date();
+    const dayOfMonth = now.getDate();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const runRate = dayOfMonth > 0 ? (currRev / dayOfMonth) * daysInMonth : 0;
+    const metMonths = sorted.filter(m => (m.totalInvoiced || 0) >= goals.revenue).length;
+    const tone = parseInt(pct) >= 90 ? 'good' : parseInt(pct) >= 60 ? 'warn' : 'bad';
+
+    sections.push({
+      heading: `Revenue Goal: ${fmt(goals.revenue)}/mo`,
+      tone,
+      bullets: [
+        `Current month: <strong>${fmt(currRev)}</strong> invoiced so far — <strong>${pct}%</strong> of your target.`,
+        `At current pace, month-end run-rate projection: <strong>${fmt(Math.round(runRate))}</strong>.`,
+        runRate >= goals.revenue
+          ? `You're on track to <strong>meet or exceed</strong> your revenue target this month.`
+          : `You need <strong>${fmt(Math.round(goals.revenue - currRev))}</strong> more in the remaining ${daysInMonth - dayOfMonth} days to hit target.`,
+        `Over the last 12 months, you hit the revenue target in <strong>${metMonths}</strong> of ${sorted.length} months.`
+      ]
+    });
+  }
+
+  // Client count insights
+  if (goals.clients) {
+    const pct = ((currClients / goals.clients) * 100).toFixed(0);
+    const tone = parseInt(pct) >= 90 ? 'good' : parseInt(pct) >= 60 ? 'warn' : 'bad';
+    const avgClients = sorted.reduce((s, m) => s + (m.activeClients || 0), 0) / sorted.length;
+
+    sections.push({
+      heading: `Client Count Goal: ${goals.clients} active`,
+      tone,
+      bullets: [
+        `Current month: <strong>${currClients}</strong> active clients — <strong>${pct}%</strong> of target.`,
+        `12-month average: <strong>${avgClients.toFixed(1)}</strong> active clients per month.`,
+        currClients >= goals.clients
+          ? 'You\'ve already hit your client count target this month.'
+          : `You need <strong>${goals.clients - currClients}</strong> more active client${goals.clients - currClients > 1 ? 's' : ''} to reach your goal.`
+      ]
+    });
+  }
+
+  // Collection rate insights
+  if (goals.collection) {
+    const pct = goals.collection > 0 ? ((currCol / goals.collection) * 100).toFixed(0) : 0;
+    const tone = parseInt(pct) >= 90 ? 'good' : parseInt(pct) >= 60 ? 'warn' : 'bad';
+    const avgCol = sorted.reduce((s, m) => {
+      const inv = m.totalInvoiced || 0;
+      return s + (inv > 0 ? ((m.paidAmount || 0) / inv) * 100 : 0);
+    }, 0) / sorted.length;
+
+    sections.push({
+      heading: `Collection Rate Goal: ${goals.collection}%`,
+      tone,
+      bullets: [
+        `Current month: <strong>${currCol.toFixed(1)}%</strong> collected — <strong>${pct}%</strong> of target.`,
+        `12-month average collection rate: <strong>${avgCol.toFixed(1)}%</strong>.`,
+        currCol >= goals.collection
+          ? 'Collection rate is meeting or exceeding your target.'
+          : `Gap to target: <strong>${(goals.collection - currCol).toFixed(1)} percentage points</strong>. Focus on outstanding invoices to close the gap.`
+      ]
+    });
+  }
+
+  if (!sections.length) {
+    sections.push({ heading: 'No goals set', tone: 'neutral', bullets: ['Set at least one goal above, then analyze.'] });
+  }
+  return sections;
+}

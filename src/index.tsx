@@ -1545,7 +1545,6 @@ app.get('/api/sheets/clients/list', async (c) => {
 });
 
 // Default route - serve static index.html
-// Default route - serve static index.html
 app.get('/', async (c) => {
   const url = new URL(c.req.url);
   url.pathname = '/index.html';
