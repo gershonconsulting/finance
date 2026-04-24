@@ -1616,6 +1616,8 @@ async function loadClientSheetFormulas() {
       return;
     }
 
+    // Only keep clients with outstanding balance > 0
+    clients = clients.filter(c => (c.totalOutstanding || 0) > 0);
     // Sort alphabetically by client name
     clients.sort((a, b) => (a.contactName || '').localeCompare(b.contactName || ''));
 
