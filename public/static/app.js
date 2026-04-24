@@ -1604,20 +1604,37 @@ async function loadClientSheetFormulas() {
     let clients = [];
 
     try {
-      const response = await axios.get('/api/clients/awaiting-payment');
-      clients = response.data;
+      // Fetch client lifetime data — gives us billedMonths + latestInvoiceDate
+      const response = await axios.get('/api/clients/lifetime');
+      const allClients = (response.data && response.data.clients) || response.data || [];
+
+      // "Active" = recurring (2+ billed months) AND invoiced in the last month
+      const now = new Date();
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      clients = allClients.filter(c => {
+        const recurring = (c.billedMonths || 0) >= 2;
+        const latest = c.latestInvoiceDate ? new Date(c.latestInvoiceDate) : null;
+        const recentlyInvoiced = latest && latest >= lastMonth && latest <= thisMonthEnd;
+        return recurring && recentlyInvoiced;
+      });
     } catch (err) {
-      const response = await axios.get('/api/demo/clients-awaiting-payment');
-      clients = response.data;
+      // Fallback to awaiting-payment
+      try {
+        const response = await axios.get('/api/clients/awaiting-payment');
+        clients = response.data || [];
+      } catch (e2) {
+        const response = await axios.get('/api/demo/clients-awaiting-payment');
+        clients = response.data || [];
+      }
     }
 
     if (!clients || clients.length === 0) {
-      container.innerHTML = '<p class="text-sm text-gray-500">No clients with outstanding balances.</p>';
+      container.innerHTML = '<p class="text-sm text-gray-500">No active recurring clients found (clients with 2+ billed months and an invoice in the last month).</p>';
       return;
     }
 
-    // Only keep clients with outstanding balance > 0
-    clients = clients.filter(c => (c.totalOutstanding || 0) > 0);
     // Sort alphabetically by client name
     clients.sort((a, b) => (a.contactName || '').localeCompare(b.contactName || ''));
 

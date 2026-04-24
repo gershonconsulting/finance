@@ -70,7 +70,7 @@
                             <div class="flex items-center">
                                 <i class="fas fa-chart-line text-2xl mr-3"></i>
                                 <h1 class="text-xl font-bold">Gershon Finance Dashboard</h1>
-                                <span class="text-xs font-normal text-blue-200 ml-2">v2.13.1 · Built __BUILD_TIMESTAMP__</span>
+                                <span class="text-xs font-normal text-blue-200 ml-2">v2.13.2 · Built __BUILD_TIMESTAMP__</span>
                             </div>
                             <div class="flex items-center space-x-3">
                                 <div id="liveIndicator" class="flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-500 text-white">
@@ -706,13 +706,13 @@
                         <div class="flex items-center justify-between mb-3">
                             <h3 class="text-base font-semibold text-gray-800 flex items-center">
                                 <i class="fas fa-building text-blue-600 mr-2"></i>
-                                Client Balances Due — IMPORTDATA by Client
+                                Active Clients — IMPORTDATA by Client
                             </h3>
                             <button onclick="loadClientSheetFormulas()" class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition">
                                 <i class="fas fa-sync-alt mr-1"></i>Reload
                             </button>
                         </div>
-                        <p class="text-xs text-gray-500 mb-4">Each formula returns that client's current outstanding balance. Sorted by client name.</p>
+                        <p class="text-xs text-gray-500 mb-4">Active recurring clients (2+ billed months, invoiced in the last month). Sorted by name.</p>
                         <div id="clientSheetFormulas" class="space-y-2">
                             <p class="text-sm text-gray-400 italic">Loading clients...</p>
                         </div>

@@ -174,10 +174,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.13.1',
+    version: '2.13.2',
     releaseDate: '2026-04-23T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.13.2: Sheets Links — only show active recurring clients (2+ billed months, invoiced last month)',
       'v2.13.1: Google Sheets Links — only show clients with outstanding balance',
       'v2.13.0: Client filters (status + date range), Trends most-recent-first, Monthly Breakdown multi-line chart (revenue, clients, collection rate)',
       'v2.12.1: Fix Goals tab — use correct /api/monthly/trends endpoint, fix month matching',
