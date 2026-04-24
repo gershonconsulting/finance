@@ -1369,6 +1369,8 @@ function renderTrendsTable() {
   
   const dataEl = document.getElementById('trendsData');
   const periods = [...currentTrendsData.periods]; // Create a copy
+  // Default: most recent first
+  if (!trendsSortState.column) periods.reverse();
   
   // Apply sorting if active
   if (trendsSortState.column) {
@@ -3247,3 +3249,213 @@ function __insightsForGoals() {
   }
   return sections;
 }
+
+// ============================================================
+// v2.13.0 ENHANCEMENTS
+// ============================================================
+
+// ---------- 1. Client Filters (status + date range) ----------
+let allClientData = [];
+
+async function applyClientFilters() {
+  const statusFilter = document.getElementById('clientStatusFilter')?.value || 'all';
+  const dateFilter = document.getElementById('clientDateFilter')?.value || 'all';
+
+  const listEl = document.getElementById('clientsList');
+  if (!listEl) return;
+  listEl.innerHTML = '<p class="text-gray-400 text-center py-6"><i class="fas fa-spinner fa-spin mr-2"></i>Loading clients...</p>';
+
+  try {
+    // Decide which endpoint based on status filter
+    let endpoint = '/api/clients/awaiting-payment';
+    if (statusFilter === 'all' || statusFilter === 'paid') {
+      // For 'all' and 'paid' we need the full invoices list
+      endpoint = '/api/invoices';
+    }
+
+    let clients = [];
+    
+    if (statusFilter === 'all' || statusFilter === 'paid') {
+      // Fetch all invoices and group by client
+      const res = await axios.get(endpoint);
+      const invoices = res.data.invoices || res.data || [];
+      
+      // Date filter
+      const now = new Date();
+      const cutoff = dateFilter !== 'all' ? new Date(now.getFullYear(), now.getMonth() - parseInt(dateFilter), 1) : null;
+      
+      // Status mapping
+      const statusMap = {
+        'overdue': inv => ['AUTHORISED', 'SUBMITTED'].includes(inv.Status) && new Date(inv.DueDateString || inv.DueDate) < now,
+        'awaiting': inv => ['AUTHORISED', 'SUBMITTED'].includes(inv.Status),
+        'paid': inv => inv.Status === 'PAID',
+        'draft': inv => inv.Status === 'DRAFT',
+        'all': () => true
+      };
+      const matchStatus = statusMap[statusFilter] || statusMap['all'];
+
+      const filtered = invoices.filter(inv => {
+        if (!matchStatus(inv)) return false;
+        if (cutoff) {
+          const d = inv.DueDateString ? new Date(inv.DueDateString) : (inv.DueDate ? new Date(inv.DueDate) : null);
+          if (d && d < cutoff) return false;
+        }
+        return true;
+      });
+
+      // Group by contact
+      const byClient = {};
+      filtered.forEach(inv => {
+        const name = inv.Contact?.Name || 'Unknown';
+        if (!byClient[name]) byClient[name] = { contactName: name, invoiceCount: 0, totalOutstanding: 0, totalPaid: 0, averagePaymentDelay: 0, delays: [] };
+        byClient[name].invoiceCount++;
+        if (inv.Status === 'PAID') {
+          byClient[name].totalPaid += inv.Total || 0;
+        } else {
+          byClient[name].totalOutstanding += inv.AmountDue || inv.Total || 0;
+        }
+      });
+      clients = Object.values(byClient);
+    } else {
+      // Use the awaiting-payment endpoint for overdue/awaiting
+      const res = await axios.get('/api/clients/awaiting-payment');
+      clients = res.data || [];
+      
+      // Date filter
+      if (dateFilter !== 'all') {
+        const now = new Date();
+        const cutoff = new Date(now.getFullYear(), now.getMonth() - parseInt(dateFilter), 1);
+        // awaiting-payment clients don't have date fields to filter on, so we keep all
+      }
+      
+      // If overdue only, filter out non-overdue
+      if (statusFilter === 'overdue') {
+        clients = clients.filter(c => (c.averagePaymentDelay || 0) > 0 || (c.totalOutstanding || 0) > 0);
+      }
+    }
+
+    allClientData = clients;
+    displayClientsAwaitingPayment(clients, false);
+  } catch (err) {
+    console.error('Client filter error:', err);
+    // Fallback to awaiting-payment
+    try {
+      const res = await axios.get('/api/clients/awaiting-payment');
+      displayClientsAwaitingPayment(res.data || [], false);
+    } catch (e2) {
+      listEl.innerHTML = '<p class="text-red-500 text-center py-6">Failed to load clients</p>';
+    }
+  }
+}
+window.applyClientFilters = applyClientFilters;
+
+// ---------- 2. Monthly Breakdown chart (multi-line) ----------
+function renderMonthlyBreakdownChart(months) {
+  const el = document.getElementById('monthlyBreakdownChart');
+  if (!el || !months || !months.length) return;
+
+  // Sort ascending by date
+  const sorted = [...months].sort((a, b) => {
+    if (a.year !== b.year) return a.year - b.year;
+    return a.monthNum - b.monthNum;
+  });
+
+  const labels = sorted.map(m => m.month);
+  const revenue = sorted.map(m => m.totalInvoiced || 0);
+  const clients = sorted.map(m => m.activeClients || 0);
+  const collRate = sorted.map(m => m.collectionRate || 0);
+
+  if (window.__analyticsCharts && window.__analyticsCharts['monthlyBreakdownChart']) {
+    try { window.__analyticsCharts['monthlyBreakdownChart'].destroy(); } catch (e) {}
+  }
+
+  const chart = new Chart(el, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Revenue ($)',
+          data: revenue,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.1)',
+          fill: true,
+          tension: 0.3,
+          yAxisID: 'yRevenue',
+          borderWidth: 2
+        },
+        {
+          label: 'Active Clients',
+          data: clients,
+          borderColor: '#8b5cf6',
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.3,
+          yAxisID: 'yClients',
+          borderWidth: 2,
+          borderDash: [5, 3]
+        },
+        {
+          label: 'Collection Rate (%)',
+          data: collRate,
+          borderColor: '#16a34a',
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.3,
+          yAxisID: 'yRate',
+          borderWidth: 2,
+          borderDash: [2, 2]
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom' } },
+      scales: {
+        yRevenue: {
+          type: 'linear',
+          position: 'left',
+          beginAtZero: true,
+          ticks: { callback: v => '$' + v.toLocaleString() },
+          title: { display: true, text: 'Revenue', color: '#3b82f6' }
+        },
+        yClients: {
+          type: 'linear',
+          position: 'right',
+          beginAtZero: true,
+          ticks: { precision: 0 },
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: 'Clients', color: '#8b5cf6' }
+        },
+        yRate: {
+          type: 'linear',
+          position: 'right',
+          beginAtZero: true,
+          max: 110,
+          ticks: { callback: v => v + '%' },
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: 'Collection %', color: '#16a34a' }
+        }
+      }
+    }
+  });
+
+  window.__analyticsCharts = window.__analyticsCharts || {};
+  window.__analyticsCharts['monthlyBreakdownChart'] = chart;
+}
+
+// Patch loadMonthlyTrends to also render the chart and reverse sort
+(function patchMonthlyTrends() {
+  const origRender = window.renderMonthlyTrendsTable || renderMonthlyTrendsTable;
+  if (typeof origRender !== 'function') return;
+
+  window.renderMonthlyTrendsTable = function(months) {
+    // Reverse so most recent month is first (for table)
+    const reversed = [...months].reverse();
+    origRender(reversed);
+    // Render chart (ascending order handled inside)
+    renderMonthlyBreakdownChart(months);
+  };
+})();
