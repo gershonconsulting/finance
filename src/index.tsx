@@ -12,6 +12,14 @@ type Bindings = {
   XERO_CLIENT_ID: string;
   XERO_CLIENT_SECRET: string;
   XERO_REDIRECT_URI: string;
+  GOALS_KV: KVNamespace;
+};
+
+const DEFAULT_GOALS = {
+  mrrTarget: 20000,
+  collectionRateTarget: 85,
+  maxOverdueTarget: 15,
+  activeClientsTarget: 15,
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -1536,6 +1544,36 @@ app.get('/api/sheets/clients/list', async (c) => {
   } catch (error: any) {
     console.error('Error generating clients list:', error);
     return c.text('Client Name,Balance Due\nError,0.00');
+  }
+});
+
+// Shared team goals — stored in KV so all users see the same targets
+app.get('/api/goals', async (c) => {
+  try {
+    if (c.env?.GOALS_KV) {
+      const stored = await c.env.GOALS_KV.get('goals');
+      if (stored) return c.json(JSON.parse(stored));
+    }
+  } catch {}
+  return c.json(DEFAULT_GOALS);
+});
+
+app.post('/api/goals', async (c) => {
+  try {
+    const body = await c.req.json();
+    const goals = {
+      mrrTarget: Number(body.mrrTarget) || DEFAULT_GOALS.mrrTarget,
+      collectionRateTarget: Number(body.collectionRateTarget) || DEFAULT_GOALS.collectionRateTarget,
+      maxOverdueTarget: Number(body.maxOverdueTarget) || DEFAULT_GOALS.maxOverdueTarget,
+      activeClientsTarget: Number(body.activeClientsTarget) || DEFAULT_GOALS.activeClientsTarget,
+    };
+    if (c.env?.GOALS_KV) {
+      await c.env.GOALS_KV.put('goals', JSON.stringify(goals));
+      return c.json({ ok: true, goals });
+    }
+    return c.json({ ok: false, error: 'KV not configured — goals saved locally only', goals });
+  } catch (e: any) {
+    return c.json({ ok: false, error: e.message }, 500);
   }
 });
 

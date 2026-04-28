@@ -753,6 +753,50 @@
                         </div>
                     </div>
 
+                    <!-- Team Goals / Objectives -->
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-bullseye mr-2 text-blue-600"></i>Team Objectives</h2>
+                                <p class="text-sm text-gray-500 mt-1">Shared targets — visible to all team members</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="editGoals()" id="editGoalsBtn" class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm">
+                                    <i class="fas fa-edit mr-1"></i>Edit
+                                </button>
+                                <button onclick="saveGoals()" id="saveGoalsBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm hidden">
+                                    <i class="fas fa-save mr-1"></i>Save for Everyone
+                                </button>
+                                <button onclick="cancelEditGoals()" id="cancelGoalsBtn" class="px-4 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 text-sm hidden">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                        <div id="goalsSaveStatus" class="hidden mb-3 text-sm font-medium text-green-600"><i class="fas fa-check-circle mr-1"></i>Goals saved — all team members will see these targets</div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="bg-blue-50 rounded-lg p-4">
+                                <p class="text-xs text-gray-500 uppercase mb-1">Monthly Revenue Target</p>
+                                <p id="goalMrrDisplay" class="text-xl font-bold text-blue-700">--</p>
+                                <input id="goalMrrInput" type="number" class="hidden w-full mt-1 border rounded px-2 py-1 text-sm" placeholder="e.g. 20000">
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-4">
+                                <p class="text-xs text-gray-500 uppercase mb-1">Collection Rate Target</p>
+                                <p id="goalCollectionDisplay" class="text-xl font-bold text-green-700">--%</p>
+                                <input id="goalCollectionInput" type="number" min="0" max="100" class="hidden w-full mt-1 border rounded px-2 py-1 text-sm" placeholder="e.g. 85">
+                            </div>
+                            <div class="bg-red-50 rounded-lg p-4">
+                                <p class="text-xs text-gray-500 uppercase mb-1">Max Overdue Rate</p>
+                                <p id="goalOverdueDisplay" class="text-xl font-bold text-red-600">--%</p>
+                                <input id="goalOverdueInput" type="number" min="0" max="100" class="hidden w-full mt-1 border rounded px-2 py-1 text-sm" placeholder="e.g. 15">
+                            </div>
+                            <div class="bg-purple-50 rounded-lg p-4">
+                                <p class="text-xs text-gray-500 uppercase mb-1">Active Clients Target</p>
+                                <p id="goalClientsDisplay" class="text-xl font-bold text-purple-700">--</p>
+                                <input id="goalClientsInput" type="number" class="hidden w-full mt-1 border rounded px-2 py-1 text-sm" placeholder="e.g. 15">
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Monthly Targets vs Actuals -->
                     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                         <div class="flex items-center justify-between mb-4">

@@ -1578,6 +1578,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadMonthlyTrends();
       } else if (tabName === 'analytics') {
         loadAnalyticsGoals();
+        loadGoals();
       }
     });
   });
@@ -1957,3 +1958,70 @@ async function loadAnalyticsGoals() {
 }
 
 window.loadAnalyticsGoals = loadAnalyticsGoals;
+
+// ---- Shared Team Goals ----
+let _currentGoals = null;
+
+async function loadGoals() {
+  try {
+    const res = await axios.get('/api/goals');
+    _currentGoals = res.data;
+    renderGoals(_currentGoals);
+  } catch (e) {
+    console.warn('Could not load goals', e);
+  }
+}
+
+function renderGoals(goals) {
+  const fmt = v => '$' + Number(v).toLocaleString();
+  document.getElementById('goalMrrDisplay').textContent = fmt(goals.mrrTarget);
+  document.getElementById('goalCollectionDisplay').textContent = goals.collectionRateTarget + '%';
+  document.getElementById('goalOverdueDisplay').textContent = goals.maxOverdueTarget + '%';
+  document.getElementById('goalClientsDisplay').textContent = goals.activeClientsTarget;
+}
+
+function editGoals() {
+  if (!_currentGoals) return;
+  document.getElementById('goalMrrInput').value = _currentGoals.mrrTarget;
+  document.getElementById('goalCollectionInput').value = _currentGoals.collectionRateTarget;
+  document.getElementById('goalOverdueInput').value = _currentGoals.maxOverdueTarget;
+  document.getElementById('goalClientsInput').value = _currentGoals.activeClientsTarget;
+  ['goalMrrDisplay','goalCollectionDisplay','goalOverdueDisplay','goalClientsDisplay'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  ['goalMrrInput','goalCollectionInput','goalOverdueInput','goalClientsInput'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+  document.getElementById('editGoalsBtn').classList.add('hidden');
+  document.getElementById('saveGoalsBtn').classList.remove('hidden');
+  document.getElementById('cancelGoalsBtn').classList.remove('hidden');
+  document.getElementById('goalsSaveStatus').classList.add('hidden');
+}
+
+function cancelEditGoals() {
+  ['goalMrrDisplay','goalCollectionDisplay','goalOverdueDisplay','goalClientsDisplay'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+  ['goalMrrInput','goalCollectionInput','goalOverdueInput','goalClientsInput'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.getElementById('editGoalsBtn').classList.remove('hidden');
+  document.getElementById('saveGoalsBtn').classList.add('hidden');
+  document.getElementById('cancelGoalsBtn').classList.add('hidden');
+}
+
+async function saveGoals() {
+  const goals = {
+    mrrTarget: document.getElementById('goalMrrInput').value,
+    collectionRateTarget: document.getElementById('goalCollectionInput').value,
+    maxOverdueTarget: document.getElementById('goalOverdueInput').value,
+    activeClientsTarget: document.getElementById('goalClientsInput').value,
+  };
+  try {
+    const res = await axios.post('/api/goals', goals);
+    _currentGoals = res.data.goals;
+    renderGoals(_currentGoals);
+    cancelEditGoals();
+    const status = document.getElementById('goalsSaveStatus');
+    status.classList.remove('hidden');
+    setTimeout(() => status.classList.add('hidden'), 4000);
+  } catch (e) {
+    alert('Failed to save goals. Please try again.');
+  }
+}
+
+window.editGoals = editGoals;
+window.saveGoals = saveGoals;
+window.cancelEditGoals = cancelEditGoals;

@@ -14,6 +14,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Load secrets from 1Password
+        uses: 1password/load-secrets-action@v2
+        # Remove this step if you are not using 1Password.
+        # Set OP_SERVICE_ACCOUNT_TOKEN in GitHub Secrets instead.
+        # Store your Cloudflare token in 1Password as:
+        #   Vault: DevOps  |  Item: Cloudflare  |  Field: api_token
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          CLOUDFLARE_API_TOKEN: op://DevOps/Cloudflare/api_token
+        continue-on-error: true
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -36,5 +49,6 @@ jobs:
       - name: Deploy to Cloudflare Pages
         run: npx wrangler pages deploy dist --project-name gershon-finance
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Uses token from 1Password if OP step succeeded, otherwise falls back to GitHub Secret
+          CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 0b8434adba9af8231df90a1f3d2e6e12
