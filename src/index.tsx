@@ -12,7 +12,10 @@ type Bindings = {
   XERO_CLIENT_ID: string;
   XERO_CLIENT_SECRET: string;
   XERO_REDIRECT_URI: string;
+  GOALS_KV: KVNamespace;
 };
+
+const DEFAULT_GOALS = { revenue: null, clients: null, collection: null };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -174,10 +177,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.13.2',
-    releaseDate: '2026-04-23T00:00:00Z',
+    version: '2.14.0',
+    releaseDate: '2026-04-28T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.14.0: Goals stored server-side (Cloudflare KV) — all team members share the same objectives',
       'v2.13.2: Sheets Links — only show active recurring clients (2+ billed months, invoiced last month)',
       'v2.13.1: Google Sheets Links — only show clients with outstanding balance',
       'v2.13.0: Client filters (status + date range), Trends most-recent-first, Monthly Breakdown multi-line chart (revenue, clients, collection rate)',
@@ -1544,6 +1548,34 @@ app.get('/api/sheets/clients/list', async (c) => {
   } catch (error: any) {
     console.error('Error generating clients list:', error);
     return c.text('Client Name,Balance Due\nError,0.00');
+  }
+});
+
+// Shared team goals — server-side so all users see the same targets
+app.get('/api/goals', async (c) => {
+  try {
+    if (c.env?.GOALS_KV) {
+      const stored = await c.env.GOALS_KV.get('goals');
+      if (stored) return c.json(JSON.parse(stored));
+    }
+  } catch {}
+  return c.json(DEFAULT_GOALS);
+});
+
+app.post('/api/goals', async (c) => {
+  try {
+    const body = await c.req.json();
+    const goals = {
+      revenue: body.revenue != null ? Number(body.revenue) : null,
+      clients: body.clients != null ? Number(body.clients) : null,
+      collection: body.collection != null ? Number(body.collection) : null,
+    };
+    if (c.env?.GOALS_KV) {
+      await c.env.GOALS_KV.put('goals', JSON.stringify(goals));
+    }
+    return c.json({ ok: true, goals });
+  } catch (e: any) {
+    return c.json({ ok: false, error: e.message }, 500);
   }
 });
 

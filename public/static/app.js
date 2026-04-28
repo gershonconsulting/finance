@@ -2860,23 +2860,23 @@ window.generateAIInsights = generateAIInsights;
 // progress bars, projections, monthly tracking table.
 // ============================================================
 
-const GOALS_STORAGE_KEY = 'gershon_finance_goals';
-
-function __loadGoalsFromStorage() {
+// Goals are stored server-side so all team members see the same targets
+async function __loadGoalsFromStorage() {
   try {
-    const raw = localStorage.getItem(GOALS_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) { /* ignore */ }
-  return { revenue: null, clients: null, collection: null };
+    const res = await axios.get('/api/goals');
+    return res.data || { revenue: null, clients: null, collection: null };
+  } catch (e) {
+    return { revenue: null, clients: null, collection: null };
+  }
 }
 
-function __saveGoalsToStorage(goals) {
-  localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals));
+async function __saveGoalsToStorage(goals) {
+  await axios.post('/api/goals', goals);
 }
 
-// Populate inputs from localStorage on page load
-document.addEventListener('DOMContentLoaded', () => {
-  const goals = __loadGoalsFromStorage();
+// Populate inputs from server on page load
+document.addEventListener('DOMContentLoaded', async () => {
+  const goals = await __loadGoalsFromStorage();
   const rEl = document.getElementById('goalRevenue');
   const cEl = document.getElementById('goalClients');
   const colEl = document.getElementById('goalCollection');
@@ -2885,11 +2885,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (colEl && goals.collection != null) colEl.value = goals.collection;
 });
 
-function saveGoals() {
+async function saveGoals() {
   const revenue = parseFloat(document.getElementById('goalRevenue')?.value) || null;
   const clients = parseInt(document.getElementById('goalClients')?.value, 10) || null;
   const collection = parseFloat(document.getElementById('goalCollection')?.value) || null;
-  __saveGoalsToStorage({ revenue, clients, collection });
+  await __saveGoalsToStorage({ revenue, clients, collection });
 
   // visual feedback
   const btn = event.target.closest('button');
@@ -2960,7 +2960,7 @@ function __buildProgressCard(label, icon, iconColor, actual, target, unit, dayOf
 }
 
 async function loadGoalProgress() {
-  const goals = __loadGoalsFromStorage();
+  const goals = await __loadGoalsFromStorage();
   const container = document.getElementById('goalsProgressContainer');
   const tableContainer = document.getElementById('goalsMonthlyTable');
   const monthLabel = document.getElementById('goalsCurrentMonthLabel');
