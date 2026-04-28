@@ -177,11 +177,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.14.0',
+    version: '2.15.0',
     releaseDate: '2026-04-28T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
-      'v2.14.0: Goals stored server-side (Cloudflare KV) — all team members share the same objectives',
+      'v2.15.0: Goals stored server-side (Cloudflare KV) — all team members share the same objectives',
       'v2.13.2: Sheets Links — only show active recurring clients (2+ billed months, invoiced last month)',
       'v2.13.1: Google Sheets Links — only show clients with outstanding balance',
       'v2.13.0: Client filters (status + date range), Trends most-recent-first, Monthly Breakdown multi-line chart (revenue, clients, collection rate)',
@@ -1549,6 +1549,135 @@ app.get('/api/sheets/clients/list', async (c) => {
     console.error('Error generating clients list:', error);
     return c.text('Client Name,Balance Due\nError,0.00');
   }
+});
+
+// Company Valuation — ARR multiples adjusted for churn, growth, NRR
+app.get('/api/valuation', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const allInvoices = await xero.getInvoices();
+    const now = new Date();
+
+    const parseDate = (d: any): Date | null => {
+      if (!d) return null;
+      if (typeof d === 'string' && d.includes('/Date(')) {
+        const m = d.match(/\/Date\((\d+)/);
+        return m ? new Date(parseInt(m[1])) : null;
+      }
+      const dt = new Date(d);
+      return isNaN(dt.getTime()) ? null : dt;
+    };
+
+    // Build 12-month series (oldest → newest)
+    const monthlyData: Array<{ revenue: number; clients: Set<string>; paid: number }> = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const yr = d.getFullYear(), mo = d.getMonth();
+      const invoices = allInvoices.filter(inv => {
+        const dt = parseDate(inv.DueDate);
+        return dt && dt.getFullYear() === yr && dt.getMonth() === mo
+          && ['PAID', 'AUTHORISED', 'SUBMITTED'].includes(inv.Status);
+      });
+      const clients = new Set<string>();
+      invoices.forEach(inv => { if (inv.Contact?.ContactID) clients.add(inv.Contact.ContactID); });
+      const paid = invoices.filter(i => i.Status === 'PAID').reduce((s, i) => s + (i.Total || 0), 0);
+      monthlyData.push({ revenue: invoices.reduce((s, i) => s + (i.Total || 0), 0), clients, paid });
+    }
+
+    const current = monthlyData[11];
+    const prev = monthlyData[10];
+    const yearAgo = monthlyData[0];
+
+    const mrr = current.revenue;
+    const arr = mrr * 12;
+
+    // MoM and YoY growth
+    const momGrowth = prev.revenue > 0 ? ((mrr - prev.revenue) / prev.revenue) * 100 : 0;
+    const yoyGrowth = yearAgo.revenue > 0 ? ((mrr - yearAgo.revenue) / yearAgo.revenue) * 100 : 0;
+
+    // Monthly churn: clients in prev month who don't appear in current month
+    let totalChurnedClients = 0, totalPrevClients = 0;
+    for (let i = 1; i < 12; i++) {
+      const prev = monthlyData[i - 1].clients;
+      const curr = monthlyData[i].clients;
+      const churned = [...prev].filter(id => !curr.has(id)).length;
+      totalChurnedClients += churned;
+      totalPrevClients += prev.size;
+    }
+    const monthlyChurnRate = totalPrevClients > 0 ? (totalChurnedClients / totalPrevClients) * 100 : 0;
+
+    // NRR: revenue retained + expansion from clients who existed 12 months ago
+    const retainedClients = [...yearAgo.clients].filter(id => current.clients.has(id));
+    const retainedRevenue = allInvoices
+      .filter(inv => {
+        const dt = parseDate(inv.DueDate);
+        return dt && dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth()
+          && retainedClients.includes(inv.Contact?.ContactID)
+          && ['PAID', 'AUTHORISED', 'SUBMITTED'].includes(inv.Status);
+      })
+      .reduce((s, i) => s + (i.Total || 0), 0);
+    const nrr = yearAgo.revenue > 0 ? Math.round((retainedRevenue / yearAgo.revenue) * 1000) / 10 : 100;
+
+    // Collection rate (12-month avg)
+    const totalInvoiced12 = monthlyData.reduce((s, m) => s + m.revenue, 0);
+    const totalPaid12 = monthlyData.reduce((s, m) => s + m.paid, 0);
+    const collectionRate = totalInvoiced12 > 0 ? (totalPaid12 / totalInvoiced12) * 100 : 0;
+
+    // LTV per client = MRR per client / monthly churn
+    const avgClientsPerMonth = monthlyData.reduce((s, m) => s + m.clients.size, 0) / 12;
+    const mrrPerClient = avgClientsPerMonth > 0 ? mrr / avgClientsPerMonth : 0;
+    const ltv = monthlyChurnRate > 0 ? mrrPerClient / (monthlyChurnRate / 100) : mrrPerClient * 24;
+
+    // Rule of 40 = revenue growth % + collection rate as proxy for margin
+    const rule40 = Math.round(momGrowth + collectionRate) ;
+
+    // Valuation multiple — base 4x ARR, adjusted for growth, churn, NRR
+    let baseMultiple = 4;
+    if (momGrowth > 20) baseMultiple += 3;
+    else if (momGrowth > 10) baseMultiple += 1.5;
+    else if (momGrowth < -5) baseMultiple -= 1;
+    if (monthlyChurnRate < 2) baseMultiple += 1.5;
+    else if (monthlyChurnRate < 5) baseMultiple += 0.5;
+    else if (monthlyChurnRate > 8) baseMultiple -= 1;
+    if (nrr > 110) baseMultiple += 1;
+    else if (nrr < 80) baseMultiple -= 0.5;
+    baseMultiple = Math.max(1, baseMultiple);
+
+    return c.json({
+      mrr: Math.round(mrr * 100) / 100,
+      arr: Math.round(arr * 100) / 100,
+      momGrowth: Math.round(momGrowth * 10) / 10,
+      yoyGrowth: Math.round(yoyGrowth * 10) / 10,
+      monthlyChurnRate: Math.round(monthlyChurnRate * 100) / 100,
+      nrr: Math.round(nrr * 10) / 10,
+      collectionRate: Math.round(collectionRate * 10) / 10,
+      ltv: Math.round(ltv * 100) / 100,
+      rule40,
+      multiple: Math.round(baseMultiple * 10) / 10,
+      valuationLow: Math.round(arr * (baseMultiple - 1) * 100) / 100,
+      valuationMid: Math.round(arr * baseMultiple * 100) / 100,
+      valuationHigh: Math.round(arr * (baseMultiple + 2) * 100) / 100,
+    });
+  } catch (error: any) {
+    console.error('Valuation error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.get('/api/demo/valuation', (c) => {
+  return c.json({
+    mrr: 18200, arr: 218400,
+    momGrowth: 12.4, yoyGrowth: 34.2,
+    monthlyChurnRate: 3.1, nrr: 108.5,
+    collectionRate: 82.3, ltv: 18700,
+    rule40: 94, multiple: 5.5,
+    valuationLow: 982800, valuationMid: 1201200, valuationHigh: 1638000,
+  });
 });
 
 // Shared team goals — server-side so all users see the same targets

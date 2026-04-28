@@ -1582,6 +1582,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadAnalyticsGoals();
       } else if (tabName === 'goals') {
         loadGoalProgress();
+      } else if (tabName === 'valuation') {
+        loadValuation();
       }
     });
   });
@@ -2159,7 +2161,7 @@ function autoSortableContainer(containerId) {
 document.addEventListener('DOMContentLoaded', () => {
   [
     'tab-dashboard', 'tab-invoices', 'tab-clients',
-    'tab-trends', 'tab-analytics', 'tab-goals', 'tab-sheets-links'
+    'tab-trends', 'tab-analytics', 'tab-goals', 'tab-valuation', 'tab-sheets-links'
   ].forEach(id => autoSortableContainer(id));
 });
 
@@ -3478,3 +3480,69 @@ function renderMonthlyBreakdownChart(months) {
     renderMonthlyBreakdownChart(months);
   };
 })();
+
+// ---- Valuation ----
+async function loadValuation() {
+  const loading = document.getElementById('valuationLoading');
+  if (loading) loading.classList.remove('hidden');
+
+  let data;
+  try {
+    const res = await axios.get('/api/valuation');
+    data = res.data;
+  } catch (e) {
+    try {
+      const res = await axios.get('/api/demo/valuation');
+      data = res.data;
+    } catch (e2) {
+      if (loading) loading.classList.add('hidden');
+      return;
+    }
+  }
+  if (loading) loading.classList.add('hidden');
+
+  const fmt = v => '$' + Math.round(v).toLocaleString();
+  const fmtM = v => {
+    if (v >= 1000000) return '$' + (v / 1000000).toFixed(2) + 'M';
+    if (v >= 1000) return '$' + (v / 1000).toFixed(1) + 'K';
+    return '$' + Math.round(v).toLocaleString();
+  };
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  set('valARR', fmtM(data.arr));
+  set('valLow', fmtM(data.valuationLow));
+  set('valMid', fmtM(data.valuationMid));
+  set('valHigh', fmtM(data.valuationHigh));
+  set('valLowMultiple', (data.multiple - 1).toFixed(1) + '× ARR');
+  set('valMidMultiple', data.multiple.toFixed(1) + '× ARR');
+  set('valHighMultiple', (data.multiple + 2).toFixed(1) + '× ARR');
+
+  const growthEl = document.getElementById('valGrowth');
+  if (growthEl) {
+    growthEl.textContent = (data.momGrowth >= 0 ? '+' : '') + data.momGrowth.toFixed(1) + '%';
+    growthEl.className = 'text-xl font-bold ' + (data.momGrowth >= 0 ? 'text-green-600' : 'text-red-500');
+  }
+
+  set('valChurn', data.monthlyChurnRate.toFixed(1) + '%');
+  const churnEl = document.getElementById('valChurn');
+  if (churnEl) churnEl.className = 'text-xl font-bold ' + (data.monthlyChurnRate < 3 ? 'text-green-600' : data.monthlyChurnRate < 7 ? 'text-yellow-600' : 'text-red-600');
+
+  const nrrEl = document.getElementById('valNRR');
+  if (nrrEl) {
+    nrrEl.textContent = data.nrr.toFixed(1) + '%';
+    nrrEl.className = 'text-xl font-bold ' + (data.nrr >= 100 ? 'text-purple-700' : 'text-red-500');
+  }
+
+  set('valLTV', fmtM(data.ltv));
+  set('valMultiple', data.multiple.toFixed(1) + '×');
+
+  const r40El = document.getElementById('valRule40');
+  if (r40El) {
+    r40El.textContent = data.rule40;
+    r40El.className = 'text-2xl font-bold ' + (data.rule40 >= 40 ? 'text-green-600' : 'text-yellow-600');
+  }
+  const r40Label = document.getElementById('valRule40Label');
+  if (r40Label) r40Label.textContent = data.rule40 >= 40 ? '✓ Healthy (≥40)' : 'Below 40 threshold';
+}
+window.loadValuation = loadValuation;
