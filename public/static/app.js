@@ -1582,6 +1582,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadAnalyticsGoals();
       } else if (tabName === 'goals') {
         loadGoalProgress();
+      } else if (tabName === 'valuation') {
+        loadValuation();
       }
     });
   });
@@ -2159,7 +2161,7 @@ function autoSortableContainer(containerId) {
 document.addEventListener('DOMContentLoaded', () => {
   [
     'tab-dashboard', 'tab-invoices', 'tab-clients',
-    'tab-trends', 'tab-analytics', 'tab-goals', 'tab-sheets-links'
+    'tab-trends', 'tab-analytics', 'tab-goals', 'tab-valuation', 'tab-sheets-links'
   ].forEach(id => autoSortableContainer(id));
 });
 
@@ -2860,23 +2862,28 @@ window.generateAIInsights = generateAIInsights;
 // progress bars, projections, monthly tracking table.
 // ============================================================
 
-const GOALS_STORAGE_KEY = 'gershon_finance_goals';
-
-function __loadGoalsFromStorage() {
+// Goals are stored server-side so all team members see the same targets
+async function __loadGoalsFromStorage() {
   try {
-    const raw = localStorage.getItem(GOALS_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) { /* ignore */ }
-  return { revenue: null, clients: null, collection: null };
+    const res = await axios.get('/api/goals');
+    return res.data || { revenue: null, clients: null, collection: null };
+  } catch (e) {
+    return { revenue: null, clients: null, collection: null };
+  }
 }
 
-function __saveGoalsToStorage(goals) {
-  localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals));
+async function __saveGoalsToStorage(goals) {
+  const res = await axios.post('/api/goals', goals);
+  if (!res?.data?.ok) {
+    const err = res?.data?.error || 'Save failed';
+    throw new Error(err);
+  }
+  return res.data;
 }
 
-// Populate inputs from localStorage on page load
-document.addEventListener('DOMContentLoaded', () => {
-  const goals = __loadGoalsFromStorage();
+// Populate inputs from server on page load
+document.addEventListener('DOMContentLoaded', async () => {
+  const goals = await __loadGoalsFromStorage();
   const rEl = document.getElementById('goalRevenue');
   const cEl = document.getElementById('goalClients');
   const colEl = document.getElementById('goalCollection');
@@ -2885,14 +2892,30 @@ document.addEventListener('DOMContentLoaded', () => {
   if (colEl && goals.collection != null) colEl.value = goals.collection;
 });
 
-function saveGoals() {
+async function saveGoals() {
   const revenue = parseFloat(document.getElementById('goalRevenue')?.value) || null;
   const clients = parseInt(document.getElementById('goalClients')?.value, 10) || null;
   const collection = parseFloat(document.getElementById('goalCollection')?.value) || null;
-  __saveGoalsToStorage({ revenue, clients, collection });
+  const btn = event.target.closest('button');
+  try {
+    await __saveGoalsToStorage({ revenue, clients, collection });
+  } catch (e) {
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-times mr-2"></i>Save failed';
+      btn.classList.replace('bg-blue-600', 'bg-red-600');
+      btn.classList.replace('hover:bg-blue-700', 'hover:bg-red-700');
+      setTimeout(() => {
+        btn.innerHTML = orig;
+        btn.classList.replace('bg-red-600', 'bg-blue-600');
+        btn.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
+      }, 3000);
+    }
+    console.error('saveGoals error:', e);
+    return;
+  }
 
   // visual feedback
-  const btn = event.target.closest('button');
   if (btn) {
     const orig = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-check mr-2"></i>Saved!';
@@ -2960,7 +2983,7 @@ function __buildProgressCard(label, icon, iconColor, actual, target, unit, dayOf
 }
 
 async function loadGoalProgress() {
-  const goals = __loadGoalsFromStorage();
+  const goals = await __loadGoalsFromStorage();
   const container = document.getElementById('goalsProgressContainer');
   const tableContainer = document.getElementById('goalsMonthlyTable');
   const monthLabel = document.getElementById('goalsCurrentMonthLabel');
@@ -3478,3 +3501,69 @@ function renderMonthlyBreakdownChart(months) {
     renderMonthlyBreakdownChart(months);
   };
 })();
+
+// ---- Valuation ----
+async function loadValuation() {
+  const loading = document.getElementById('valuationLoading');
+  if (loading) loading.classList.remove('hidden');
+
+  let data;
+  try {
+    const res = await axios.get('/api/valuation');
+    data = res.data;
+  } catch (e) {
+    try {
+      const res = await axios.get('/api/demo/valuation');
+      data = res.data;
+    } catch (e2) {
+      if (loading) loading.classList.add('hidden');
+      return;
+    }
+  }
+  if (loading) loading.classList.add('hidden');
+
+  const fmt = v => '$' + Math.round(v).toLocaleString();
+  const fmtM = v => {
+    if (v >= 1000000) return '$' + (v / 1000000).toFixed(2) + 'M';
+    if (v >= 1000) return '$' + (v / 1000).toFixed(1) + 'K';
+    return '$' + Math.round(v).toLocaleString();
+  };
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  set('valARR', fmtM(data.arr));
+  set('valLow', fmtM(data.valuationLow));
+  set('valMid', fmtM(data.valuationMid));
+  set('valHigh', fmtM(data.valuationHigh));
+  set('valLowMultiple', (data.multiple - 1).toFixed(1) + '× ARR');
+  set('valMidMultiple', data.multiple.toFixed(1) + '× ARR');
+  set('valHighMultiple', (data.multiple + 2).toFixed(1) + '× ARR');
+
+  const growthEl = document.getElementById('valGrowth');
+  if (growthEl) {
+    growthEl.textContent = (data.momGrowth >= 0 ? '+' : '') + data.momGrowth.toFixed(1) + '%';
+    growthEl.className = 'text-xl font-bold ' + (data.momGrowth >= 0 ? 'text-green-600' : 'text-red-500');
+  }
+
+  set('valChurn', data.monthlyChurnRate.toFixed(1) + '%');
+  const churnEl = document.getElementById('valChurn');
+  if (churnEl) churnEl.className = 'text-xl font-bold ' + (data.monthlyChurnRate < 3 ? 'text-green-600' : data.monthlyChurnRate < 7 ? 'text-yellow-600' : 'text-red-600');
+
+  const nrrEl = document.getElementById('valNRR');
+  if (nrrEl) {
+    nrrEl.textContent = data.nrr.toFixed(1) + '%';
+    nrrEl.className = 'text-xl font-bold ' + (data.nrr >= 100 ? 'text-purple-700' : 'text-red-500');
+  }
+
+  set('valLTV', fmtM(data.ltv));
+  set('valMultiple', data.multiple.toFixed(1) + '×');
+
+  const r40El = document.getElementById('valRule40');
+  if (r40El) {
+    r40El.textContent = data.rule40;
+    r40El.className = 'text-2xl font-bold ' + (data.rule40 >= 40 ? 'text-green-600' : 'text-yellow-600');
+  }
+  const r40Label = document.getElementById('valRule40Label');
+  if (r40Label) r40Label.textContent = data.rule40 >= 40 ? '✓ Healthy (≥40)' : 'Below 40 threshold';
+}
+window.loadValuation = loadValuation;
