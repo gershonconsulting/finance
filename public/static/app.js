@@ -2873,7 +2873,12 @@ async function __loadGoalsFromStorage() {
 }
 
 async function __saveGoalsToStorage(goals) {
-  await axios.post('/api/goals', goals);
+  const res = await axios.post('/api/goals', goals);
+  if (!res?.data?.ok) {
+    const err = res?.data?.error || 'Save failed';
+    throw new Error(err);
+  }
+  return res.data;
 }
 
 // Populate inputs from server on page load
@@ -2891,10 +2896,26 @@ async function saveGoals() {
   const revenue = parseFloat(document.getElementById('goalRevenue')?.value) || null;
   const clients = parseInt(document.getElementById('goalClients')?.value, 10) || null;
   const collection = parseFloat(document.getElementById('goalCollection')?.value) || null;
-  await __saveGoalsToStorage({ revenue, clients, collection });
+  const btn = event.target.closest('button');
+  try {
+    await __saveGoalsToStorage({ revenue, clients, collection });
+  } catch (e) {
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-times mr-2"></i>Save failed';
+      btn.classList.replace('bg-blue-600', 'bg-red-600');
+      btn.classList.replace('hover:bg-blue-700', 'hover:bg-red-700');
+      setTimeout(() => {
+        btn.innerHTML = orig;
+        btn.classList.replace('bg-red-600', 'bg-blue-600');
+        btn.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
+      }, 3000);
+    }
+    console.error('saveGoals error:', e);
+    return;
+  }
 
   // visual feedback
-  const btn = event.target.closest('button');
   if (btn) {
     const orig = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-check mr-2"></i>Saved!';
