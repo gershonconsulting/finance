@@ -181,6 +181,7 @@ app.get('/api/health', (c) => {
     releaseDate: '2026-04-28T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.15.1: Lock POST /api/goals behind session auth; return 503 if KV not configured',
       'v2.15.0: Goals stored server-side (Cloudflare KV) — all team members share the same objectives',
       'v2.13.2: Sheets Links — only show active recurring clients (2+ billed months, invoiced last month)',
       'v2.13.1: Google Sheets Links — only show clients with outstanding balance',
@@ -1693,15 +1694,21 @@ app.get('/api/goals', async (c) => {
 
 app.post('/api/goals', async (c) => {
   try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ ok: false, error: 'Not authenticated' }, 401);
+    }
+
     const body = await c.req.json();
     const goals = {
       revenue: body.revenue != null ? Number(body.revenue) : null,
       clients: body.clients != null ? Number(body.clients) : null,
       collection: body.collection != null ? Number(body.collection) : null,
     };
-    if (c.env?.GOALS_KV) {
-      await c.env.GOALS_KV.put('goals', JSON.stringify(goals));
+    if (!c.env?.GOALS_KV) {
+      return c.json({ ok: false, error: 'GOALS_KV not configured' }, 503);
     }
+    await c.env.GOALS_KV.put('goals', JSON.stringify(goals));
     return c.json({ ok: true, goals });
   } catch (e: any) {
     return c.json({ ok: false, error: e.message }, 500);
