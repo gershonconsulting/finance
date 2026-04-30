@@ -177,10 +177,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.15.0',
-    releaseDate: '2026-04-28T00:00:00Z',
+    version: '2.16.0',
+    releaseDate: '2026-04-30T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.16.0: Bank tab — line of credit simulator with DSCR, borrowing base, multi-bank approval scoring (community/SBA/fintech)',
       'v2.15.1: Lock POST /api/goals behind session auth; return 503 if KV not configured',
       'v2.15.0: Goals stored server-side (Cloudflare KV) — all team members share the same objectives',
       'v2.13.2: Sheets Links — only show active recurring clients (2+ billed months, invoiced last month)',
@@ -1710,6 +1711,39 @@ app.post('/api/goals', async (c) => {
     }
     await c.env.GOALS_KV.put('goals', JSON.stringify(goals));
     return c.json({ ok: true, goals });
+  } catch (e: any) {
+    return c.json({ ok: false, error: e.message }, 500);
+  }
+});
+
+// Bank inputs — manual data not in Xero (opex, existing debt, years)
+app.get('/api/bank-inputs', async (c) => {
+  try {
+    if (c.env?.GOALS_KV) {
+      const stored = await c.env.GOALS_KV.get('bank_inputs');
+      if (stored) return c.json(JSON.parse(stored));
+    }
+  } catch {}
+  return c.json({ opex: null, existingDebt: null, yearsInBusiness: null });
+});
+
+app.post('/api/bank-inputs', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ ok: false, error: 'Not authenticated' }, 401);
+    }
+    const body = await c.req.json();
+    const inputs = {
+      opex: body.opex != null ? Number(body.opex) : null,
+      existingDebt: body.existingDebt != null ? Number(body.existingDebt) : null,
+      yearsInBusiness: body.yearsInBusiness != null ? Number(body.yearsInBusiness) : null,
+    };
+    if (!c.env?.GOALS_KV) {
+      return c.json({ ok: false, error: 'GOALS_KV not configured' }, 503);
+    }
+    await c.env.GOALS_KV.put('bank_inputs', JSON.stringify(inputs));
+    return c.json({ ok: true, inputs });
   } catch (e: any) {
     return c.json({ ok: false, error: e.message }, 500);
   }
