@@ -13,6 +13,7 @@ type Bindings = {
   XERO_CLIENT_SECRET: string;
   XERO_REDIRECT_URI: string;
   GOALS_KV: KVNamespace;
+    FINANCE_API_BASE: string;
 };
 
 const DEFAULT_GOALS = { revenue: null, clients: null, collection: null };
@@ -48,6 +49,7 @@ function getCredentials(c: any) {
 
 // Enable CORS for API routes
 app.use('/api/*', cors());
+// v2.17.0 routes (registered below in worker-additions.ts merge)
 
 // Serve static files from public directory
 app.use('/static/*', serveStatic({ root: './public' }));
