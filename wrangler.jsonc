@@ -4,6 +4,9 @@
   "compatibility_date": "2024-01-01",
   "pages_build_output_dir": "./dist",
   "compatibility_flags": ["nodejs_compat"],
+    "vars": {
+        "FINANCE_API_BASE": "https://api.finance.gershoncrm.com"
+    },
   "kv_namespaces": [
     {
       "binding": "GOALS_KV",
