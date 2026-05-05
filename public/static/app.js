@@ -3567,3 +3567,226 @@ async function loadValuation() {
   if (r40Label) r40Label.textContent = data.rule40 >= 40 ? '✓ Healthy (≥40)' : 'Below 40 threshold';
 }
 window.loadValuation = loadValuation;
+
+// =============================================================
+// Bank / Line of Credit section (v2.16.0)
+// =============================================================
+
+const __bankState = {
+  ttmRev: 0,
+  ytdRev: 0,
+  priorYtdRev: 0,
+  arBuckets: { lt30: 0, b30_60: 0, b60_90: 0, gt90: 0 },
+  arTotal: 0,
+  topCustPct: 0,
+  inputs: { opex: null, existingDebt: null, yearsInBusiness: null },
+};
+
+function __bankFmtMoney(n) {
+  if (n == null || isNaN(n)) return '—';
+  if (Math.abs(n) >= 1000) return '$' + Math.round(n / 1000).toLocaleString() + 'k';
+  return '$' + Math.round(n).toLocaleString();
+}
+function __bankFmtMoneyExact(n) {
+  if (n == null || isNaN(n)) return '—';
+  return '$' + Math.round(n).toLocaleString();
+}
+function __bankPmt(P, ratePct, n) {
+  const i = ratePct / 12 / 100;
+  if (i === 0) return P / n;
+  return P * i / (1 - Math.pow(1 + i, -n));
+}
+
+async function loadBankSection() {
+  document.getElementById('bankLoading')?.classList.remove('hidden');
+  try {
+    await Promise.all([__bankLoadInputs(), __bankLoadXeroData()]);
+    updateBankSim();
+  } catch (e) {
+    console.error('loadBankSection error:', e);
+  } finally {
+    document.getElementById('bankLoading')?.classList.add('hidden');
+  }
+}
+
+async function __bankLoadInputs() {
+  try {
+    const r = await axios.get('/api/bank-inputs');
+    const d = r.data || {};
+    __bankState.inputs = {
+      opex: d.opex,
+      existingDebt: d.existingDebt,
+      yearsInBusiness: d.yearsInBusiness,
+    };
+    if (d.opex != null) document.getElementById('bankOpex').value = d.opex;
+    if (d.existingDebt != null) document.getElementById('bankDebt').value = d.existingDebt;
+    if (d.yearsInBusiness != null) document.getElementById('bankYears').value = d.yearsInBusiness;
+  } catch {}
+}
+
+async function __bankLoadXeroData() {
+  try {
+    const trendsRes = await axios.get('/api/monthly/trends');
+    const trends = Array.isArray(trendsRes.data) ? trendsRes.data : (trendsRes.data?.months || trendsRes.data?.data || []);
+    const recent = trends.slice(-12);
+    __bankState.ttmRev = recent.reduce((s, m) => s + (Number(m.revenue) || Number(m.invoiced) || 0), 0);
+    const now = new Date();
+    const ytdMonths = trends.filter(m => {
+      const dt = new Date(m.month || m.period || m.date || '');
+      return dt.getFullYear() === now.getFullYear();
+    });
+    const priorYtdMonths = trends.filter(m => {
+      const dt = new Date(m.month || m.period || m.date || '');
+      return dt.getFullYear() === now.getFullYear() - 1 && dt.getMonth() <= now.getMonth();
+    });
+    __bankState.ytdRev = ytdMonths.reduce((s, m) => s + (Number(m.revenue) || Number(m.invoiced) || 0), 0);
+    __bankState.priorYtdRev = priorYtdMonths.reduce((s, m) => s + (Number(m.revenue) || Number(m.invoiced) || 0), 0);
+  } catch (e) { console.error('bank trends:', e); }
+
+  try {
+    const agingRes = await axios.get('/api/invoices/by-aging');
+    const a = agingRes.data || {};
+    const buckets = a.buckets || a.aging || a;
+    __bankState.arBuckets.lt30 = Number(buckets.current ?? buckets['0-30'] ?? buckets.lt30 ?? 0);
+    __bankState.arBuckets.b30_60 = Number(buckets['30-60'] ?? buckets.b30_60 ?? buckets.thirty ?? 0);
+    __bankState.arBuckets.b60_90 = Number(buckets['60-90'] ?? buckets.b60_90 ?? buckets.sixty ?? 0);
+    __bankState.arBuckets.gt90 = Number(buckets['90+'] ?? buckets.over90 ?? buckets.gt90 ?? buckets.ninety ?? 0);
+    __bankState.arTotal = __bankState.arBuckets.lt30 + __bankState.arBuckets.b30_60 + __bankState.arBuckets.b60_90 + __bankState.arBuckets.gt90;
+  } catch (e) { console.error('bank aging:', e); }
+
+  try {
+    const ltRes = await axios.get('/api/clients/lifetime');
+    const clients = Array.isArray(ltRes.data) ? ltRes.data : (ltRes.data?.clients || []);
+    if (clients.length && __bankState.ttmRev > 0) {
+      const sorted = [...clients].sort((a, b) => (Number(b.totalRevenue || b.lifetime || 0)) - (Number(a.totalRevenue || a.lifetime || 0)));
+      const top = Number(sorted[0]?.totalRevenue || sorted[0]?.lifetime || 0);
+      __bankState.topCustPct = __bankState.ttmRev > 0 ? Math.round((top / __bankState.ttmRev) * 100) : 0;
+    }
+  } catch (e) { console.error('bank clients:', e); }
+}
+
+function updateBankSim() {
+  const amt = +document.getElementById('bankAmount').value;
+  const rate = +document.getElementById('bankRate').value;
+  const term = +document.getElementById('bankTerm').value;
+  const opex = parseFloat(document.getElementById('bankOpex').value) || 0;
+  const existingDebtMonthly = parseFloat(document.getElementById('bankDebt').value) || 0;
+  const years = parseInt(document.getElementById('bankYears').value, 10) || 0;
+
+  document.getElementById('bankAmtOut').textContent = __bankFmtMoneyExact(amt);
+  document.getElementById('bankRateOut').textContent = rate.toFixed(2) + '%';
+  document.getElementById('bankTermOut').textContent = term + ' mo';
+
+  document.getElementById('bankTtmRev').textContent = __bankFmtMoney(__bankState.ttmRev);
+  const yoy = __bankState.priorYtdRev > 0 ? Math.round(((__bankState.ytdRev - __bankState.priorYtdRev) / __bankState.priorYtdRev) * 1000) / 10 : null;
+  document.getElementById('bankYoy').textContent = yoy != null ? (yoy >= 0 ? '+' : '') + yoy + '%' : '—';
+  document.getElementById('bankArTotal').textContent = __bankFmtMoney(__bankState.arTotal);
+  document.getElementById('bankTopCust').textContent = (__bankState.topCustPct || 0) + '%';
+
+  const eligibleAR = __bankState.arBuckets.lt30 + __bankState.arBuckets.b30_60 + __bankState.arBuckets.b60_90;
+  const concentrationExcess = Math.max(0, ((__bankState.topCustPct || 0) - 25) / 100 * __bankState.ttmRev);
+  const adjustedAR = Math.max(0, eligibleAR - concentrationExcess);
+  const borrowingBase = adjustedAR * 0.80;
+
+  const monthlyPmt = __bankPmt(amt, rate, term);
+  const annualDebtSvc = (monthlyPmt + existingDebtMonthly) * 12;
+  const cashFlow = __bankState.ttmRev - opex;
+  const dscr = annualDebtSvc > 0 ? cashFlow / annualDebtSvc : Infinity;
+
+  const arQualityPct = __bankState.arTotal > 0 ? Math.round((__bankState.arBuckets.lt30 / __bankState.arTotal) * 100) : 0;
+
+  document.getElementById('bankBorrow').textContent = __bankFmtMoney(borrowingBase);
+  document.getElementById('bankDscr').textContent = (dscr === Infinity ? '∞' : dscr.toFixed(1) + 'x');
+  document.getElementById('bankPayment').textContent = __bankFmtMoneyExact(monthlyPmt);
+  document.getElementById('bankArQuality').textContent = arQualityPct + '%';
+
+  const ctx = { amt, dscr, borrowingBase, topCustPct: __bankState.topCustPct, years, ttmRev: __bankState.ttmRev, opex, yoy };
+  __bankRenderCard('Cb', __bankScoreCommunityBank(ctx));
+  __bankRenderCard('Sba', __bankScoreSBA(ctx));
+  __bankRenderCard('Ft', __bankScoreFintech(ctx));
+}
+
+function __bankRenderCard(suffix, result) {
+  const dot = document.getElementById('bankDot' + suffix);
+  const score = document.getElementById('bankScore' + suffix);
+  const reasons = document.getElementById('bankReasons' + suffix);
+  const colors = { green: '#16a34a', amber: '#d97706', red: '#dc2626' };
+  const labels = { green: 'Strong', amber: 'Mixed', red: 'Weak' };
+  if (dot) dot.style.background = colors[result.level] || '#9ca3af';
+  if (score) { score.textContent = labels[result.level] || '—'; score.style.color = colors[result.level] || '#374151'; }
+  if (reasons) reasons.innerHTML = result.reasons.map(r => '<li>' + r + '</li>').join('');
+}
+
+function __bankScoreCommunityBank(c) {
+  const reasons = []; let flags = 0;
+  if (c.dscr >= 1.5) reasons.push('DSCR ' + c.dscr.toFixed(1) + 'x — very strong');
+  else if (c.dscr >= 1.25) { reasons.push('DSCR ' + c.dscr.toFixed(1) + 'x — meets minimum'); flags++; }
+  else { reasons.push('DSCR ' + c.dscr.toFixed(1) + 'x — below 1.25x threshold'); flags += 2; }
+  if (c.amt <= c.borrowingBase) reasons.push('Amount within borrowing base (' + __bankFmtMoney(c.borrowingBase) + ')');
+  else { reasons.push('Amount exceeds borrowing base by ' + __bankFmtMoney(c.amt - c.borrowingBase)); flags += 2; }
+  if (c.topCustPct > 25) { reasons.push('Top customer ' + c.topCustPct + '% — concentration flag'); flags++; }
+  else reasons.push('Concentration within limits');
+  if (c.years >= 2) reasons.push(c.years + ' years operating — qualifies');
+  else if (c.years > 0) { reasons.push('Less than 2 years — bank may decline'); flags++; }
+  return { level: flags === 0 ? 'green' : flags <= 1 ? 'amber' : 'red', reasons };
+}
+function __bankScoreSBA(c) {
+  const reasons = []; let flags = 0;
+  if (c.dscr >= 1.15) reasons.push('DSCR ' + c.dscr.toFixed(1) + 'x — passes SBA threshold');
+  else { reasons.push('DSCR ' + c.dscr.toFixed(1) + 'x — below 1.15x'); flags += 2; }
+  if (c.years >= 2) reasons.push(c.years + ' years operating — eligible');
+  else if (c.years > 0) { reasons.push('Less than 2 years — SBA harder'); flags++; }
+  reasons.push('Personal guarantee will be required');
+  reasons.push('60–90 day timeline; lowest rates');
+  if (c.amt > 350000) { reasons.push('Above SBA Express $350k cap'); flags++; }
+  return { level: flags === 0 ? 'green' : flags <= 1 ? 'amber' : 'red', reasons };
+}
+function __bankScoreFintech(c) {
+  const reasons = []; let flags = 0;
+  if (c.dscr >= 1.0) reasons.push('Cash flow positive — qualifies');
+  else { reasons.push('Cash flow tight — DSCR ' + c.dscr.toFixed(1) + 'x'); flags += 2; }
+  reasons.push('Approval typically 24–72 hours');
+  reasons.push('Expect rate 12–22% APR');
+  if (c.yoy != null && c.yoy > 0) reasons.push('Revenue growth +' + c.yoy + '% — favorable');
+  else if (c.yoy != null && c.yoy <= 0) { reasons.push('Flat/declining revenue — may price up'); flags++; }
+  return { level: flags === 0 ? 'green' : flags <= 1 ? 'amber' : 'red', reasons };
+}
+
+async function saveBankInputs() {
+  const opex = parseFloat(document.getElementById('bankOpex').value);
+  const existingDebt = parseFloat(document.getElementById('bankDebt').value);
+  const yearsInBusiness = parseInt(document.getElementById('bankYears').value, 10);
+  const btn = event?.target?.closest('button');
+  const orig = btn?.innerHTML;
+  try {
+    const res = await axios.post('/api/bank-inputs', {
+      opex: isNaN(opex) ? null : opex,
+      existingDebt: isNaN(existingDebt) ? null : existingDebt,
+      yearsInBusiness: isNaN(yearsInBusiness) ? null : yearsInBusiness,
+    });
+    if (!res?.data?.ok) throw new Error(res?.data?.error || 'Save failed');
+    if (btn) {
+      btn.innerHTML = '<i class="fas fa-check mr-1"></i>Saved';
+      btn.classList.replace('bg-blue-600', 'bg-green-600');
+      setTimeout(() => { btn.innerHTML = orig; btn.classList.replace('bg-green-600', 'bg-blue-600'); }, 1500);
+    }
+    updateBankSim();
+  } catch (e) {
+    console.error('saveBankInputs:', e);
+    if (btn) {
+      btn.innerHTML = '<i class="fas fa-times mr-1"></i>Failed';
+      btn.classList.replace('bg-blue-600', 'bg-red-600');
+      setTimeout(() => { btn.innerHTML = orig; btn.classList.replace('bg-red-600', 'bg-blue-600'); }, 2500);
+    }
+  }
+}
+
+window.loadBankSection = loadBankSection;
+window.saveBankInputs = saveBankInputs;
+window.updateBankSim = updateBankSim;
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.tab-button[data-tab="bank"]').forEach(btn => {
+    btn.addEventListener('click', () => loadBankSection());
+  });
+});

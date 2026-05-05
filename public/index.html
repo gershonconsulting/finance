@@ -70,7 +70,7 @@
                             <div class="flex items-center">
                                 <i class="fas fa-chart-line text-2xl mr-3"></i>
                                 <h1 class="text-xl font-bold">Gershon Finance Dashboard</h1>
-                                <span class="text-xs font-normal text-blue-200 ml-2">v2.15.1 · Built __BUILD_TIMESTAMP__</span>
+                                <span class="text-xs font-normal text-blue-200 ml-2">v2.16.0 · Built __BUILD_TIMESTAMP__</span>
                             </div>
                             <div class="flex items-center space-x-3">
                                 <div id="liveIndicator" class="flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-500 text-white">
@@ -111,6 +111,9 @@
                             </button>
                             <button data-tab="valuation" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
                                 <i class="fas fa-landmark mr-2"></i>Valuation
+                            </button>
+                            <button data-tab="bank" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
+                                <i class="fas fa-university mr-2"></i>Bank
                             </button>
                             <button data-tab="sheets-links" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
                                 <i class="fas fa-table mr-2"></i>Google Sheets Links
@@ -1293,6 +1296,73 @@
                         <p class="text-gray-500">Calculating valuation from Xero data…</p>
                     </div>
                 </div>
+
+                <!-- Bank / Line of Credit Tab -->
+                <div id="tab-bank" class="tab-content hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 flex items-center"><i class="fas fa-university mr-3 text-blue-600"></i>Bank — Line of Credit</h2>
+                        <p class="text-sm text-gray-500 mt-1">Simulate loan approval against your current financials. Adjust loan parameters to see how each lender type would view the request.</p>
+                    </div>
+
+                    <!-- Snapshot pulled from Xero -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                        <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">TTM revenue</div><div id="bankTtmRev" class="text-lg font-semibold text-gray-900">—</div></div>
+                        <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">YTD vs prior YTD</div><div id="bankYoy" class="text-lg font-semibold text-gray-900">—</div></div>
+                        <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">AR outstanding</div><div id="bankArTotal" class="text-lg font-semibold text-gray-900">—</div></div>
+                        <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-500">Top customer %</div><div id="bankTopCust" class="text-lg font-semibold text-gray-900">—</div></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+                        <!-- Manual inputs -->
+                        <div class="bg-white border border-gray-200 rounded-lg p-5">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-base font-semibold text-gray-800"><i class="fas fa-edit mr-2 text-gray-500"></i>Bank inputs (manual)</h3>
+                                <button onclick="saveBankInputs()" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-xs"><i class="fas fa-save mr-1"></i>Save</button>
+                            </div>
+                            <div class="space-y-3">
+                                <div><label class="block text-xs text-gray-500 mb-1">Annual operating expenses ($)</label><input id="bankOpex" type="number" placeholder="e.g. 300000" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" /></div>
+                                <div><label class="block text-xs text-gray-500 mb-1">Existing debt service ($/mo)</label><input id="bankDebt" type="number" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" /></div>
+                                <div><label class="block text-xs text-gray-500 mb-1">Years in business</label><input id="bankYears" type="number" placeholder="e.g. 5" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" /></div>
+                            </div>
+                        </div>
+
+                        <!-- Loan parameters -->
+                        <div class="bg-white border border-gray-200 rounded-lg p-5">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3"><i class="fas fa-sliders-h mr-2 text-gray-500"></i>Loan parameters</h3>
+                            <div class="space-y-3">
+                                <div><div class="flex justify-between text-xs text-gray-600 mb-1"><span>Amount</span><span id="bankAmtOut" class="font-medium">$50,000</span></div><input id="bankAmount" type="range" min="10000" max="500000" step="5000" value="50000" class="w-full" oninput="updateBankSim()" /></div>
+                                <div><div class="flex justify-between text-xs text-gray-600 mb-1"><span>Interest rate</span><span id="bankRateOut" class="font-medium">9.50%</span></div><input id="bankRate" type="range" min="6" max="22" step="0.25" value="9.5" class="w-full" oninput="updateBankSim()" /></div>
+                                <div><div class="flex justify-between text-xs text-gray-600 mb-1"><span>Term</span><span id="bankTermOut" class="font-medium">24 mo</span></div><input id="bankTerm" type="range" min="12" max="60" step="6" value="24" class="w-full" oninput="updateBankSim()" /></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Computed metrics -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                        <div class="bg-blue-50 rounded-lg p-3 border border-blue-100"><div class="text-xs text-blue-700">Borrowing base</div><div id="bankBorrow" class="text-lg font-semibold text-blue-900">—</div><div class="text-xs text-blue-600">80% of eligible AR</div></div>
+                        <div class="bg-blue-50 rounded-lg p-3 border border-blue-100"><div class="text-xs text-blue-700">DSCR</div><div id="bankDscr" class="text-lg font-semibold text-blue-900">—</div><div class="text-xs text-blue-600">Cash flow / debt svc</div></div>
+                        <div class="bg-blue-50 rounded-lg p-3 border border-blue-100"><div class="text-xs text-blue-700">Monthly payment</div><div id="bankPayment" class="text-lg font-semibold text-blue-900">—</div><div class="text-xs text-blue-600">P&amp;I</div></div>
+                        <div class="bg-blue-50 rounded-lg p-3 border border-blue-100"><div class="text-xs text-blue-700">AR quality</div><div id="bankArQuality" class="text-lg font-semibold text-blue-900">—</div><div class="text-xs text-blue-600">% in 0–30 days</div></div>
+                    </div>
+
+                    <!-- Lender fit -->
+                    <h3 class="text-base font-semibold text-gray-800 mb-3"><i class="fas fa-balance-scale mr-2 text-gray-500"></i>Approval likelihood by lender type</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+                        <div id="bankCardCb" class="bg-white border border-gray-200 rounded-lg p-4"><div class="flex items-center mb-1"><span id="bankDotCb" class="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 mr-2"></span><span class="font-semibold text-gray-800">Community bank</span></div><div class="text-xs text-gray-500 mb-2">Traditional, AR-secured</div><div id="bankScoreCb" class="text-2xl font-bold text-gray-700 mb-2">—</div><ul id="bankReasonsCb" class="text-xs text-gray-600 list-disc pl-5 space-y-1"></ul></div>
+                        <div id="bankCardSba" class="bg-white border border-gray-200 rounded-lg p-4"><div class="flex items-center mb-1"><span id="bankDotSba" class="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 mr-2"></span><span class="font-semibold text-gray-800">SBA 7(a)</span></div><div class="text-xs text-gray-500 mb-2">Government-backed, cheapest rates</div><div id="bankScoreSba" class="text-2xl font-bold text-gray-700 mb-2">—</div><ul id="bankReasonsSba" class="text-xs text-gray-600 list-disc pl-5 space-y-1"></ul></div>
+                        <div id="bankCardFt" class="bg-white border border-gray-200 rounded-lg p-4"><div class="flex items-center mb-1"><span id="bankDotFt" class="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 mr-2"></span><span class="font-semibold text-gray-800">Fintech</span></div><div class="text-xs text-gray-500 mb-2">Bluevine, Pipe — fast, higher rate</div><div id="bankScoreFt" class="text-2xl font-bold text-gray-700 mb-2">—</div><ul id="bankReasonsFt" class="text-xs text-gray-600 list-disc pl-5 space-y-1"></ul></div>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs text-gray-600">
+                        <strong class="text-gray-700">Note:</strong> Approval likelihood is a self-assessment heuristic. Borrowing base = 80% of eligible AR (under 90 days), net of customer concentration above 25%. DSCR = (TTM revenue − annual operating expenses) ÷ annual debt service. Lenders use proprietary models with credit, collateral, and qualitative factors not modeled here.
+                    </div>
+
+                    <div id="bankLoading" class="text-center py-8 hidden">
+                        <i class="fas fa-spinner fa-spin text-2xl text-blue-400 mb-2"></i>
+                        <p class="text-gray-500 text-sm">Loading from Xero data…</p>
+                    </div>
+                </div>
+
 
                 </div>
             </div>
