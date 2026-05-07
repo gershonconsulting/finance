@@ -115,6 +115,15 @@
                             <button data-tab="bank" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
                                 <i class="fas fa-university mr-2"></i>Bank
                             </button>
+                            <button data-tab="mom" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
+                                <i class="fas fa-chart-line mr-2"></i>MoM
+                            </button>
+                            <button data-tab="swot" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
+                                <i class="fas fa-compass mr-2"></i>SWOT
+                            </button>
+                            <button data-tab="reports" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
+                                <i class="fas fa-user-tie mr-2"></i>Exec Reports
+                            </button>
                             <button data-tab="sheets-links" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
                                 <i class="fas fa-table mr-2"></i>Google Sheets Links
                             </button>
@@ -1370,6 +1379,94 @@
 
         <!-- Scripts -->
         <script src="/static/fix-urls.js"></script>
-        <script src="/static/app.js"></script>
+        
+                <!-- v2.17.0 — MoM evolution -->
+                <div id="tab-mom" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                            <h2 class="text-2xl font-bold text-gray-800">Month-over-Month Evolution</h2>
+                            <div class="flex gap-2 items-center">
+                                <label class="text-sm text-gray-600">Metric:</label>
+                                <select id="mom-metric" class="border rounded px-2 py-1 text-sm">
+                                    <option value="revenue_paid">Revenue (paid)</option>
+                                    <option value="revenue_invoiced">Revenue (invoiced)</option>
+                                    <option value="active_clients">Active clients</option>
+                                    <option value="cash_position">Cash position</option>
+                                    <option value="gross_margin_pct">Gross margin %</option>
+                                    <option value="dso_days">DSO (days)</option>
+                                    <option value="ar_overdue">AR overdue</option>
+                                    <option value="loc_recommended">Recommended LoC</option>
+                                </select>
+                                <label class="text-sm text-gray-600 ml-2">Months:</label>
+                                <select id="mom-months" class="border rounded px-2 py-1 text-sm">
+                                    <option>6</option>
+                                    <option selected>12</option>
+                                    <option>24</option>
+                                    <option>36</option>
+                                </select>
+                                <button id="mom-snapshot-now" class="ml-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">Save snapshot now</button>
+                            </div>
+                        </div>
+                        <div id="mom-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"></div>
+                        <canvas id="mom-chart" height="120"></canvas>
+                        <div class="overflow-x-auto mt-4"><table class="min-w-full text-sm" id="mom-table"></table></div>
+                    </div>
+                </div>
+
+                <!-- v2.17.0 — SWOT -->
+                <div id="tab-swot" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                            <h2 class="text-2xl font-bold text-gray-800">SWOT Analysis</h2>
+                            <div class="flex gap-2 items-center">
+                                <label class="text-sm text-gray-600">Period:</label>
+                                <select id="swot-period" class="border rounded px-2 py-1 text-sm"></select>
+                                <label class="text-sm text-gray-600 ml-2">Tag:</label>
+                                <select id="swot-tag" class="border rounded px-2 py-1 text-sm">
+                                    <option value="">All</option>
+                                    <option>Strategic</option>
+                                    <option>Sales</option>
+                                    <option>Finance</option>
+                                </select>
+                                <button id="swot-add" class="ml-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">+ Add entry</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="swot-cell border-l-4 border-green-500 bg-green-50 rounded p-4" data-cat="S">
+                                <h3 class="font-bold text-green-800 mb-2">Strengths</h3><ul></ul>
+                            </div>
+                            <div class="swot-cell border-l-4 border-red-500 bg-red-50 rounded p-4" data-cat="W">
+                                <h3 class="font-bold text-red-800 mb-2">Weaknesses</h3><ul></ul>
+                            </div>
+                            <div class="swot-cell border-l-4 border-blue-500 bg-blue-50 rounded p-4" data-cat="O">
+                                <h3 class="font-bold text-blue-800 mb-2">Opportunities</h3><ul></ul>
+                            </div>
+                            <div class="swot-cell border-l-4 border-yellow-500 bg-yellow-50 rounded p-4" data-cat="T">
+                                <h3 class="font-bold text-yellow-800 mb-2">Threats</h3><ul></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- v2.17.0 — Role-based exec reports -->
+                <div id="tab-reports" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                            <h2 class="text-2xl font-bold text-gray-800">Executive Reports</h2>
+                            <div class="flex gap-2 items-center">
+                                <label class="text-sm text-gray-600">Role:</label>
+                                <select id="reports-role" class="border rounded px-2 py-1 text-sm">
+                                    <option value="ceo">CEO</option>
+                                    <option value="cfo">CFO</option>
+                                    <option value="vp-sales">VP Sales</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p id="reports-narrative" class="italic text-gray-600 mb-4"></p>
+                        <div id="reports-widgets" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    </div>
+                </div>
+
+<script src="/static/app.js"></script>
     </body>
     </html>

@@ -4,13 +4,13 @@
   "compatibility_date": "2024-01-01",
   "pages_build_output_dir": "./dist",
   "compatibility_flags": ["nodejs_compat"],
-    "vars": {
-        "FINANCE_API_BASE": "https://api.finance.gershoncrm.com"
-    },
   "kv_namespaces": [
     {
       "binding": "GOALS_KV",
       "id": "6996fa49561d441083d8f429495a1c22"
     }
-  ]
+  ],
+  "triggers": {
+    "crons": ["0 2 1 * *"]
+  }
 }

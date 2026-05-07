@@ -6,6 +6,10 @@ import { XeroApiService } from './services/xero-api';
 import { ExportService } from './services/export-service';
 import { XeroOAuthService } from './services/xero-oauth';
 import { PaymentTrendsService } from './services/payment-trends';
+import { upsertSnapshot, getSnapshot, listSnapshots, momSeries, audit as v17audit, SNAPSHOT_COLS } from './services/snapshots';
+import { createSwot, listSwot, updateSwot, archiveSwot } from './services/swot';
+import { buildReport } from './services/reports';
+import { captureBundle } from './services/snapshot-capture';
 import { CfoAnalyticsService } from './services/cfo-analytics';
 
 type Bindings = {
@@ -13,7 +17,6 @@ type Bindings = {
   XERO_CLIENT_SECRET: string;
   XERO_REDIRECT_URI: string;
   GOALS_KV: KVNamespace;
-    FINANCE_API_BASE: string;
 };
 
 const DEFAULT_GOALS = { revenue: null, clients: null, collection: null };
@@ -179,10 +182,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.16.0',
-    releaseDate: '2026-04-30T00:00:00Z',
+    version: '2.17.0',
+    releaseDate: '2026-05-07T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.17.0: Monthly snapshots (KV) + MoM evolution + SWOT + role views (VP Sales, CFO, CEO)',
       'v2.16.0: Bank tab — line of credit simulator with DSCR, borrowing base, multi-bank approval scoring (community/SBA/fintech)',
       'v2.15.1: Lock POST /api/goals behind session auth; return 503 if KV not configured',
       'v2.15.0: Goals stored server-side (Cloudflare KV) — all team members share the same objectives',
@@ -1758,4 +1762,157 @@ app.get('/', async (c) => {
   return (c.env as any).ASSETS.fetch(new Request(url.toString()));
 });
 
-export default app;
+// =============================================================================
+// v2.17.0 — Monthly snapshots, SWOT, role-based reports, MoM evolution.
+// All persistence is on Cloudflare KV (binding GOALS_KV); see services/{snapshots,swot,reports}.ts.
+// =============================================================================
+
+const _v17_ok = (data: any) => ({ ok: true, ...data });
+const _v17_err = (msg: string, status = 400) => ({ ok: false, error: msg, status });
+
+// ---- SNAPSHOTS ----
+app.get('/api/snapshots', async (c) => {
+  try {
+    const from = c.req.query('from') || undefined;
+    const to   = c.req.query('to')   || undefined;
+    const rows = await listSnapshots(c.env.GOALS_KV, { from, to });
+    return c.json({ snapshots: rows });
+  } catch (e: any) { return c.json({ error: e.message }, 500); }
+});
+
+app.get('/api/snapshots/:period', async (c) => {
+  try {
+    const row = await getSnapshot(c.env.GOALS_KV, c.req.param('period'));
+    if (!row) return c.json({ error: 'Not found' }, 404);
+    return c.json(row);
+  } catch (e: any) { return c.json({ error: e.message }, 500); }
+});
+
+app.post('/api/snapshots', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken) return c.json({ error: 'Unauthorized' }, 401);
+    const body = await c.req.json();
+    const row = await upsertSnapshot(c.env.GOALS_KV, body);
+    await v17audit(c.env.GOALS_KV, 'snapshot.upsert', body.period, body);
+    return c.json(row);
+  } catch (e: any) { return c.json({ error: e.message }, 400); }
+});
+
+app.get('/api/mom', async (c) => {
+  try {
+    const metric = c.req.query('metric') || 'revenue_paid';
+    const months = Number(c.req.query('months') || 12);
+    const out = await momSeries(c.env.GOALS_KV, metric, months);
+    return c.json(out);
+  } catch (e: any) { return c.json({ error: e.message }, 400); }
+});
+
+// ---- SNAPSHOT CAPTURE (compute KPI bundle from Xero, no persist) ----
+app.get('/api/snapshot/capture', async (c) => {
+  try {
+    const period = c.req.query('period') || (() => {
+      const d = new Date(); d.setUTCDate(0); // last day of prev month
+      return d.toISOString().slice(0, 7);
+    })();
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Xero session required to capture' }, 401);
+    }
+    const bundle = await captureBundle(period, session);
+    // Snapshot the live goals into the bundle so they're frozen at the time of capture.
+    try {
+      const rawGoals = await c.env.GOALS_KV.get('goals');
+      if (rawGoals) {
+        const g = JSON.parse(rawGoals);
+        bundle.goal_revenue_target = g?.revenue ?? null;
+        bundle.goal_clients_target = g?.clients ?? null;
+        bundle.goal_collection_pct = g?.collection ?? null;
+      }
+    } catch {}
+    return c.json(bundle);
+  } catch (e: any) { return c.json({ error: e.message }, 500); }
+});
+
+// ---- SWOT ----
+app.get('/api/swot', async (c) => {
+  try {
+    const period          = c.req.query('period') || undefined;
+    const tag             = c.req.query('tag')    || undefined;
+    const includeArchived = c.req.query('include_archived') === '1';
+    const entries = await listSwot(c.env.GOALS_KV, { period, tag, includeArchived });
+    return c.json({ entries });
+  } catch (e: any) { return c.json({ error: e.message }, 500); }
+});
+
+app.post('/api/swot', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken) return c.json({ error: 'Unauthorized' }, 401);
+    const body = await c.req.json();
+    const row = await createSwot(c.env.GOALS_KV, body);
+    await v17audit(c.env.GOALS_KV, 'swot.create', String(row.id), body);
+    return c.json(row, 201);
+  } catch (e: any) { return c.json({ error: e.message }, 400); }
+});
+
+app.patch('/api/swot/:id', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken) return c.json({ error: 'Unauthorized' }, 401);
+    const body = await c.req.json();
+    const row = await updateSwot(c.env.GOALS_KV, Number(c.req.param('id')), body);
+    return c.json(row);
+  } catch (e: any) { return c.json({ error: e.message }, 400); }
+});
+
+app.delete('/api/swot/:id', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken) return c.json({ error: 'Unauthorized' }, 401);
+    await archiveSwot(c.env.GOALS_KV, Number(c.req.param('id')));
+    return c.body(null, 204);
+  } catch (e: any) { return c.json({ error: e.message }, 400); }
+});
+
+// ---- ROLE REPORTS ----
+// /api/reports/{profit-loss,balance-sheet} are existing Xero-side endpoints,
+// so role-based reports get a separate prefix /api/reports/role/:role to avoid collision.
+app.get('/api/reports/role/:role', async (c) => {
+  try {
+    const role = c.req.param('role');
+    const bundle = await buildReport(c.env.GOALS_KV, role);
+    return c.json(bundle);
+  } catch (e: any) {
+    return c.json({ error: e.message }, e.message?.includes('No view') ? 404 : 500);
+  }
+});
+
+// =============================================================================
+// Cloudflare Cron Trigger handler — runs at 02:00 UTC, day 1 of each month.
+// Crons are configured in wrangler.jsonc under "triggers": { "crons": [...] }.
+// =============================================================================
+const _v17_scheduled = async (event: ScheduledEvent, env: any, ctx: ExecutionContext) => {
+  // Compute "previous month" period.
+  const d = new Date();
+  d.setUTCDate(0);                                    // last day of prev month
+  const period = d.toISOString().slice(0, 7);
+
+  // Use the most recent stored Xero session to capture without a user in the loop.
+  const sessRaw = env.GOALS_KV ? await env.GOALS_KV.get('xero-session') : null;
+  if (!sessRaw) {
+    console.warn('[v17 cron] No xero-session stored — skipping capture.');
+    return;
+  }
+  const session = JSON.parse(sessRaw);
+
+  const bundle = await captureBundle(period, session);
+  bundle.source = 'cron';
+  await upsertSnapshot(env.GOALS_KV, bundle);
+  await v17audit(env.GOALS_KV, 'snapshot.cron', period, { ok: true });
+};
+export default {
+  fetch: app.fetch,
+  scheduled: _v17_scheduled,
+};
+

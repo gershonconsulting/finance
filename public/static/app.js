@@ -3790,3 +3790,362 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => loadBankSection());
   });
 });
+
+/* ===========================================================================
+ * v2.17.0 — MoM, SWOT, Reports modules.
+ * Self-contained. Activated on tab click via DOMContentLoaded handlers below.
+ * ===========================================================================
+ */
+
+(function () {
+  function authHeaders() {
+    const t = sessionStorage.getItem('xero_session_token') || localStorage.getItem('xero_session_token') || '';
+    return t ? { 'X-Session-Token': t } : {};
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+  }
+  function fmt(v, metric) {
+    if (v == null || isNaN(v)) return '—';
+    return /pct|_pct|days/.test(metric) ? Number(v).toFixed(1) : fmtCurrencyV17(v);
+  }
+  function fmtCurrencyV17(v) {
+    if (v == null || isNaN(v)) return '—';
+    return '$' + Math.round(Number(v)).toLocaleString('en-US');
+  }
+  function pctV17(v) {
+    if (v == null || isNaN(v)) return '—';
+    return (v >= 0 ? '+' : '') + Number(v).toFixed(1) + '%';
+  }
+  function trendClass(v) { return v == null ? '' : v > 0 ? 'text-green-600' : v < 0 ? 'text-red-600' : 'text-gray-500'; }
+  function currentQuarter() { const d = new Date(); return d.getFullYear() + '-Q' + (Math.floor(d.getMonth() / 3) + 1); }
+
+  // ---- MoM ----------------------------------------------------------------
+  let momChart = null;
+  async function initMomTab() {
+    const root = document.getElementById('tab-mom');
+    if (!root || root.dataset.wired) { renderMom(); return; }
+    root.dataset.wired = '1';
+    document.getElementById('mom-metric').addEventListener('change', renderMom);
+    document.getElementById('mom-months').addEventListener('change', renderMom);
+    document.getElementById('mom-snapshot-now').addEventListener('click', captureNow);
+    await renderMom();
+  }
+
+  async function renderMom() {
+    const metric = document.getElementById('mom-metric').value;
+    const months = document.getElementById('mom-months').value;
+    let data;
+    try {
+      const r = await fetch(`/api/mom?metric=${encodeURIComponent(metric)}&months=${encodeURIComponent(months)}`,
+        { headers: authHeaders() });
+      data = await r.json();
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    } catch (e) {
+      document.getElementById('mom-summary').innerHTML =
+        `<div class="col-span-full text-red-600 text-sm">Could not load MoM data: ${escapeHtml(e.message || e)}</div>`;
+      return;
+    }
+    const cur = data.series.length ? data.series[data.series.length - 1].value : null;
+    const d = data.delta || {};
+    document.getElementById('mom-summary').innerHTML = `
+      <div class="bg-gray-50 rounded p-3"><div class="text-xs uppercase text-gray-500">Latest</div><div class="text-2xl font-bold">${fmt(cur, metric)}</div></div>
+      <div class="bg-gray-50 rounded p-3"><div class="text-xs uppercase text-gray-500">MoM Δ</div><div class="text-2xl font-bold ${trendClass(d.mom_pct)}">${pctV17(d.mom_pct)}</div></div>
+      <div class="bg-gray-50 rounded p-3"><div class="text-xs uppercase text-gray-500">YoY Δ</div><div class="text-2xl font-bold ${trendClass(d.yoy_pct)}">${pctV17(d.yoy_pct)}</div></div>
+    `;
+
+    const ctx = document.getElementById('mom-chart').getContext('2d');
+    if (momChart) momChart.destroy();
+    momChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.series.map(s => s.period),
+        datasets: [{ label: metric, data: data.series.map(s => Number(s.value || 0)),
+                     backgroundColor: 'rgba(59, 130, 246, 0.6)' }],
+      },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } },
+    });
+
+    const t = document.getElementById('mom-table');
+    t.innerHTML =
+      '<thead class="bg-gray-100"><tr><th class="px-3 py-2 text-left">Period</th><th class="px-3 py-2 text-right">Value</th><th class="px-3 py-2 text-right">MoM Δ</th></tr></thead><tbody>'
+      + data.series.map((s, i) => {
+          const prev = data.series[i - 1] && data.series[i - 1].value;
+          const delta = (prev != null && prev !== 0) ? ((s.value - prev) / prev * 100).toFixed(1) + '%' : '—';
+          return `<tr class="border-b"><td class="px-3 py-1">${s.period}</td><td class="px-3 py-1 text-right">${fmt(s.value, metric)}</td><td class="px-3 py-1 text-right">${delta}</td></tr>`;
+        }).join('')
+      + '</tbody>';
+  }
+
+  async function captureNow() {
+    const period = prompt('Period to snapshot (YYYY-MM):', new Date().toISOString().slice(0, 7));
+    if (!period) return;
+    try {
+      const cap = await fetch(`/api/snapshot/capture?period=${period}`, { headers: authHeaders() });
+      if (!cap.ok) throw new Error('capture HTTP ' + cap.status);
+      const bundle = await cap.json();
+      bundle.source = 'manual';
+      const save = await fetch('/api/snapshots', {
+        method: 'POST',
+        headers: Object.assign({}, authHeaders(), { 'Content-Type': 'application/json' }),
+        body: JSON.stringify(bundle),
+      });
+      if (!save.ok) throw new Error('save HTTP ' + save.status);
+      await renderMom();
+      alert('Snapshot saved for ' + period);
+    } catch (e) {
+      alert('Snapshot failed: ' + e.message);
+    }
+  }
+
+  // ---- SWOT ---------------------------------------------------------------
+  async function initSwotTab() {
+    const root = document.getElementById('tab-swot');
+    if (!root) return;
+    if (!root.dataset.wired) {
+      root.dataset.wired = '1';
+      const periodSel = document.getElementById('swot-period');
+      const periods = ['ongoing'];
+      const now = new Date();
+      for (let i = 0; i < 4; i++) {
+        const q = Math.floor(now.getMonth() / 3) + 1 - i;
+        const y = now.getFullYear() + (q < 1 ? -1 : 0);
+        const qq = ((q - 1 + 4) % 4) + 1;
+        periods.push(`${y}-Q${qq}`);
+      }
+      periodSel.innerHTML = periods.map(p =>
+        `<option ${p === currentQuarter() ? 'selected' : ''}>${p}</option>`).join('');
+      periodSel.addEventListener('change', renderSwot);
+      document.getElementById('swot-tag').addEventListener('change', renderSwot);
+      document.getElementById('swot-add').addEventListener('click', addSwot);
+    }
+    await renderSwot();
+  }
+
+  async function renderSwot() {
+    const period = document.getElementById('swot-period').value;
+    const tag    = document.getElementById('swot-tag').value;
+    const qs = new URLSearchParams({ period, ...(tag ? { tag } : {}) });
+    let data;
+    try {
+      const r = await fetch(`/api/swot?${qs}`, { headers: authHeaders() });
+      data = await r.json();
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    } catch (e) {
+      document.querySelectorAll('.swot-cell ul').forEach(ul => {
+        ul.innerHTML = `<li class="text-red-600 text-sm">Could not load: ${escapeHtml(e.message || e)}</li>`;
+      });
+      return;
+    }
+    document.querySelectorAll('.swot-cell').forEach(cell => {
+      const cat = cell.dataset.cat;
+      const items = (data.entries || []).filter(e => e.category === cat);
+      cell.querySelector('ul').innerHTML = items.length ? items.map(e => `
+        <li class="py-2 border-b border-white last:border-0">
+          <p class="text-sm">${escapeHtml(e.body)}</p>
+          <small class="text-xs text-gray-600">${escapeHtml(e.tag)} · ${escapeHtml(e.author)} · ${(e.created_at || '').slice(0, 10)}</small>
+          <button data-id="${e.id}" class="swot-archive float-right text-xs text-red-600 hover:underline">Archive</button>
+        </li>
+      `).join('') : '<li class="text-sm text-gray-500 italic">No entries.</li>';
+    });
+    document.querySelectorAll('.swot-archive').forEach(b => {
+      b.addEventListener('click', async () => {
+        if (!confirm('Archive this entry?')) return;
+        await fetch(`/api/swot/${b.dataset.id}`, { method: 'DELETE', headers: authHeaders() });
+        await renderSwot();
+      });
+    });
+  }
+
+  async function addSwot() {
+    const cat = (prompt('Category — S, W, O, or T:') || '').trim().toUpperCase();
+    if (!['S','W','O','T'].includes(cat)) return alert('Bad category');
+    const tag = prompt('Tag (Strategic / Sales / Finance):', 'Strategic') || 'Strategic';
+    const body = prompt('Body (one line):');
+    if (!body) return;
+    const period = document.getElementById('swot-period').value;
+    const author = prompt('Author:', 'Olivier') || 'system';
+    try {
+      const r = await fetch('/api/swot', {
+        method: 'POST',
+        headers: Object.assign({}, authHeaders(), { 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ period, category: cat, tag, body, author }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      await renderSwot();
+    } catch (e) { alert('Could not add: ' + e.message); }
+  }
+
+  // ---- Reports ------------------------------------------------------------
+  async function initReportsTab() {
+    const root = document.getElementById('tab-reports');
+    if (!root) return;
+    if (!root.dataset.wired) {
+      root.dataset.wired = '1';
+      document.getElementById('reports-role').addEventListener('change', renderReport);
+    }
+    await renderReport();
+  }
+
+  async function renderReport() {
+    const role = document.getElementById('reports-role').value;
+    const host = document.getElementById('reports-widgets');
+    document.getElementById('reports-narrative').textContent = '';
+    host.innerHTML = '<div class="text-gray-500">Loading…</div>';
+    let bundle;
+    try {
+      const r = await fetch(`/api/reports/role/${role}`, { headers: authHeaders() });
+      bundle = await r.json();
+      if (!r.ok) throw new Error(bundle.error || `HTTP ${r.status}`);
+    } catch (e) {
+      host.innerHTML = `<div class="text-red-600 col-span-full">Could not load report: ${escapeHtml(e.message || e)}</div>`;
+      return;
+    }
+    document.getElementById('reports-narrative').textContent = bundle.narrative || '';
+    host.innerHTML = '';
+    for (const w of (bundle.config?.widgets || [])) host.appendChild(renderWidget(w, bundle));
+    if (!bundle.history?.length) {
+      const note = document.createElement('div');
+      note.className = 'col-span-full text-amber-700 bg-amber-50 border border-amber-200 rounded p-4';
+      note.innerHTML = '<b>No snapshots yet.</b> Go to the MoM tab and click "Save snapshot now" for at least one period to populate this report.';
+      host.appendChild(note);
+    }
+  }
+
+  function widgetBox(title, inner) {
+    const box = document.createElement('section');
+    box.className = 'bg-white border border-gray-200 rounded p-4';
+    box.innerHTML = `<h3 class="font-semibold text-gray-800 mb-2">${escapeHtml(title)}</h3>`;
+    box.appendChild(inner);
+    return box;
+  }
+
+  function renderWidget(w, b) {
+    const wrap = document.createElement('div');
+    wrap.className = 'bg-white border border-gray-200 rounded p-4';
+    wrap.innerHTML = `<h3 class="font-semibold text-gray-800 mb-2">${escapeHtml(w.title)}</h3>`;
+    const inner = document.createElement('div');
+    switch (w.id) {
+      case 'headline_kpis': renderHeadlineKpis(inner, b); break;
+      case 'goals_progress': renderGoalsProgress(inner, b); break;
+      case 'cash_position_today': renderCashPosition(inner, b); break;
+      case 'dso_trend_12m': renderSeriesChart(inner, b, 'dso_days'); break;
+      case 'gross_margin_mom_yoy': renderSeriesChart(inner, b, 'gross_margin_pct'); break;
+      case 'ar_aging_buckets': renderArAging(inner, b); break;
+      case 'overdue_concentration':
+      case 'top10_active_revenue':
+      case 'renewals_60d':
+      case 'client_type_mix':
+      case 'avg_deal_size':
+      case 'new_business_mom':
+        inner.className = 'text-sm text-gray-500 italic';
+        inner.textContent = 'Pulls from existing /api/clients endpoints — wiring follows in v2.17.1.';
+        break;
+      case 'bank_tab_full': renderBankSnapshot(inner, b); break;
+      case 'bank_approval_signal': renderBankApprovalSignal(inner, b); break;
+      case 'swot_panel':
+      case 'swot_strategic': renderSwotPanel(inner, b); break;
+      case 'what_changed': inner.textContent = b.narrative || 'Not enough history yet.'; break;
+      default:
+        inner.className = 'text-sm text-gray-500 italic';
+        inner.textContent = 'Widget renderer not implemented yet.';
+    }
+    wrap.appendChild(inner);
+    return wrap;
+  }
+
+  function renderHeadlineKpis(host, b) {
+    host.className = 'grid grid-cols-2 sm:grid-cols-4 gap-3';
+    const items = [
+      ['Revenue (paid)', b.deltas.revenue_paid],
+      ['Active clients', b.deltas.active_clients],
+      ['Cash position', b.deltas.cash_position],
+      ['Gross margin %', b.deltas.gross_margin_pct],
+    ];
+    host.innerHTML = items.map(([label, x]) => `
+      <div class="bg-gray-50 rounded p-2">
+        <div class="text-xs uppercase text-gray-500">${label}</div>
+        <div class="text-lg font-bold">${x?.cur != null ? (Math.abs(x.cur) > 1000 ? fmtCurrencyV17(x.cur) : Number(x.cur).toFixed(1)) : '—'}</div>
+        <div class="text-xs ${trendClass(x?.mom_pct)}">${pctV17(x?.mom_pct)} MoM</div>
+      </div>
+    `).join('');
+  }
+  function renderGoalsProgress(host, b) {
+    const cur = b.current || {};
+    const target = Number(cur.goal_revenue_target) || 0;
+    const pct = target ? Math.min(100, (cur.revenue_paid / target) * 100) : 0;
+    host.innerHTML = `
+      <p class="text-sm">Revenue: <b>${fmtCurrencyV17(cur.revenue_paid)}</b> of <b>${fmtCurrencyV17(target)}</b> target</p>
+      <div class="bg-gray-200 rounded h-2 mt-2 overflow-hidden"><div class="bg-blue-600 h-full" style="width:${pct.toFixed(1)}%"></div></div>`;
+  }
+  function renderCashPosition(host, b) {
+    const cur = b.current || {};
+    host.innerHTML = `<p class="text-lg">Today: <b>${fmtCurrencyV17(cur.cash_position)}</b></p>
+      <p class="text-xs text-gray-500 mt-1">7-day & 13-week forecast: existing /api/cashflow/forecast endpoint.</p>`;
+  }
+  function renderSeriesChart(host, b, metric) {
+    const c = document.createElement('canvas');
+    c.height = 100;
+    host.appendChild(c);
+    setTimeout(() => {
+      new Chart(c.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: b.history.map(s => s.period),
+          datasets: [{ data: b.history.map(s => Number(s[metric] || 0)), borderColor: '#2563eb', tension: 0.25 }],
+        },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } },
+      });
+    }, 0);
+  }
+  function renderArAging(host, b) {
+    const c = b.current || {};
+    host.innerHTML = `
+      <table class="w-full text-sm">
+        <tr><td class="py-1">Current</td><td class="text-right">${fmtCurrencyV17(c.ar_aging_current)}</td></tr>
+        <tr><td class="py-1">30-60 days</td><td class="text-right">${fmtCurrencyV17(c.ar_aging_30_60)}</td></tr>
+        <tr><td class="py-1">60-90 days</td><td class="text-right">${fmtCurrencyV17(c.ar_aging_60_90)}</td></tr>
+        <tr><td class="py-1">90+ days</td><td class="text-right">${fmtCurrencyV17(c.ar_aging_90plus)}</td></tr>
+      </table>`;
+  }
+  function renderBankSnapshot(host, b) {
+    const c = b.current || {};
+    host.innerHTML = `<ul class="text-sm space-y-1">
+      <li>Recommended LoC: <b>${fmtCurrencyV17(c.loc_recommended)}</b></li>
+      <li>DSCR: <b>${c.loc_dscr ?? '—'}</b></li>
+      <li>Borrowing base: <b>${fmtCurrencyV17(c.borrowing_base)}</b></li>
+      <li>Bank approval (community / SBA / fintech): <b>${c.bank_score_community ?? '—'} / ${c.bank_score_sba ?? '—'} / ${c.bank_score_fintech ?? '—'}</b></li>
+    </ul>`;
+  }
+  function renderBankApprovalSignal(host, b) {
+    const c = b.current || {};
+    const max = Math.max(c.bank_score_community || 0, c.bank_score_sba || 0, c.bank_score_fintech || 0);
+    const cls = max >= 70 ? 'text-green-600' : max >= 40 ? 'text-amber-600' : 'text-red-600';
+    host.innerHTML = `<p class="text-lg">Best approval score: <b class="${cls}">${max}</b> / 100</p>`;
+  }
+  function renderSwotPanel(host, b) {
+    host.innerHTML = '<ul class="text-sm space-y-1">' +
+      ((b.swot || []).map(e =>
+        `<li><span class="inline-block w-5 h-5 mr-2 text-xs font-bold rounded bg-blue-100 text-blue-800 text-center">${e.category}</span>${escapeHtml(e.body)} <small class="text-gray-500">${escapeHtml(e.tag)}</small></li>`
+      ).join('') || '<li class="italic text-gray-500">No SWOT entries.</li>') +
+      '</ul>';
+  }
+
+  // ---- wire to tab clicks -------------------------------------------------
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.tab-button[data-tab="mom"]').forEach(btn =>
+      btn.addEventListener('click', () => initMomTab()));
+    document.querySelectorAll('.tab-button[data-tab="swot"]').forEach(btn =>
+      btn.addEventListener('click', () => initSwotTab()));
+    document.querySelectorAll('.tab-button[data-tab="reports"]').forEach(btn =>
+      btn.addEventListener('click', () => initReportsTab()));
+  });
+
+  window.initMomTab = initMomTab;
+  window.initSwotTab = initSwotTab;
+  window.initReportsTab = initReportsTab;
+})();
