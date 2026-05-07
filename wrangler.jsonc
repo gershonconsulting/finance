@@ -9,8 +9,4 @@
       "binding": "GOALS_KV",
       "id": "6996fa49561d441083d8f429495a1c22"
     }
-  ],
-  "triggers": {
-    "crons": ["0 2 1 * *"]
-  }
-}
+  ]}

@@ -17,7 +17,6 @@ type Bindings = {
   XERO_CLIENT_SECRET: string;
   XERO_REDIRECT_URI: string;
   GOALS_KV: KVNamespace;
-};
 
 const DEFAULT_GOALS = { revenue: null, clients: null, collection: null };
 
@@ -36,7 +35,6 @@ const PRODUCTION_CREDENTIALS = {
     }
     return `https://${host}/auth/callback`;
   }
-};
 
 // Helper to get credentials with fallbacks
 function getCredentials(c: any) {
@@ -1888,31 +1886,5 @@ app.get('/api/reports/role/:role', async (c) => {
   }
 });
 
-// =============================================================================
-// Cloudflare Cron Trigger handler — runs at 02:00 UTC, day 1 of each month.
-// Crons are configured in wrangler.jsonc under "triggers": { "crons": [...] }.
-// =============================================================================
-const _v17_scheduled = async (event: ScheduledEvent, env: any, ctx: ExecutionContext) => {
-  // Compute "previous month" period.
-  const d = new Date();
-  d.setUTCDate(0);                                    // last day of prev month
-  const period = d.toISOString().slice(0, 7);
-
-  // Use the most recent stored Xero session to capture without a user in the loop.
-  const sessRaw = env.GOALS_KV ? await env.GOALS_KV.get('xero-session') : null;
-  if (!sessRaw) {
-    console.warn('[v17 cron] No xero-session stored — skipping capture.');
-    return;
-  }
-  const session = JSON.parse(sessRaw);
-
-  const bundle = await captureBundle(period, session);
-  bundle.source = 'cron';
-  await upsertSnapshot(env.GOALS_KV, bundle);
-  await v17audit(env.GOALS_KV, 'snapshot.cron', period, { ok: true });
-};
-export default {
-  fetch: app.fetch,
-  scheduled: _v17_scheduled,
-};
+export default app;
 
