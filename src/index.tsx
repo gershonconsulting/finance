@@ -17,6 +17,7 @@ type Bindings = {
   XERO_CLIENT_SECRET: string;
   XERO_REDIRECT_URI: string;
   GOALS_KV: KVNamespace;
+};
 
 const DEFAULT_GOALS = { revenue: null, clients: null, collection: null };
 
