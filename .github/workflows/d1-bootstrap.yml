@@ -1,0 +1,116 @@
+name: D1 Bootstrap (one-time)
+
+# Run this manually once (Actions tab → "D1 Bootstrap (one-time)" → Run workflow).
+# It creates the `finance-monthly` D1 DB if missing, applies db/schema.sql + db/seed.sql,
+# and commits an updated wrangler.jsonc with the database_id back to main.
+# Idempotent — safe to re-run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      db_name:
+        description: "D1 database name"
+        required: true
+        default: "finance-monthly"
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm install
+
+      - name: Resolve database id (create if missing)
+        id: create
+        run: |
+          set -e
+          DB_NAME="${{ inputs.db_name }}"
+          # Try to find existing DB first.
+          EXISTING=$(npx wrangler d1 list --json 2>/dev/null \
+            | node -e 'let d="";process.stdin.on("data",x=>d+=x);process.stdin.on("end",()=>{try{const j=JSON.parse(d);const r=j.find(x=>x.name===process.env.DB);console.log(r?r.uuid:"")}catch(e){console.log("")}})' DB="$DB_NAME")
+          if [ -n "$EXISTING" ]; then
+            echo "Database already exists: $EXISTING"
+            DB_ID="$EXISTING"
+          else
+            echo "Creating new D1: $DB_NAME"
+            OUT=$(npx wrangler d1 create "$DB_NAME")
+            echo "$OUT"
+            DB_ID=$(echo "$OUT" | grep -oE '"database_id"[[:space:]]*:[[:space:]]*"[a-f0-9-]+"' | head -1 | sed -E 's/.*"([a-f0-9-]+)"$/\1/')
+            if [ -z "$DB_ID" ]; then
+              # Some wrangler versions emit different formats. Try uuid pattern.
+              DB_ID=$(echo "$OUT" | grep -oE '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}' | head -1)
+            fi
+          fi
+          if [ -z "$DB_ID" ]; then
+            echo "ERROR: could not determine database_id" >&2; exit 1
+          fi
+          echo "db_id=$DB_ID" >> "$GITHUB_OUTPUT"
+          echo "Database ID: $DB_ID"
+
+      - name: Apply schema + seed
+        run: |
+          npx wrangler d1 execute "${{ inputs.db_name }}" --remote --file=db/schema.sql
+          npx wrangler d1 execute "${{ inputs.db_name }}" --remote --file=db/seed.sql
+
+      - name: Patch wrangler.jsonc
+        run: |
+          DB_ID="${{ steps.create.outputs.db_id }}"
+          DB_NAME="${{ inputs.db_name }}"
+          node -e '
+            const fs=require("fs");
+            const path="wrangler.jsonc";
+            let s=fs.readFileSync(path,"utf8");
+            const id=process.env.DB_ID, name=process.env.DB_NAME;
+            // Remove any leftover FINANCE_API_BASE var (from the discarded PHP plan).
+            s=s.replace(/,?\s*"vars"\s*:\s*\{[\s\S]*?\}\s*,?/m,",");
+            if (s.includes(`"d1_databases"`)) {
+              s=s.replace(/"d1_databases"\s*:\s*\[[\s\S]*?\]/,
+                `"d1_databases": [\n    {\n      "binding": "DB",\n      "database_name": "${name}",\n      "database_id": "${id}"\n    }\n  ]`);
+            } else {
+              // Append before the final closing brace.
+              s=s.replace(/\n?\}\s*$/,
+                `,\n  "d1_databases": [\n    {\n      "binding": "DB",\n      "database_name": "${name}",\n      "database_id": "${id}"\n    }\n  ]\n}\n`);
+            }
+            // Cleanup: collapse possible duplicated commas.
+            s=s.replace(/,(\s*,)+/g,",");
+            s=s.replace(/\{\s*,/g,"{");
+            s=s.replace(/,(\s*\})/g,"$1");
+            fs.writeFileSync(path,s);
+            console.log(s);
+          ' DB_ID="$DB_ID" DB_NAME="$DB_NAME"
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "Cowork Autonomous Deploy"
+          git config user.email "auto-deploy@finance.gershoncrm.com"
+          if git diff --quiet wrangler.jsonc; then
+            echo "wrangler.jsonc already up-to-date"
+          else
+            git add wrangler.jsonc
+            git commit -m "v2.17.0: bootstrap D1 binding (${{ inputs.db_name }})"
+            git push origin HEAD:main
+          fi
+
+      - name: Summary
+        run: |
+          {
+            echo "### D1 Bootstrap complete"
+            echo "- DB name: \`${{ inputs.db_name }}\`"
+            echo "- DB id:   \`${{ steps.create.outputs.db_id }}\`"
+            echo "- Schema + seed applied to **--remote**"
+          } >> "$GITHUB_STEP_SUMMARY"
