@@ -6,11 +6,11 @@ import { XeroApiService } from './services/xero-api';
 import { ExportService } from './services/export-service';
 import { XeroOAuthService } from './services/xero-oauth';
 import { PaymentTrendsService } from './services/payment-trends';
+import { CfoAnalyticsService } from './services/cfo-analytics';
 import { upsertSnapshot, getSnapshot, listSnapshots, momSeries, audit as v17audit, SNAPSHOT_COLS } from './services/snapshots';
 import { createSwot, listSwot, updateSwot, archiveSwot } from './services/swot';
 import { buildReport } from './services/reports';
 import { captureBundle } from './services/snapshot-capture';
-import { CfoAnalyticsService } from './services/cfo-analytics';
 
 type Bindings = {
   XERO_CLIENT_ID: string;
@@ -36,6 +36,7 @@ const PRODUCTION_CREDENTIALS = {
     }
     return `https://${host}/auth/callback`;
   }
+};
 
 // Helper to get credentials with fallbacks
 function getCredentials(c: any) {
@@ -51,7 +52,6 @@ function getCredentials(c: any) {
 
 // Enable CORS for API routes
 app.use('/api/*', cors());
-// v2.17.0 routes (registered below in worker-additions.ts merge)
 
 // Serve static files from public directory
 app.use('/static/*', serveStatic({ root: './public' }));
@@ -1761,13 +1761,11 @@ app.get('/', async (c) => {
   return (c.env as any).ASSETS.fetch(new Request(url.toString()));
 });
 
+
 // =============================================================================
 // v2.17.0 — Monthly snapshots, SWOT, role-based reports, MoM evolution.
 // All persistence is on Cloudflare KV (binding GOALS_KV); see services/{snapshots,swot,reports}.ts.
 // =============================================================================
-
-const _v17_ok = (data: any) => ({ ok: true, ...data });
-const _v17_err = (msg: string, status = 400) => ({ ok: false, error: msg, status });
 
 // ---- SNAPSHOTS ----
 app.get('/api/snapshots', async (c) => {
@@ -1807,19 +1805,18 @@ app.get('/api/mom', async (c) => {
   } catch (e: any) { return c.json({ error: e.message }, 400); }
 });
 
-// ---- SNAPSHOT CAPTURE (compute KPI bundle from Xero, no persist) ----
+// ---- SNAPSHOT CAPTURE (compute KPI bundle from Xero) ----
 app.get('/api/snapshot/capture', async (c) => {
   try {
     const period = c.req.query('period') || (() => {
-      const d = new Date(); d.setUTCDate(0); // last day of prev month
+      const d = new Date(); d.setUTCDate(0);
       return d.toISOString().slice(0, 7);
     })();
     const { session } = await getSessionWithRefresh(c);
     if (!session?.accessToken || !session?.tenantId) {
       return c.json({ error: 'Xero session required to capture' }, 401);
     }
-    const bundle = await captureBundle(period, session);
-    // Snapshot the live goals into the bundle so they're frozen at the time of capture.
+    const bundle: any = await captureBundle(period, session);
     try {
       const rawGoals = await c.env.GOALS_KV.get('goals');
       if (rawGoals) {
@@ -1875,8 +1872,6 @@ app.delete('/api/swot/:id', async (c) => {
 });
 
 // ---- ROLE REPORTS ----
-// /api/reports/{profit-loss,balance-sheet} are existing Xero-side endpoints,
-// so role-based reports get a separate prefix /api/reports/role/:role to avoid collision.
 app.get('/api/reports/role/:role', async (c) => {
   try {
     const role = c.req.param('role');
@@ -1888,4 +1883,3 @@ app.get('/api/reports/role/:role', async (c) => {
 });
 
 export default app;
-
