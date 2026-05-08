@@ -3799,7 +3799,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 (function () {
   function authHeaders() {
-    const t = sessionStorage.getItem('xero_session_token') || localStorage.getItem('xero_session_token') || '';
+    const t = localStorage.getItem('xero_session') || '';
     return t ? { 'X-Session-Token': t } : {};
   }
   function escapeHtml(s) {
