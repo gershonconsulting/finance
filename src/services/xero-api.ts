@@ -153,8 +153,8 @@ export class XeroApiService {
     
     // Sort by date descending (newest first)
     return transactions.sort((a: any, b: any) => {
-      const dateA = this.parseXeroDate(a.Date);
-      const dateB = this.parseXeroDate(b.Date);
+      const dateA = parseXeroDate(a.Date);
+      const dateB = parseXeroDate(b.Date);
       return dateB.getTime() - dateA.getTime();
     });
   }
