@@ -4149,3 +4149,27 @@ document.addEventListener('DOMContentLoaded', () => {
   window.initSwotTab = initSwotTab;
   window.initReportsTab = initReportsTab;
 })();
+
+/* v2.17.0 — sidebar layout: keep topbar h1 in sync with active tab. */
+(function () {
+  const titles = {
+    dashboard: 'Dashboard', invoices: 'Invoices', clients: 'Clients', trends: 'Trends',
+    analytics: 'Analytics', goals: 'Goals', valuation: 'Valuation', bank: 'Bank',
+    mom: 'MoM Evolution', swot: 'SWOT', reports: 'Executive Reports', 'sheets-links': 'Google Sheets',
+  };
+  function setTitle(tab) {
+    const h1 = document.getElementById('pageTitle');
+    if (h1 && titles[tab]) h1.textContent = titles[tab];
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tab]');
+    if (t) {
+      setTitle(t.getAttribute('data-tab'));
+      // Close sidebar drawer on mobile after click
+      document.querySelector('.sidebar')?.classList.remove('open');
+    }
+  });
+  // Initialize from active item on load
+  const init = document.querySelector('.nav-item.active')?.getAttribute('data-tab');
+  if (init) setTitle(init);
+})();

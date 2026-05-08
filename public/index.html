@@ -9,6 +9,92 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <link href="/static/styles.css" rel="stylesheet">
+
+        <style id="v17-layout">
+        /* v2.17.0 — Linalysis-style sidebar layout, scoped to mainApp.
+           Login screen (#loginPage) keeps its own existing styling. */
+        :root {
+          --sidebar-w: 232px;
+          --topbar-h: 56px;
+          --brand: #2563eb;
+          --brand-dark: #1e40af;
+          --brand-light: #eff6ff;
+          --border: #e5e7eb;
+          --bg: #f8fafc;
+          --card: #ffffff;
+          --text: #1f2937;
+          --text-muted: #64748b;
+        }
+        #mainApp { display: block; min-height: 100vh; background: var(--bg); }
+        #mainApp.app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; }
+        .sidebar {
+          background: linear-gradient(180deg, #1e3a8a 0%, #2563eb 100%);
+          color: #fff;
+          position: sticky; top: 0; height: 100vh; overflow-y: auto;
+          display: flex; flex-direction: column;
+          padding: 14px 10px;
+        }
+        .sidebar .brand {
+          display: flex; align-items: center; gap: 10px;
+          padding: 8px 10px 16px; font-weight: 800; font-size: 17px; letter-spacing: -0.01em;
+          border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px;
+        }
+        .sidebar .brand small { display:block; font-size: 11px; font-weight: 500; opacity: 0.7; margin-top: 2px; }
+        .sidebar .nav-item {
+          display: flex; align-items: center; gap: 10px;
+          padding: 9px 12px; border-radius: 8px;
+          font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.85);
+          cursor: pointer; user-select: none; border-bottom: none;
+          transition: background .12s ease;
+        }
+        .sidebar .nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .sidebar .nav-item.active { background: rgba(255,255,255,0.18); color: #fff; font-weight: 600; }
+        .sidebar .nav-item i { width: 18px; flex-shrink: 0; text-align: center; }
+        .sidebar .nav-group-label {
+          font-size: 10px; font-weight: 700; text-transform: uppercase;
+          letter-spacing: 0.06em; color: rgba(255,255,255,0.5);
+          padding: 14px 12px 4px;
+        }
+        .sidebar-footer {
+          margin-top: auto; padding: 12px;
+          font-size: 11px; color: rgba(255,255,255,0.6);
+          border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        #mainApp main {
+          min-width: 0;   /* allow grid child to shrink for inner content */
+        }
+        .topbar {
+          position: sticky; top: 0; z-index: 10;
+          height: var(--topbar-h);
+          background: rgba(255,255,255,0.92);
+          backdrop-filter: saturate(1.4) blur(10px);
+          border-bottom: 1px solid var(--border);
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 0 24px; gap: 16px;
+        }
+        .topbar h1 { font-size: 17px; font-weight: 700; color: var(--text); margin: 0; }
+        .topbar .topbar-right { display: flex; align-items: center; gap: 10px; }
+        .content { padding: 22px 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+        /* Mobile: sidebar drawer */
+        .menu-toggle { display: none; }
+        @media (max-width: 900px) {
+          #mainApp.app { grid-template-columns: 1fr; }
+          .sidebar { position: fixed; top: 0; left: -100%; width: 240px; z-index: 50; transition: left .2s ease; }
+          .sidebar.open { left: 0; }
+          .menu-toggle { display: inline-flex; }
+          .topbar { padding: 0 14px; }
+          .content { padding: 16px; }
+        }
+        .menu-toggle {
+          width: 34px; height: 34px; border-radius: 8px;
+          align-items: center; justify-content: center; font-size: 18px;
+          background: var(--bg); border: 1px solid var(--border); color: var(--text);
+        }
+
+        /* Live indicator chip — keep existing pill style on the topbar */
+        .topbar #liveIndicator { font-size: 11px; padding: 4px 10px; }
+        </style>
     </head>
     <body class="bg-gray-50">
         <div id="app">
@@ -62,77 +148,50 @@
             </div>
 
             <!-- Main Dashboard (hidden by default) -->
-            <div id="mainApp" class="hidden min-h-screen">
-                <!-- Top Navigation -->
-                <nav class="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg sticky top-0 z-50">
-                    <div class="max-w-7xl mx-auto px-4">
-                        <div class="flex items-center justify-between h-16">
-                            <div class="flex items-center">
-                                <i class="fas fa-chart-line text-2xl mr-3"></i>
-                                <h1 class="text-xl font-bold">Gershon Finance Dashboard</h1>
-                                <span class="text-xs font-normal text-blue-200 ml-2">v2.17.0 · Built __BUILD_TIMESTAMP__</span>
+            <div id="mainApp" class="hidden app">
+                <!-- Sidebar -->
+                <aside class="sidebar">
+                    <div class="brand">
+                        <i class="fas fa-chart-line text-2xl"></i>
+                        <div>Gershon Finance<small>v2.17.0 · __BUILD_TIMESTAMP__</small></div>
+                    </div>
+                    <a class="nav-item tab-button active" data-tab="dashboard"><i class="fas fa-home"></i>Dashboard</a>
+                    <a class="nav-item tab-button" data-tab="invoices"><i class="fas fa-file-invoice-dollar"></i>Invoices</a>
+                    <a class="nav-item tab-button" data-tab="clients"><i class="fas fa-users"></i>Clients</a>
+                    <a class="nav-item tab-button" data-tab="trends"><i class="fas fa-chart-line"></i>Trends</a>
+                    <a class="nav-item tab-button" data-tab="analytics"><i class="fas fa-chart-pie"></i>Analytics</a>
+                    <a class="nav-item tab-button" data-tab="goals"><i class="fas fa-bullseye"></i>Goals</a>
+                    <a class="nav-item tab-button" data-tab="valuation"><i class="fas fa-landmark"></i>Valuation</a>
+                    <a class="nav-item tab-button" data-tab="bank"><i class="fas fa-university"></i>Bank</a>
+                    <div class="nav-group-label">v2.17.0</div>
+                    <a class="nav-item tab-button" data-tab="mom"><i class="fas fa-chart-line"></i>MoM Evolution</a>
+                    <a class="nav-item tab-button" data-tab="swot"><i class="fas fa-compass"></i>SWOT</a>
+                    <a class="nav-item tab-button" data-tab="reports"><i class="fas fa-user-tie"></i>Exec Reports</a>
+                    <div class="nav-group-label">External</div>
+                    <a class="nav-item tab-button" data-tab="sheets-links"><i class="fas fa-table"></i>Google Sheets</a>
+                    <div class="sidebar-footer">
+                        Logged in as <span id="userBadge">Olivier</span><br>
+                        <button onclick="logout()" class="mt-2 text-xs text-red-200 hover:text-white"><i class="fas fa-sign-out-alt mr-1"></i>Logout</button>
+                    </div>
+                </aside>
+
+                <!-- Main column -->
+                <main>
+                    <div class="topbar">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Menu"><i class="fas fa-bars"></i></button>
+                            <h1 id="pageTitle">Dashboard</h1>
+                        </div>
+                        <div class="topbar-right">
+                            <div id="liveIndicator" class="flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-500 text-white">
+                                <span class="w-2 h-2 rounded-full bg-gray-300 mr-2"></span>
+                                <span id="liveIndicatorText">Loading...</span>
                             </div>
-                            <div class="flex items-center space-x-3">
-                                <div id="liveIndicator" class="flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-500 text-white">
-                                    <span class="w-2 h-2 rounded-full bg-gray-300 mr-2"></span>
-                                    <span id="liveIndicatorText">Loading...</span>
-                                </div>
-                                <span id="lastSyncTime" class="text-xs text-blue-200 hidden"></span>
-                                <button id="logoutBtn" onclick="logout()" class="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition flex items-center">
-                                    <i class="fas fa-sign-out-alt mr-2"></i>
-                                    Logout
-                                </button>
-                            </div>
+                            <span id="lastSyncTime" class="text-xs text-gray-500 hidden"></span>
                         </div>
                     </div>
-                </nav>
-
-                <!-- Tab Navigation -->
-                <div class="bg-white border-b border-gray-200 sticky top-16 z-40">
-                    <div class="max-w-7xl mx-auto px-4">
-                        <div class="flex space-x-1 overflow-x-auto">
-                            <button data-tab="dashboard" class="tab-button active px-6 py-3 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap">
-                                <i class="fas fa-home mr-2"></i>Dashboard
-                            </button>
-                            <button data-tab="invoices" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-file-invoice-dollar mr-2"></i>Invoices
-                            </button>
-                            <button data-tab="clients" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-users mr-2"></i>Clients
-                            </button>
-                            <button data-tab="trends" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-chart-line mr-2"></i>Trends
-                            </button>
-                            <button data-tab="analytics" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-chart-pie mr-2"></i>Analytics
-                            </button>
-                            <button data-tab="goals" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-bullseye mr-2"></i>Goals
-                            </button>
-                            <button data-tab="valuation" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-landmark mr-2"></i>Valuation
-                            </button>
-                            <button data-tab="bank" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-university mr-2"></i>Bank
-                            </button>
-                            <button data-tab="mom" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-chart-line mr-2"></i>MoM
-                            </button>
-                            <button data-tab="swot" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-compass mr-2"></i>SWOT
-                            </button>
-                            <button data-tab="reports" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-user-tie mr-2"></i>Exec Reports
-                            </button>
-                            <button data-tab="sheets-links" class="tab-button px-6 py-3 font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
-                                <i class="fas fa-table mr-2"></i>Google Sheets Links
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Content Container -->
-                <div class="max-w-7xl mx-auto px-4 py-6">
+                    <div class="content">
+                <!-- (content container is now `.content` opened above) -->
                 <!-- Dashboard Tab (default visible) -->
                 <div id="tab-dashboard" class="tab-content">
                     <!-- AI Insights Panel -->
@@ -1373,12 +1432,7 @@
                 </div>
 
 
-                </div>
-            </div>
-        </div>
 
-        <!-- Scripts -->
-        <script src="/static/fix-urls.js"></script>
         
                 <!-- v2.17.0 — MoM evolution -->
                 <div id="tab-mom" class="tab-content hidden">
@@ -1466,6 +1520,14 @@
                         <div id="reports-widgets" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                     </div>
                 </div>
+
+                </div>     <!-- /.content -->
+                </main>
+            </div>     <!-- /#mainApp.app -->
+        </div>     <!-- /#app -->
+
+        <!-- Scripts -->
+        <script src="/static/fix-urls.js"></script>
 
 <script src="/static/app.js"></script>
     </body>
