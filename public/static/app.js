@@ -4200,29 +4200,44 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 (function () {
   // ---------- 401 -> logout auto-redirect ------------------------------------
+  let __did401 = false;
   if (window.axios) {
     window.axios.interceptors.response.use(
       r => r,
       err => {
         const status = err?.response?.status;
-        if (status === 401 && location.pathname === '/' && !sessionStorage.getItem('_did_redirect_login')) {
-          sessionStorage.setItem('_did_redirect_login', '1');
-          console.warn('[v17] 401 detected — Xero session expired. Logging out.');
+        const url = err?.config?.url || '';
+        if (status === 401 && url.includes('/api/') && !url.includes('/auth/') && !__did401) {
+          __did401 = true;
+          console.warn('[v17] 401 via axios on', url, '— Xero session expired.');
           localStorage.removeItem('xero_session');
-          location.reload();
+          setTimeout(() => location.reload(), 1500);
         }
         return Promise.reject(err);
       }
     );
   }
+  // Clear any stale sticky flag from earlier builds.
+  try { sessionStorage.removeItem('_did_redirect_login'); } catch {}
   // Also intercept raw fetch() for endpoints we call directly.
+  // Once per page load (not sticky across reloads) — on the FIRST 401 from
+  // any Xero-backed /api/ endpoint, force a clean logout so the user is sent
+  // to the Xero login screen instead of staring at empty / demo data.
   const __origFetch = window.fetch.bind(window);
   window.fetch = async function (...a) {
     const res = await __origFetch(...a);
-    if (res.status === 401 && (a[0] + '').includes('/api/') && !sessionStorage.getItem('_did_redirect_login')) {
-      sessionStorage.setItem('_did_redirect_login', '1');
+    const url = String(a[0] || '');
+    if (res.status === 401 && url.includes('/api/') && !url.includes('/auth/') && !__did401) {
+      __did401 = true;
+      console.warn('[v17] 401 from', url, '— Xero session expired. Logging out.');
+      try {
+        const banner = document.createElement('div');
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;padding:12px 20px;background:#dc2626;color:#fff;text-align:center;font-weight:600;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.15)';
+        banner.textContent = 'Your Xero session has expired. Redirecting to sign-in…';
+        document.body.appendChild(banner);
+      } catch {}
       localStorage.removeItem('xero_session');
-      setTimeout(() => location.reload(), 100);
+      setTimeout(() => location.reload(), 1500);
     }
     return res;
   };
