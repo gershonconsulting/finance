@@ -4173,3 +4173,698 @@ document.addEventListener('DOMContentLoaded', () => {
   const init = document.querySelector('.nav-item.active')?.getAttribute('data-tab');
   if (init) setTitle(init);
 })();
+
+/* =============================================================================
+ * v2.17.0+ — Auto-generated reports (CFO/CEO/VP Sales) and SWOT.
+ *
+ * Replaces the empty-shell SWOT and Reports tabs with substantive analysis
+ * drawn from the live data already on /api/* endpoints. No user data entry
+ * required; the page renders the moment it's opened (provided the Xero
+ * session is fresh).
+ *
+ * Also: globally redirect to login on any 401 from /api/* so the user never
+ * gets stuck staring at a "dashboard renders but everything is zero" state.
+ * =============================================================================
+ */
+(function () {
+  // ---------- 401 -> logout auto-redirect ------------------------------------
+  if (window.axios) {
+    window.axios.interceptors.response.use(
+      r => r,
+      err => {
+        const status = err?.response?.status;
+        if (status === 401 && location.pathname === '/' && !sessionStorage.getItem('_did_redirect_login')) {
+          sessionStorage.setItem('_did_redirect_login', '1');
+          console.warn('[v17] 401 detected — Xero session expired. Logging out.');
+          localStorage.removeItem('xero_session');
+          location.reload();
+        }
+        return Promise.reject(err);
+      }
+    );
+  }
+  // Also intercept raw fetch() for endpoints we call directly.
+  const __origFetch = window.fetch.bind(window);
+  window.fetch = async function (...a) {
+    const res = await __origFetch(...a);
+    if (res.status === 401 && (a[0] + '').includes('/api/') && !sessionStorage.getItem('_did_redirect_login')) {
+      sessionStorage.setItem('_did_redirect_login', '1');
+      localStorage.removeItem('xero_session');
+      setTimeout(() => location.reload(), 100);
+    }
+    return res;
+  };
+
+  // ---------- helpers --------------------------------------------------------
+  function authHdr() {
+    const t = localStorage.getItem('xero_session') || '';
+    return t ? { 'X-Session-Token': t } : {};
+  }
+  async function getJSON(url) {
+    const r = await fetch(url, { headers: authHdr() });
+    if (!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
+    return r.json();
+  }
+  function $usd(v) { if (v == null || isNaN(v)) return '—'; return '$' + Math.round(Number(v)).toLocaleString('en-US'); }
+  function $pct(v, digits = 1) { if (v == null || isNaN(v)) return '—'; return Number(v).toFixed(digits) + '%'; }
+  function $num(v) { if (v == null || isNaN(v)) return '—'; return Number(v).toLocaleString('en-US'); }
+  function trend(v) {
+    if (v == null) return 'flat';
+    return v > 0.5 ? 'up' : v < -0.5 ? 'down' : 'flat';
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+  }
+  function nowLong() {
+    return new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  }
+  const trendClassMap = { up: 'text-emerald-600', down: 'text-rose-600', flat: 'text-slate-500' };
+  const trendArrow    = { up: '▲', down: '▼', flat: '▬' };
+
+  // ---------- data gather ----------------------------------------------------
+  async function gather() {
+    // Pull every endpoint we need in parallel; tolerate individual failures
+    // so the report renders gracefully if one source is unavailable.
+    const fetchSafe = (url) => getJSON(url).catch(e => { console.warn('[gather]', url, e.message); return null; });
+    const [exec, summary, aging, awaiting, trends, rev, cash, bank, goals, monthly] = await Promise.all([
+      fetchSafe('/api/executive/summary'),
+      fetchSafe('/api/invoices/summary'),
+      fetchSafe('/api/invoices/by-aging'),
+      fetchSafe('/api/clients/awaiting-payment'),
+      fetchSafe('/api/payment-trends?view=monthly&periods=6'),
+      fetchSafe('/api/revenue/metrics'),
+      fetchSafe('/api/cashflow/forecast'),
+      fetchSafe('/api/bank-inputs'),
+      fetchSafe('/api/goals'),
+      fetchSafe('/api/monthly/trends'),
+    ]);
+    return { exec, summary, aging, awaiting, trends, rev, cash, bank, goals, monthly };
+  }
+
+  // ---------- analyzer: CFO-perspective SWOT ---------------------------------
+  function buildSwot(d) {
+    const items = { S: [], W: [], O: [], T: [] };
+
+    const exec = d.exec || {};
+    const aging = d.aging || {};
+    const awaiting = d.awaiting || [];
+    const trends = d.trends?.periods || [];
+    const rev = d.rev || {};
+    const cash = d.cash || [];
+
+    // ---- pull out metrics safely
+    const gm   = Number(exec.grossMarginPct);
+    const dso  = Number(exec.dso);
+    const cashPos = Number(exec.cashPosition);
+    const overdue = Number(exec.overdueAmount);
+    const revGrowthMoM = Number(exec.revenueGrowth?.momGrowth);
+    const revGrowthYoY = Number(exec.revenueGrowth?.yoyGrowth);
+
+    const arTotal =
+      (Number(aging.current?.total)||0) +
+      (Number(aging.aged?.total)||0) +
+      (Number(aging.critical?.total)||0);
+    const arCritical = Number(aging.critical?.total) || 0;
+    const arCriticalPct = arTotal > 0 ? (arCritical / arTotal) * 100 : 0;
+    const arOverduePct  = arTotal > 0 ? (overdue / arTotal) * 100 : 0;
+
+    const collectionPct = Number(trends[0]?.collectionRate);
+    const paymentVelocity = Number(trends[0]?.paymentVelocity);
+    const arr = Number(rev.arr);
+    const mrr = Number(rev.mrr);
+
+    // Customer concentration — top client's share of outstanding AR
+    const topClient = awaiting?.[0];
+    const concentrationPct = (topClient && arTotal > 0)
+      ? (Number(topClient.totalOutstanding) / arTotal) * 100
+      : 0;
+
+    // Cash runway — cashPos / avg-monthly-opex (use bank-inputs.opex; otherwise estimate)
+    const opex = Number(d.bank?.opex);
+    const cashRunwayMonths = (cashPos > 0 && opex > 0) ? cashPos / opex : null;
+
+    // ---- STRENGTHS
+    if (gm >= 30) items.S.push({
+      title: `Gross margin ${gm.toFixed(1)}%`,
+      detail: 'Above 30% — healthy unit economics give pricing flexibility and absorb shocks.',
+    });
+    if (dso > 0 && dso <= 45) items.S.push({
+      title: `DSO ${dso} days`,
+      detail: 'Clients pay quickly. Working capital is not stuck in receivables.',
+    });
+    if (cashRunwayMonths && cashRunwayMonths >= 6) items.S.push({
+      title: `Cash runway ${cashRunwayMonths.toFixed(1)} months`,
+      detail: 'Provides strategic optionality — can absorb a slow quarter without distress.',
+    });
+    if (revGrowthMoM > 5) items.S.push({
+      title: `Revenue +${revGrowthMoM.toFixed(1)}% MoM`,
+      detail: 'Momentum is positive; build on what is working.',
+    });
+    if (collectionPct >= 90) items.S.push({
+      title: `Collection rate ${collectionPct.toFixed(0)}%`,
+      detail: 'Strong cash conversion from billed revenue. Process discipline is paying off.',
+    });
+    if (arr > 0) items.S.push({
+      title: `ARR ${$usd(arr)} (MRR ${$usd(mrr)})`,
+      detail: 'Recurring base is a stable platform to plan against.',
+    });
+
+    // ---- WEAKNESSES
+    if (arOverduePct > 20) items.W.push({
+      title: `${arOverduePct.toFixed(0)}% of AR is overdue`,
+      detail: `$${Math.round(overdue).toLocaleString()} past due. Collections process is lagging.`,
+    });
+    if (dso > 60) items.W.push({
+      title: `DSO ${dso} days`,
+      detail: 'Cash is tied up significantly longer than ideal. Each extra day = working capital cost.',
+    });
+    if (gm > 0 && gm < 20) items.W.push({
+      title: `Gross margin ${gm.toFixed(1)}%`,
+      detail: 'Below 20% — pricing or COGS pressure. Investigate per-client unit economics.',
+    });
+    if (concentrationPct > 30) items.W.push({
+      title: `${concentrationPct.toFixed(0)}% of outstanding AR from one client`,
+      detail: `${esc(topClient.contactName)} alone represents major exposure. Diversify or de-risk.`,
+    });
+    if (revGrowthMoM < -5) items.W.push({
+      title: `Revenue ${revGrowthMoM.toFixed(1)}% MoM`,
+      detail: 'Decline is meaningful. Dig into churn vs. new business vs. invoice timing.',
+    });
+    if (paymentVelocity > 30) items.W.push({
+      title: `Payment velocity ${paymentVelocity} days late on avg`,
+      detail: 'Clients are systematically late. Consider tightening terms, late fees, or net-7 for new clients.',
+    });
+
+    // ---- OPPORTUNITIES
+    const agedTotal = Number(aging.aged?.total) || 0;
+    if (agedTotal > 0) items.O.push({
+      title: `${$usd(agedTotal)} in 100-200 day AR could be accelerated`,
+      detail: 'Offer a 1-2% early-pay discount on aged balances. Math: even a 2% discount on $10k beats writing it off.',
+    });
+    if (d.bank?.opex && cashPos > 0 && cashRunwayMonths > 3) items.O.push({
+      title: 'Line of credit headroom looks viable',
+      detail: 'Healthy cash + margin should support a $50-100k LoC at community-bank pricing. Use the Bank tab simulator to size.',
+    });
+    if (d.goals?.revenue && rev.ytdRevenue) {
+      const gap = Number(d.goals.revenue) - Number(rev.ytdRevenue);
+      if (gap > 0) items.O.push({
+        title: `${$usd(gap)} away from revenue goal`,
+        detail: 'Targeted push on top-10 active accounts likely closes the gap faster than net-new prospecting.',
+      });
+    }
+    if (revGrowthYoY > 10) items.O.push({
+      title: `YoY revenue +${revGrowthYoY.toFixed(1)}%`,
+      detail: 'Strong YoY signal — repeatable demand. Consider expanding capacity rather than discounting.',
+    });
+
+    // ---- THREATS
+    if (arCriticalPct > 5) items.T.push({
+      title: `${arCriticalPct.toFixed(0)}% of AR is 200+ days old`,
+      detail: `${$usd(arCritical)} at material risk of write-off. Establish a 14-day collection-or-discount-or-escalate policy.`,
+    });
+    if (cashRunwayMonths && cashRunwayMonths < 3) items.T.push({
+      title: `Cash runway only ${cashRunwayMonths.toFixed(1)} months`,
+      detail: 'Below 3 months is the danger zone. Establish a 13-week rolling cash forecast and weekly cash standup.',
+    });
+    if (concentrationPct > 50) items.T.push({
+      title: `${concentrationPct.toFixed(0)}% single-client concentration`,
+      detail: 'Existential risk if this client churns or delays. Diversification should be a 2026 strategic priority.',
+    });
+    if (paymentVelocity > 45) items.T.push({
+      title: 'Systemic late-payment behavior',
+      detail: 'Average 45+ day delay suggests broader market stress. Watch for an uptick in writes-offs over the next 90 days.',
+    });
+
+    // Always have at least placeholder if any quadrant is empty
+    for (const k of ['S','W','O','T']) {
+      if (!items[k].length) items[k].push({ title: '—', detail: 'Not enough signal in the current data to flag anything here.' });
+    }
+    return items;
+  }
+
+  // ---------- SWOT tab (auto-rendered) --------------------------------------
+  let swotInited = false;
+  async function initSwotTab() {
+    const root = document.getElementById('tab-swot');
+    if (!root) return;
+    root.innerHTML = `
+      <div class="report-hero report-hero--cfo">
+        <div>
+          <div class="report-hero__eyebrow">CFO Analysis</div>
+          <h2 class="report-hero__title">SWOT — Strategic Health Check</h2>
+          <p class="report-hero__sub">${nowLong()} — auto-generated from live financial data.</p>
+        </div>
+        <button id="swotRefresh" class="btn-refresh"><i class="fas fa-arrows-rotate"></i>Refresh</button>
+      </div>
+      <div id="swot-loader" class="report-loader"><i class="fas fa-spinner fa-spin"></i> Reading the books…</div>
+      <div id="swot-grid" class="swot-grid-pro" hidden></div>
+    `;
+    document.getElementById('swotRefresh').addEventListener('click', loadSwot);
+    swotInited = true;
+    await loadSwot();
+  }
+  async function loadSwot() {
+    const loader = document.getElementById('swot-loader');
+    const grid = document.getElementById('swot-grid');
+    loader.hidden = false; grid.hidden = true;
+    try {
+      const d = await gather();
+      const swot = buildSwot(d);
+      grid.innerHTML = `
+        ${renderSwotCell('S', 'Strengths',     'fa-shield-halved', 'emerald', swot.S)}
+        ${renderSwotCell('W', 'Weaknesses',    'fa-triangle-exclamation', 'rose', swot.W)}
+        ${renderSwotCell('O', 'Opportunities', 'fa-bullseye', 'sky', swot.O)}
+        ${renderSwotCell('T', 'Threats',       'fa-skull-crossbones', 'amber', swot.T)}
+      `;
+      loader.hidden = true; grid.hidden = false;
+    } catch (e) {
+      loader.innerHTML = `<span class="text-rose-600">Could not load data: ${esc(e.message)}</span>`;
+    }
+  }
+  function renderSwotCell(letter, name, icon, color, items) {
+    return `
+      <article class="swot-card swot-card--${color}">
+        <header><span class="swot-card__letter">${letter}</span><i class="fas ${icon}"></i><h3>${name}</h3></header>
+        <ul>${items.map(i => `<li><strong>${esc(i.title)}</strong><span>${esc(i.detail)}</span></li>`).join('')}</ul>
+      </article>
+    `;
+  }
+
+  // ---------- Exec Reports (3 polished role views) ---------------------------
+  const ROLE_META = {
+    'cfo':      { label: 'CFO — Treasury & Risk',      gradient: 'cfo',  icon: 'fa-coins',     accent: 'sky'     },
+    'ceo':      { label: 'CEO — Strategic Overview',   gradient: 'ceo',  icon: 'fa-crown',     accent: 'violet'  },
+    'vp-sales': { label: 'VP Sales / CRO — Accounts',  gradient: 'sales',icon: 'fa-rocket',    accent: 'emerald' },
+  };
+  let reportsInited = false;
+  async function initReportsTab(forceRole) {
+    const root = document.getElementById('tab-reports');
+    if (!root) return;
+    if (!reportsInited) {
+      root.innerHTML = `
+        <div class="report-roleswitch">
+          ${Object.entries(ROLE_META).map(([k,v]) =>
+            `<button data-role="${k}" class="role-tab ${k === 'cfo' ? 'active' : ''}"><i class="fas ${v.icon}"></i>${esc(v.label)}</button>`
+          ).join('')}
+        </div>
+        <div id="report-body"></div>
+      `;
+      root.querySelectorAll('.role-tab').forEach(b => {
+        b.addEventListener('click', () => {
+          root.querySelectorAll('.role-tab').forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          loadReport(b.getAttribute('data-role'));
+        });
+      });
+      reportsInited = true;
+    }
+    const role = forceRole || root.querySelector('.role-tab.active')?.getAttribute('data-role') || 'cfo';
+    await loadReport(role);
+  }
+  async function loadReport(role) {
+    const body = document.getElementById('report-body');
+    const meta = ROLE_META[role] || ROLE_META['cfo'];
+    body.innerHTML = `<div class="report-loader"><i class="fas fa-spinner fa-spin"></i> Building the ${meta.label.split(' — ')[0]} briefing…</div>`;
+    try {
+      const d = await gather();
+      if      (role === 'cfo')      body.innerHTML = renderCFOReport(d);
+      else if (role === 'ceo')      body.innerHTML = renderCEOReport(d);
+      else if (role === 'vp-sales') body.innerHTML = renderSalesReport(d);
+      // Render any charts (deferred so their canvases exist)
+      setTimeout(() => activateReportCharts(role, d), 0);
+    } catch (e) {
+      body.innerHTML = `<div class="text-rose-600 p-4">Could not load report: ${esc(e.message)}</div>`;
+    }
+  }
+
+  // ---------- CFO REPORT -----------------------------------------------------
+  function renderCFOReport(d) {
+    const exec = d.exec || {};
+    const aging = d.aging || {};
+    const awaiting = d.awaiting || [];
+    const cashFc = Array.isArray(d.cash) ? d.cash : [];
+    const trends = d.trends?.periods || [];
+    const rev = d.rev || {};
+
+    const cash = Number(exec.cashPosition) || 0;
+    const dso = Number(exec.dso) || 0;
+    const gm = Number(exec.grossMarginPct) || 0;
+    const revMoM = Number(exec.revenueGrowth?.momGrowth);
+    const overdue = Number(exec.overdueAmount) || 0;
+
+    const kpi = (label, val, sub, color) => `
+      <div class="kpi-pro kpi-pro--${color || 'slate'}">
+        <div class="kpi-pro__label">${label}</div>
+        <div class="kpi-pro__value">${val}</div>
+        ${sub ? `<div class="kpi-pro__sub ${color ? 'text-' + color + '-700' : ''}">${sub}</div>` : ''}
+      </div>
+    `;
+
+    const arTotal =
+      (Number(aging.current?.total)||0) + (Number(aging.aged?.total)||0) + (Number(aging.critical?.total)||0);
+    const aBucket = (label, n, total, color) => {
+      const pct = arTotal > 0 ? (total / arTotal) * 100 : 0;
+      return `
+        <div class="ar-bucket">
+          <div class="ar-bucket__head">
+            <span>${label}</span><strong>${$usd(total)}</strong>
+          </div>
+          <div class="ar-bucket__bar"><span class="bg-${color}-500" style="width:${pct.toFixed(1)}%"></span></div>
+          <div class="ar-bucket__sub">${n} invoices · ${pct.toFixed(1)}% of AR</div>
+        </div>
+      `;
+    };
+
+    const topOverdue = awaiting.slice(0, 5);
+
+    // Forecast min/end
+    const fcEnd = cashFc.length ? Number(cashFc[cashFc.length - 1].projectedBalance) : null;
+    const fcMin = cashFc.length ? Math.min(...cashFc.map(p => Number(p.projectedBalance))) : null;
+
+    const actions = buildCFOActions(d);
+
+    return `
+      <div class="report-hero report-hero--cfo">
+        <div>
+          <div class="report-hero__eyebrow"><i class="fas fa-coins"></i> CFO Briefing</div>
+          <h2 class="report-hero__title">Treasury & Risk Snapshot</h2>
+          <p class="report-hero__sub">${nowLong()} — every number sourced from Xero, refreshed at load.</p>
+        </div>
+        <div class="report-hero__quick">
+          <div><span>Cash today</span><b>${$usd(cash)}</b></div>
+          <div><span>DSO</span><b>${$num(dso)} days</b></div>
+        </div>
+      </div>
+
+      <section class="report-section">
+        <h3>Headline</h3>
+        <div class="kpi-pro-grid">
+          ${kpi('Cash position',  $usd(cash),   `${trendArrow[trend(revMoM)]} ${$pct(revMoM)} rev MoM`,   trend(revMoM) === 'up' ? 'emerald' : trend(revMoM) === 'down' ? 'rose' : null)}
+          ${kpi('DSO',            $num(dso) + ' days', dso <= 45 ? '✓ healthy' : dso <= 60 ? 'monitoring' : '↑ collection pressure',   dso <= 45 ? 'emerald' : dso <= 60 ? 'amber' : 'rose')}
+          ${kpi('Gross margin',   $pct(gm),     gm >= 30 ? '✓ healthy unit economics' : gm >= 20 ? 'tightening' : 'pricing pressure',  gm >= 30 ? 'emerald' : gm >= 20 ? 'amber' : 'rose')}
+          ${kpi('Overdue AR',     $usd(overdue), arTotal > 0 ? `${((overdue / arTotal) * 100).toFixed(0)}% of total AR` : null,        overdue > 0 ? 'rose' : 'emerald')}
+        </div>
+      </section>
+
+      <section class="report-section">
+        <h3>13-Week Cash Forecast</h3>
+        <div class="report-card">
+          <div class="report-card__row" style="justify-content:space-between">
+            <div><span class="muted">Today</span><strong>${$usd(cash)}</strong></div>
+            <div><span class="muted">Trough (next 13w)</span><strong class="${fcMin && fcMin < 0 ? 'text-rose-600' : ''}">${fcMin == null ? '—' : $usd(fcMin)}</strong></div>
+            <div><span class="muted">Projected EoF</span><strong>${fcEnd == null ? '—' : $usd(fcEnd)}</strong></div>
+          </div>
+          <canvas id="cfo-cash-chart" height="120"></canvas>
+        </div>
+      </section>
+
+      <section class="report-section">
+        <h3>AR Aging — Where the cash is stuck</h3>
+        <div class="ar-grid">
+          ${aBucket('Current (0-100 days)',       aging.current?.count  || 0, aging.current?.total  || 0, 'emerald')}
+          ${aBucket('Aged (100-200 days)',        aging.aged?.count     || 0, aging.aged?.total     || 0, 'amber')}
+          ${aBucket('Critical (200+ days)',       aging.critical?.count || 0, aging.critical?.total || 0, 'rose')}
+        </div>
+      </section>
+
+      <section class="report-section">
+        <h3>Concentration — Top 5 by outstanding AR</h3>
+        <table class="report-table">
+          <thead><tr><th>Client</th><th class="num">Invoices</th><th class="num">Outstanding</th><th class="num">Avg delay</th></tr></thead>
+          <tbody>
+          ${topOverdue.length ? topOverdue.map(c => `
+            <tr>
+              <td>${esc(c.contactName)}</td>
+              <td class="num">${$num(c.invoiceCount)}</td>
+              <td class="num">${$usd(c.totalOutstanding)}</td>
+              <td class="num">${$num(c.averagePaymentDelay)} d</td>
+            </tr>
+          `).join('') : '<tr><td colspan="4" class="muted">No overdue clients.</td></tr>'}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="report-section">
+        <h3><i class="fas fa-list-check"></i> Recommended Actions</h3>
+        <ol class="action-list">${actions.map(a => `<li><strong>${esc(a.title)}</strong><span>${esc(a.detail)}</span></li>`).join('')}</ol>
+      </section>
+    `;
+  }
+
+  function buildCFOActions(d) {
+    const actions = [];
+    const exec = d.exec || {};
+    const aging = d.aging || {};
+    const awaiting = d.awaiting || [];
+    if (Number(exec.dso) > 60) actions.push({ title: 'Tighten collections cadence on >60d invoices', detail: 'Set up weekly statement reminders at d+7, d+14, d+30. Aim to bring DSO under 55 days within a quarter.' });
+    if (Number(aging.critical?.total) > 0) actions.push({ title: `Escalate ${$usd(aging.critical.total)} in 200+ day AR`, detail: 'Offer 2% discount for payment within 14 days, otherwise route to formal collections / write-off review.' });
+    if (Number(exec.grossMarginPct) > 0 && Number(exec.grossMarginPct) < 20) actions.push({ title: 'Audit per-client gross margin', detail: 'A few low-margin engagements may be dragging blended margin. Renegotiate or sunset.' });
+    if (awaiting?.[0]) {
+      const top = awaiting[0];
+      const total = (Number(aging.current?.total)||0) + (Number(aging.aged?.total)||0) + (Number(aging.critical?.total)||0);
+      const pct = total > 0 ? (top.totalOutstanding / total) * 100 : 0;
+      if (pct > 30) actions.push({ title: `Phone call this week to ${esc(top.contactName)}`, detail: `Single-client concentration at ${pct.toFixed(0)}% of AR — direct conversation typically unlocks payment faster than any other lever.` });
+    }
+    if (Array.isArray(d.cash) && d.cash.some(p => Number(p.projectedBalance) < 0)) {
+      actions.push({ title: 'Pull forward inflows for forecast trough', detail: 'Cash forecast dips below zero in the 13-week window. Either accelerate billing or arrange short-term LoC.' });
+    }
+    if (!actions.length) actions.push({ title: 'No urgent finance actions', detail: 'Indicators are within healthy ranges. Use the cycle to strengthen reporting cadence and forecasting accuracy.' });
+    return actions;
+  }
+
+  // ---------- CEO REPORT -----------------------------------------------------
+  function renderCEOReport(d) {
+    const exec = d.exec || {};
+    const rev = d.rev || {};
+    const goals = d.goals || {};
+    const aging = d.aging || {};
+    const monthly = Array.isArray(d.monthly) ? d.monthly : (d.monthly?.periods || []);
+
+    const cash = Number(exec.cashPosition) || 0;
+    const gm = Number(exec.grossMarginPct) || 0;
+    const revYoY = Number(exec.revenueGrowth?.yoyGrowth);
+    const revMoM = Number(exec.revenueGrowth?.momGrowth);
+    const arr = Number(rev.arr) || 0;
+
+    const goalRev = Number(goals.revenue) || null;
+    const ytdRev = Number(rev.ytdRevenue) || 0;
+    const goalProgress = (goalRev && goalRev > 0) ? Math.min(100, (ytdRev / goalRev) * 100) : null;
+
+    const narrative = buildCEONarrative(d);
+
+    return `
+      <div class="report-hero report-hero--ceo">
+        <div>
+          <div class="report-hero__eyebrow"><i class="fas fa-crown"></i> CEO Briefing</div>
+          <h2 class="report-hero__title">Where the business stands</h2>
+          <p class="report-hero__sub">${nowLong()}</p>
+        </div>
+        <div class="report-hero__quick">
+          <div><span>Revenue MoM</span><b class="${trendClassMap[trend(revMoM)]}">${trendArrow[trend(revMoM)]} ${$pct(revMoM)}</b></div>
+          <div><span>ARR</span><b>${$usd(arr)}</b></div>
+        </div>
+      </div>
+
+      <section class="report-section">
+        <div class="ceo-narrative">${narrative}</div>
+      </section>
+
+      <section class="report-section">
+        <h3>Headline KPIs</h3>
+        <div class="kpi-pro-grid">
+          <div class="kpi-pro kpi-pro--violet"><div class="kpi-pro__label">Revenue (YTD)</div><div class="kpi-pro__value">${$usd(ytdRev)}</div><div class="kpi-pro__sub">${$pct(revYoY)} YoY</div></div>
+          <div class="kpi-pro kpi-pro--violet"><div class="kpi-pro__label">ARR</div><div class="kpi-pro__value">${$usd(arr)}</div><div class="kpi-pro__sub">Annualized run rate</div></div>
+          <div class="kpi-pro kpi-pro--violet"><div class="kpi-pro__label">Cash</div><div class="kpi-pro__value">${$usd(cash)}</div><div class="kpi-pro__sub">Position today</div></div>
+          <div class="kpi-pro kpi-pro--violet"><div class="kpi-pro__label">Gross margin</div><div class="kpi-pro__value">${$pct(gm)}</div><div class="kpi-pro__sub">${gm >= 30 ? 'Healthy' : gm >= 20 ? 'Tightening' : 'Under pressure'}</div></div>
+        </div>
+      </section>
+
+      ${goalProgress != null ? `
+      <section class="report-section">
+        <h3>Goals Progress</h3>
+        <div class="report-card">
+          <div class="report-card__row" style="justify-content:space-between;margin-bottom:.5rem">
+            <strong>Revenue: ${$usd(ytdRev)} of ${$usd(goalRev)} target</strong>
+            <span class="muted">${goalProgress.toFixed(0)}% of target</span>
+          </div>
+          <div class="progress-bar"><span style="width:${goalProgress.toFixed(1)}%"></span></div>
+        </div>
+      </section>` : ''}
+
+      <section class="report-section">
+        <h3>Revenue Trajectory</h3>
+        <div class="report-card"><canvas id="ceo-rev-chart" height="160"></canvas></div>
+      </section>
+
+      <section class="report-section">
+        <h3>Strategic Signals</h3>
+        <div class="report-card">
+          <ul class="signal-list">
+            ${buildCEOSignals(d).map(s => `<li><i class="fas ${s.icon} text-${s.color}-600"></i><span>${esc(s.text)}</span></li>`).join('')}
+          </ul>
+        </div>
+      </section>
+    `;
+  }
+  function buildCEONarrative(d) {
+    const exec = d.exec || {};
+    const rev = d.rev || {};
+    const bits = [];
+    const revMoM = Number(exec.revenueGrowth?.momGrowth);
+    const revYoY = Number(exec.revenueGrowth?.yoyGrowth);
+    const cash = Number(exec.cashPosition) || 0;
+    const gm = Number(exec.grossMarginPct) || 0;
+    if (!isNaN(revMoM)) bits.push(`Revenue is ${revMoM >= 0 ? 'up' : 'down'} <b>${Math.abs(revMoM).toFixed(1)}%</b> MoM and ${revYoY >= 0 ? 'up' : 'down'} <b>${Math.abs(revYoY).toFixed(1)}%</b> YoY.`);
+    bits.push(`Cash position is <b>${$usd(cash)}</b>${gm > 0 ? `, with gross margin holding at <b>${gm.toFixed(1)}%</b>` : ''}.`);
+    const overdue = Number(exec.overdueAmount) || 0;
+    if (overdue > 0) bits.push(`<b>${$usd(overdue)}</b> in AR is past due — material to liquidity if not collected this quarter.`);
+    return bits.join(' ');
+  }
+  function buildCEOSignals(d) {
+    const out = [];
+    const exec = d.exec || {};
+    const rev = d.rev || {};
+    if (Number(exec.revenueGrowth?.momGrowth) > 5) out.push({ icon:'fa-arrow-trend-up', color:'emerald', text:'Revenue momentum is positive — invest in what is working.' });
+    if (Number(exec.grossMarginPct) >= 30) out.push({ icon:'fa-shield-halved', color:'emerald', text:'Healthy gross margin — pricing power is intact.' });
+    if (Number(rev.arr) > 0) out.push({ icon:'fa-rotate', color:'violet', text:`Recurring base of ${$usd(rev.arr)} ARR is a stable platform.` });
+    if (Number(exec.dso) > 60) out.push({ icon:'fa-clock', color:'rose', text:'DSO is elevated — clients are slow to pay, watch cash conversion.' });
+    if (out.length === 0) out.push({ icon:'fa-circle-info', color:'slate', text:'Indicators are within normal ranges this period.' });
+    return out;
+  }
+
+  // ---------- VP SALES / CRO REPORT -----------------------------------------
+  function renderSalesReport(d) {
+    const awaiting = d.awaiting || [];
+    const rev = d.rev || {};
+    const monthly = Array.isArray(d.monthly) ? d.monthly : [];
+    const summary = d.summary || {};
+
+    const top10 = awaiting.slice(0, 10);
+
+    return `
+      <div class="report-hero report-hero--sales">
+        <div>
+          <div class="report-hero__eyebrow"><i class="fas fa-rocket"></i> VP Sales / CRO Briefing</div>
+          <h2 class="report-hero__title">Accounts, velocity, and risk</h2>
+          <p class="report-hero__sub">${nowLong()}</p>
+        </div>
+        <div class="report-hero__quick">
+          <div><span>Active clients</span><b>${$num(rev.activeClients)}</b></div>
+          <div><span>MRR</span><b>${$usd(rev.mrr)}</b></div>
+        </div>
+      </div>
+
+      <section class="report-section">
+        <h3>New & Recurring Revenue</h3>
+        <div class="kpi-pro-grid">
+          <div class="kpi-pro kpi-pro--emerald"><div class="kpi-pro__label">YTD Revenue</div><div class="kpi-pro__value">${$usd(rev.ytdRevenue)}</div></div>
+          <div class="kpi-pro kpi-pro--emerald"><div class="kpi-pro__label">MRR</div><div class="kpi-pro__value">${$usd(rev.mrr)}</div><div class="kpi-pro__sub">Current month run-rate</div></div>
+          <div class="kpi-pro kpi-pro--emerald"><div class="kpi-pro__label">ARR</div><div class="kpi-pro__value">${$usd(rev.arr)}</div></div>
+          <div class="kpi-pro kpi-pro--emerald"><div class="kpi-pro__label">Avg Revenue / Client</div><div class="kpi-pro__value">${$usd(rev.avgRevenuePerClient)}</div></div>
+        </div>
+      </section>
+
+      <section class="report-section">
+        <h3>Top 10 Accounts — Outstanding</h3>
+        <table class="report-table">
+          <thead><tr><th>Client</th><th class="num">Invoices</th><th class="num">Outstanding</th><th class="num">Total paid</th><th class="num">Avg delay</th></tr></thead>
+          <tbody>
+          ${top10.length ? top10.map(c => `
+            <tr>
+              <td>${esc(c.contactName)}</td>
+              <td class="num">${$num(c.invoiceCount)}</td>
+              <td class="num">${$usd(c.totalOutstanding)}</td>
+              <td class="num">${$usd(c.totalPaid)}</td>
+              <td class="num ${c.averagePaymentDelay > 30 ? 'text-rose-600 font-semibold' : ''}">${$num(c.averagePaymentDelay)} d</td>
+            </tr>
+          `).join('') : '<tr><td colspan="5" class="muted">No active accounts with outstanding balances.</td></tr>'}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="report-section">
+        <h3>Pipeline Signal</h3>
+        <div class="report-card">
+          <p class="muted" style="margin-bottom:.75rem">Pipeline data isn't in Xero — these are the closest proxies we can give you today:</p>
+          <ul class="signal-list">
+            <li><i class="fas fa-file-invoice text-blue-600"></i><span><b>${$num(summary.draftCount)}</b> draft invoices totaling <b>${$usd(summary.draftAmount)}</b> — work-in-flight</span></li>
+            <li><i class="fas fa-hourglass text-amber-600"></i><span><b>${$num(summary.awaitingCount)}</b> awaiting payment (<b>${$usd(summary.awaitingAmount)}</b>) — booked but not banked</span></li>
+            <li><i class="fas fa-triangle-exclamation text-rose-600"></i><span><b>${$num(summary.overdueCount)}</b> overdue (<b>${$usd(summary.overdueAmount)}</b>) — review for retention risk</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="report-section">
+        <h3>At-Risk Accounts</h3>
+        <table class="report-table">
+          <thead><tr><th>Client</th><th class="num">Outstanding</th><th class="num">Avg delay</th><th>Why at risk</th></tr></thead>
+          <tbody>
+          ${buildAtRisk(d).map(r => `
+            <tr>
+              <td>${esc(r.contactName)}</td>
+              <td class="num">${$usd(r.totalOutstanding)}</td>
+              <td class="num text-rose-600 font-semibold">${$num(r.averagePaymentDelay)} d</td>
+              <td>${esc(r.reason)}</td>
+            </tr>
+          `).join('') || '<tr><td colspan="4" class="muted">No accounts crossing risk thresholds.</td></tr>'}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+  function buildAtRisk(d) {
+    const list = (d.awaiting || []).filter(c => (c.averagePaymentDelay || 0) > 30 || (c.totalOutstanding || 0) > 0 && (c.invoiceCount || 0) >= 3);
+    return list.slice(0, 6).map(c => ({
+      ...c,
+      reason: c.averagePaymentDelay > 60 ? 'Chronic slow-pay (>60d avg)' :
+              c.averagePaymentDelay > 30 ? 'Slow-pay trend (>30d avg)'  :
+              c.invoiceCount >= 3        ? 'Multiple open invoices'     : 'Outstanding balance',
+    }));
+  }
+
+  // ---------- charts ---------------------------------------------------------
+  function activateReportCharts(role, d) {
+    if (role === 'cfo') {
+      const el = document.getElementById('cfo-cash-chart');
+      const cash = Array.isArray(d.cash) ? d.cash : [];
+      if (el && cash.length) {
+        new Chart(el.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: cash.map(p => p.weekLabel),
+            datasets: [{
+              label: 'Projected balance',
+              data: cash.map(p => Number(p.projectedBalance)),
+              borderColor: '#0284c7', backgroundColor: 'rgba(56,189,248,0.12)',
+              fill: true, tension: 0.3,
+            }],
+          },
+          options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } },
+        });
+      }
+    }
+    if (role === 'ceo') {
+      const el = document.getElementById('ceo-rev-chart');
+      const m = Array.isArray(d.monthly) ? d.monthly : (d.monthly?.periods || []);
+      if (el && m.length) {
+        new Chart(el.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: m.map(p => p.month || p.periodLabel || p.period),
+            datasets: [{
+              label: 'Revenue',
+              data: m.map(p => Number(p.revenue || p.totalOutstanding || 0)),
+              backgroundColor: 'rgba(139,92,246,0.65)',
+            }],
+          },
+          options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } },
+        });
+      }
+    }
+  }
+
+  // ---------- override the v17 init points (the previous versions are dead) -
+  window.initSwotTab = initSwotTab;
+  window.initReportsTab = initReportsTab;
+})();

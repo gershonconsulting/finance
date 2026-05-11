@@ -94,6 +94,131 @@
 
         /* Live indicator chip — keep existing pill style on the topbar */
         .topbar #liveIndicator { font-size: 11px; padding: 4px 10px; }
+        
+
+        /* v2.17.0 — stunning report design */
+        .report-hero {
+          display:flex; align-items:center; justify-content:space-between;
+          padding: 24px 28px; border-radius: 14px; color:#fff; margin-bottom: 24px;
+          box-shadow: 0 10px 30px -10px rgba(15,23,42,0.4);
+          gap: 24px; flex-wrap: wrap;
+        }
+        .report-hero--cfo   { background: linear-gradient(135deg,#0c4a6e,#0284c7 60%,#38bdf8); }
+        .report-hero--ceo   { background: linear-gradient(135deg,#3b0764,#7c3aed 60%,#a78bfa); }
+        .report-hero--sales { background: linear-gradient(135deg,#064e3b,#059669 60%,#34d399); }
+        .report-hero__eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity:.85; }
+        .report-hero__eyebrow i { margin-right: 6px; }
+        .report-hero__title { font-size: 26px; font-weight: 800; margin: 6px 0 4px; letter-spacing: -0.01em; }
+        .report-hero__sub  { opacity:.8; font-size: 13px; }
+        .report-hero__quick { display:flex; gap: 22px; align-items:center; }
+        .report-hero__quick > div { text-align:right; }
+        .report-hero__quick span { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em; opacity:.7; }
+        .report-hero__quick b { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+
+        .report-section { margin-bottom: 26px; }
+        .report-section > h3 {
+          font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+          color: var(--text-muted); margin-bottom: 12px;
+        }
+        .report-section > h3 i { margin-right: 6px; color: var(--brand); }
+        .report-card { background:#fff; border:1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+        .report-card__row { display:flex; gap: 16px; }
+        .report-card__row .muted { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color: var(--text-muted); }
+        .report-card__row strong { font-size: 20px; font-weight: 800; }
+        .report-loader { padding: 60px 20px; text-align:center; color:var(--text-muted); font-size:14px; }
+        .report-loader i { font-size: 22px; color: var(--brand); margin-right: 8px; }
+
+        .kpi-pro-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; }
+        .kpi-pro {
+          background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px 18px;
+          position: relative; overflow: hidden;
+        }
+        .kpi-pro::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background: var(--brand); border-radius: 4px 0 0 4px; }
+        .kpi-pro--emerald::before { background:#10b981; } .kpi-pro--rose::before { background:#f43f5e; }
+        .kpi-pro--amber::before   { background:#f59e0b; } .kpi-pro--sky::before  { background:#0ea5e9; }
+        .kpi-pro--violet::before  { background:#8b5cf6; } .kpi-pro--slate::before{ background:#64748b; }
+        .kpi-pro__label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing:.05em; }
+        .kpi-pro__value { font-size: 26px; font-weight: 800; margin-top: 4px; letter-spacing: -0.01em; }
+        .kpi-pro__sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+        .swot-grid-pro { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 900px) { .swot-grid-pro { grid-template-columns: 1fr; } }
+        .swot-card { background:#fff; border:1px solid var(--border); border-radius:14px; padding: 18px 20px; position: relative; }
+        .swot-card header { display:flex; align-items:center; gap:12px; margin-bottom: 14px; }
+        .swot-card header h3 { font-size: 16px; font-weight: 800; }
+        .swot-card header i  { font-size: 16px; opacity:.6; }
+        .swot-card__letter {
+          width: 32px; height: 32px; border-radius: 8px;
+          display:inline-flex; align-items:center; justify-content:center;
+          font-weight: 900; font-size: 16px; color: #fff;
+        }
+        .swot-card ul { list-style:none; padding:0; margin:0; }
+        .swot-card li { padding: 12px 0; border-top: 1px solid #f1f5f9; }
+        .swot-card li:first-child { border-top: 0; }
+        .swot-card li strong { display:block; font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .swot-card li span { display:block; font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+        .swot-card--emerald { border-left: 4px solid #10b981; }   .swot-card--emerald .swot-card__letter { background:#10b981; }
+        .swot-card--rose    { border-left: 4px solid #f43f5e; }   .swot-card--rose    .swot-card__letter { background:#f43f5e; }
+        .swot-card--sky     { border-left: 4px solid #0ea5e9; }   .swot-card--sky     .swot-card__letter { background:#0ea5e9; }
+        .swot-card--amber   { border-left: 4px solid #f59e0b; }   .swot-card--amber   .swot-card__letter { background:#f59e0b; }
+
+        .btn-refresh {
+          padding: 8px 16px; border-radius: 8px;
+          background: rgba(255,255,255,0.15); color:#fff; font-size: 13px; font-weight: 600;
+          display:inline-flex; align-items:center; gap: 6px; border: 1px solid rgba(255,255,255,0.25);
+        }
+        .btn-refresh:hover { background: rgba(255,255,255,0.25); }
+
+        .ar-grid { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        @media (max-width: 900px) { .ar-grid { grid-template-columns: 1fr; } }
+        .ar-bucket { background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+        .ar-bucket__head { display:flex; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom: 8px; }
+        .ar-bucket__head strong { font-size: 18px; font-weight: 800; }
+        .ar-bucket__bar { background:#f1f5f9; border-radius: 999px; height: 8px; overflow:hidden; }
+        .ar-bucket__bar span { display:block; height: 100%; }
+        .ar-bucket__sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+        .report-table { width:100%; border-collapse: collapse; font-size: 13px; background:#fff; border:1px solid var(--border); border-radius: 12px; overflow: hidden; }
+        .report-table thead th { background: #f8fafc; padding: 11px 14px; text-align:left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 700; }
+        .report-table tbody td { padding: 10px 14px; border-top: 1px solid #f1f5f9; }
+        .report-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+        .action-list { counter-reset: a; list-style: none; padding:0; margin:0; display:grid; gap: 10px; }
+        .action-list li {
+          background:#fff; border:1px solid var(--border); border-radius:10px; padding: 12px 16px;
+          counter-increment: a; position:relative; padding-left: 44px;
+        }
+        .action-list li::before {
+          content: counter(a); position:absolute; left: 12px; top: 12px;
+          width: 22px; height: 22px; border-radius: 6px;
+          background: var(--brand); color:#fff; font-weight: 700; font-size: 11px;
+          display:inline-flex; align-items:center; justify-content:center;
+        }
+        .action-list li strong { display:block; font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+        .action-list li span { display:block; font-size: 12px; color: var(--text-muted); line-height: 1.55; }
+
+        .report-roleswitch { display:flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+        .role-tab {
+          padding: 10px 16px; border-radius: 10px; background:#fff; border:1px solid var(--border);
+          font-size: 13px; font-weight: 600; color: var(--text-muted);
+          display:inline-flex; align-items:center; gap: 8px;
+        }
+        .role-tab:hover { border-color: var(--brand); color: var(--brand); }
+        .role-tab.active { background: var(--brand); color:#fff; border-color: var(--brand); }
+        .role-tab i { font-size: 14px; }
+
+        .progress-bar { background:#f1f5f9; border-radius: 999px; height: 10px; overflow: hidden; }
+        .progress-bar span { display: block; height: 100%; background: linear-gradient(90deg,#7c3aed,#a78bfa); }
+
+        .ceo-narrative {
+          background: linear-gradient(135deg,#fafafa,#fff);
+          border:1px solid var(--border); border-left: 4px solid #7c3aed;
+          border-radius: 12px; padding: 16px 18px; font-size: 14px; line-height: 1.65;
+        }
+        .signal-list { list-style:none; padding:0; margin:0; display:grid; gap: 10px; }
+        .signal-list li { display:flex; gap: 10px; align-items:flex-start; font-size: 13px; }
+        .signal-list li i { font-size: 14px; margin-top: 3px; }
+
         </style>
     </head>
     <body class="bg-gray-50">
