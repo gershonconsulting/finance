@@ -4880,3 +4880,21 @@ document.addEventListener('DOMContentLoaded', () => {
   window.initSwotTab = initSwotTab;
   window.initReportsTab = initReportsTab;
 })();
+
+/* v2.17.0+ guarantee — listeners that explicitly use window.initSwotTab /
+   window.initReportsTab (which point to the new auto-analysis impls). */
+(function () {
+  function wire() {
+    document.querySelectorAll('.tab-button[data-tab="swot"]').forEach(btn =>
+      btn.addEventListener('click', () => window.initSwotTab && window.initSwotTab()));
+    document.querySelectorAll('.tab-button[data-tab="reports"]').forEach(btn =>
+      btn.addEventListener('click', () => window.initReportsTab && window.initReportsTab()));
+    // Also: if either tab is already the active one when the script loads,
+    // trigger an init so the user sees fresh content immediately.
+    const active = document.querySelector('.nav-item.active')?.getAttribute('data-tab');
+    if (active === 'swot' && window.initSwotTab) window.initSwotTab();
+    if (active === 'reports' && window.initReportsTab) window.initReportsTab();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();
