@@ -4148,6 +4148,18 @@ document.addEventListener('DOMContentLoaded', () => {
   window.initMomTab = initMomTab;
   window.initSwotTab = initSwotTab;
   window.initReportsTab = initReportsTab;
+
+  // Wire click listeners so our NEW implementations run (the previous IIFE's
+  // listeners captured the old function references in a closure; this adds
+  // ours on top so our render is the last to write into the panel).
+  function wire() {
+    document.querySelectorAll('.tab-button[data-tab="swot"]').forEach(btn =>
+      btn.addEventListener('click', () => initSwotTab()));
+    document.querySelectorAll('.tab-button[data-tab="reports"]').forEach(btn =>
+      btn.addEventListener('click', () => initReportsTab()));
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
 })();
 
 /* v2.17.0 — sidebar layout: keep topbar h1 in sync with active tab. */
