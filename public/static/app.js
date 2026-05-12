@@ -4295,20 +4295,28 @@ document.addEventListener('DOMContentLoaded', () => {
   function buildSwot(d) {
     const items = { S: [], W: [], O: [], T: [] };
 
+    // Use the RIGHT source for each metric. /api/executive/summary returns
+    // zeros for several fields; prefer /api/revenue/metrics + /api/invoices/summary.
     const exec = d.exec || {};
+    const summary = d.summary || {};
     const aging = d.aging || {};
     const awaiting = d.awaiting || [];
     const trends = d.trends?.periods || [];
     const rev = d.rev || {};
     const cash = d.cash || [];
 
-    // ---- pull out metrics safely
-    const gm   = Number(exec.grossMarginPct);
-    const dso  = Number(exec.dso);
-    const cashPos = Number(exec.cashPosition);
-    const overdue = Number(exec.overdueAmount);
-    const revGrowthMoM = Number(exec.revenueGrowth?.momGrowth);
-    const revGrowthYoY = Number(exec.revenueGrowth?.yoyGrowth);
+    // ---- pull out metrics, with smart fallbacks ---------------------------
+    const gm   = Number(exec.grossMarginPct);   // only useful when non-zero / non-100
+    const dso  = Number(exec.dso);              // only useful when non-zero
+    // Cash: prefer cashflow forecast's most recent week balance over exec.cashPosition
+    const cashPos = (Array.isArray(cash) && cash.length)
+      ? Number(cash[0]?.projectedBalance) || 0
+      : Number(exec.cashPosition) || 0;
+    // Overdue: invoices/summary is truthful; exec.overdueAmount is sometimes 0 wrongly
+    const overdue = Number(summary.overdueAmount) || Number(exec.overdueAmount) || 0;
+    // Revenue growth: revenue/metrics has the real MoM/YoY
+    const revGrowthMoM = Number(rev.momGrowth ?? exec.revenueGrowth?.momGrowth ?? 0);
+    const revGrowthYoY = Number(rev.yoyGrowth ?? exec.revenueGrowth?.yoyGrowth ?? 0);
 
     const arTotal =
       (Number(aging.current?.total)||0) +
@@ -4536,11 +4544,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const trends = d.trends?.periods || [];
     const rev = d.rev || {};
 
-    const cash = Number(exec.cashPosition) || 0;
+    // Pick fields from the most-accurate source for each metric.
+    const summary = d.summary || {};
+    const rev = d.rev || {};
+    const cash = (Array.isArray(cashFc) && cashFc.length)
+      ? Number(cashFc[0]?.projectedBalance) || 0
+      : Number(exec.cashPosition) || 0;
     const dso = Number(exec.dso) || 0;
     const gm = Number(exec.grossMarginPct) || 0;
-    const revMoM = Number(exec.revenueGrowth?.momGrowth);
-    const overdue = Number(exec.overdueAmount) || 0;
+    const revMoM = Number(rev.momGrowth ?? exec.revenueGrowth?.momGrowth ?? 0);
+    const overdue = Number(summary.overdueAmount) || Number(exec.overdueAmount) || 0;
 
     const kpi = (label, val, sub, color) => `
       <div class="kpi-pro kpi-pro--${color || 'slate'}">
@@ -4670,10 +4683,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const aging = d.aging || {};
     const monthly = Array.isArray(d.monthly) ? d.monthly : (d.monthly?.periods || []);
 
-    const cash = Number(exec.cashPosition) || 0;
+    // Prefer authoritative sources over exec/summary.
+    const cashFcArr = Array.isArray(d.cash) ? d.cash : [];
+    const cash = cashFcArr.length
+      ? Number(cashFcArr[0]?.projectedBalance) || 0
+      : Number(exec.cashPosition) || 0;
     const gm = Number(exec.grossMarginPct) || 0;
-    const revYoY = Number(exec.revenueGrowth?.yoyGrowth);
-    const revMoM = Number(exec.revenueGrowth?.momGrowth);
+    const revYoY = Number(rev.yoyGrowth ?? exec.revenueGrowth?.yoyGrowth ?? 0);
+    const revMoM = Number(rev.momGrowth ?? exec.revenueGrowth?.momGrowth ?? 0);
     const arr = Number(rev.arr) || 0;
 
     const goalRev = Number(goals.revenue) || null;
@@ -4739,14 +4756,16 @@ document.addEventListener('DOMContentLoaded', () => {
   function buildCEONarrative(d) {
     const exec = d.exec || {};
     const rev = d.rev || {};
+    const summary = d.summary || {};
+    const cashFcArr = Array.isArray(d.cash) ? d.cash : [];
     const bits = [];
-    const revMoM = Number(exec.revenueGrowth?.momGrowth);
-    const revYoY = Number(exec.revenueGrowth?.yoyGrowth);
-    const cash = Number(exec.cashPosition) || 0;
+    const revMoM = Number(rev.momGrowth ?? exec.revenueGrowth?.momGrowth ?? 0);
+    const revYoY = Number(rev.yoyGrowth ?? exec.revenueGrowth?.yoyGrowth ?? 0);
+    const cash = cashFcArr.length ? Number(cashFcArr[0]?.projectedBalance) || 0 : Number(exec.cashPosition) || 0;
     const gm = Number(exec.grossMarginPct) || 0;
     if (!isNaN(revMoM)) bits.push(`Revenue is ${revMoM >= 0 ? 'up' : 'down'} <b>${Math.abs(revMoM).toFixed(1)}%</b> MoM and ${revYoY >= 0 ? 'up' : 'down'} <b>${Math.abs(revYoY).toFixed(1)}%</b> YoY.`);
     bits.push(`Cash position is <b>${$usd(cash)}</b>${gm > 0 ? `, with gross margin holding at <b>${gm.toFixed(1)}%</b>` : ''}.`);
-    const overdue = Number(exec.overdueAmount) || 0;
+    const overdue = Number(summary.overdueAmount) || Number(exec.overdueAmount) || 0;
     if (overdue > 0) bits.push(`<b>${$usd(overdue)}</b> in AR is past due — material to liquidity if not collected this quarter.`);
     return bits.join(' ');
   }
