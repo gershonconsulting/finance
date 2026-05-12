@@ -429,8 +429,8 @@ async function loadInvoices(status = null) {
     displayInvoices(invoices);
   } catch (error) {
     console.error('Error loading invoices:', error);
-    showError('Failed to load invoices. Using demo mode data.');
-    displayDemoInvoices();
+    const tbody = document.getElementById('invoicesTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-rose-600 font-semibold">Could not load invoices. Your Xero session may have expired — log out and back in.</td></tr>';
   }
 }
 
