@@ -4542,11 +4542,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const awaiting = d.awaiting || [];
     const cashFc = Array.isArray(d.cash) ? d.cash : [];
     const trends = d.trends?.periods || [];
-    const rev = d.rev || {};
-
     // Pick fields from the most-accurate source for each metric.
     const summary = d.summary || {};
-    const rev = d.rev || {};
     const cash = (Array.isArray(cashFc) && cashFc.length)
       ? Number(cashFc[0]?.projectedBalance) || 0
       : Number(exec.cashPosition) || 0;
