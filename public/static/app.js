@@ -90,9 +90,18 @@ async function loadDashboardData() {
   try {
     // Try to load real data, fall back to demo
     let data;
-    const response = await axios.get('/api/invoices/summary');
-    data = response.data;
-    console.log('✅ Loaded real data from Xero');
+    try {
+      console.log('Attempting to load real data from /api/invoices/summary...');
+      const response = await axios.get('/api/invoices/summary');
+      data = response.data;
+      console.log('✅ Loaded real data from Xero');
+    } catch (error) {
+      // Fall back to demo data
+      console.log('Real data failed, loading demo data from /api/demo/summary...');
+      const response = await axios.get('/api/demo/summary');
+      data = response.data;
+      console.log('✅ Loaded demo data');
+    }
     
     updateDashboard(data);
     console.log('✅ Dashboard updated');
@@ -159,7 +168,7 @@ async function loadRevenueMetrics() {
     } catch (error) {
       // Fall back to demo data
       console.log('Loading demo revenue metrics...');
-      throw error; // no demo fallback — surface auth issues instead of hiding them
+      const response = await axios.get('/api/demo/revenue/metrics');
       data = response.data;
       console.log('✅ Loaded demo revenue metrics');
     }
@@ -420,8 +429,8 @@ async function loadInvoices(status = null) {
     displayInvoices(invoices);
   } catch (error) {
     console.error('Error loading invoices:', error);
-    const tbody = document.getElementById('invoicesTableBody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-rose-600 font-semibold">Could not load invoices. Your Xero session may have expired — try logging out and back in.</td></tr>';
+    showError('Failed to load invoices. Using demo mode data.');
+    displayDemoInvoices();
   }
 }
 
@@ -770,7 +779,7 @@ async function loadClientsAwaitingPayment() {
     } catch (error) {
       // Fall back to demo data
       console.log('Using demo data - not authenticated');
-      throw error; // no demo fallback
+      response = await axios.get('/api/demo/clients-awaiting-payment');
       isDemo = true;
     }
     
@@ -1618,7 +1627,7 @@ async function loadClientSheetFormulas() {
         const response = await axios.get('/api/clients/awaiting-payment');
         clients = response.data || [];
       } catch (e2) {
-        const throw error; // no demo fallback
+        const response = await axios.get('/api/demo/clients-awaiting-payment');
         clients = response.data || [];
       }
     }
@@ -1740,8 +1749,8 @@ async function loadExecutiveDashboard() {
       chartData = c.data;
     } catch (e) {
       const [s, c] = await Promise.all([
-        Promise.reject(new Error('no demo fallback')),
-        Promise.reject(new Error('no demo fallback')),
+        axios.get('/api/demo/executive-summary'),
+        axios.get('/api/demo/executive-revenue-chart'),
       ]);
       summary = s.data;
       chartData = c.data;
@@ -1820,7 +1829,7 @@ async function loadCashFlow() {
       const response = await axios.get('/api/cashflow/forecast');
       forecast = response.data;
     } catch (e) {
-      throw error; // no demo fallback
+      const response = await axios.get('/api/demo/cashflow-forecast');
       forecast = response.data;
     }
 
