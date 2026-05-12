@@ -430,7 +430,8 @@ async function loadInvoices(status = null) {
   } catch (error) {
     console.error('Error loading invoices:', error);
     const tbody = document.getElementById('invoicesTableBody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-rose-600 font-semibold">Could not load invoices. Your Xero session may have expired — log out and back in.</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-amber-700 bg-amber-50 font-semibold">Could not load real invoices from Xero. Click Logout in the sidebar and sign in again.</td></tr>';
+    // Do NOT silently swap in displayDemoInvoices() — confusing.
   }
 }
 
@@ -4209,9 +4210,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = err?.config?.url || '';
         if (status === 401 && url.includes('/api/') && !url.includes('/auth/') && !__did401) {
           __did401 = true;
-          console.warn('[v17] 401 via axios on', url, '— Xero session expired.');
-          localStorage.removeItem('xero_session');
-          setTimeout(() => location.reload(), 1500);
+          console.warn('[v17] 401 via axios on', url, '— Xero session may be expired.');
+          // No auto-logout — banner already shown by fetch interceptor handles UX.
         }
         return Promise.reject(err);
       }
@@ -4229,15 +4229,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const url = String(a[0] || '');
     if (res.status === 401 && url.includes('/api/') && !url.includes('/auth/') && !__did401) {
       __did401 = true;
-      console.warn('[v17] 401 from', url, '— Xero session expired. Logging out.');
+      console.warn('[v17] 401 from', url, '— Xero session may be expired.');
       try {
-        const banner = document.createElement('div');
-        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;padding:12px 20px;background:#dc2626;color:#fff;text-align:center;font-weight:600;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.15)';
-        banner.textContent = 'Your Xero session has expired. Redirecting to sign-in…';
-        document.body.appendChild(banner);
+        if (!document.getElementById('v17-401-banner')) {
+          const banner = document.createElement('div');
+          banner.id = 'v17-401-banner';
+          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;padding:10px 20px;background:#f59e0b;color:#fff;text-align:center;font-weight:600;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;justify-content:center;align-items:center;gap:12px';
+          banner.innerHTML = '<span>Some Xero data could not load — your session may be expired.</span><button onclick="logout()" style="background:#fff;color:#dc2626;padding:4px 12px;border-radius:6px;font-weight:700">Sign in again</button><button onclick="this.parentElement.remove()" style="background:transparent;color:#fff;padding:4px 8px;border:1px solid #fff;border-radius:6px">Dismiss</button>';
+          document.body.appendChild(banner);
+        }
       } catch {}
-      localStorage.removeItem('xero_session');
-      setTimeout(() => location.reload(), 1500);
+      // No auto-logout, no auto-reload — user decides when to re-authenticate.
     }
     return res;
   };
