@@ -98,6 +98,7 @@ async function loadDashboardData() {
     } catch (error) {
       // Fall back to demo data
       console.log('Real data failed, loading demo data from /api/demo/summary...');
+      markDemoActive('dashboard summary');
       const response = await axios.get('/api/demo/summary');
       data = response.data;
       console.log('✅ Loaded demo data');
@@ -168,6 +169,7 @@ async function loadRevenueMetrics() {
     } catch (error) {
       // Fall back to demo data
       console.log('Loading demo revenue metrics...');
+      markDemoActive('revenue metrics');
       const response = await axios.get('/api/demo/revenue/metrics');
       data = response.data;
       console.log('✅ Loaded demo revenue metrics');
@@ -780,6 +782,7 @@ async function loadClientsAwaitingPayment() {
     } catch (error) {
       // Fall back to demo data
       console.log('Using demo data - not authenticated');
+      markDemoActive('clients awaiting payment');
       response = await axios.get('/api/demo/clients-awaiting-payment');
       isDemo = true;
     }
@@ -1628,6 +1631,7 @@ async function loadClientSheetFormulas() {
         const response = await axios.get('/api/clients/awaiting-payment');
         clients = response.data || [];
       } catch (e2) {
+        markDemoActive('active clients');
         const response = await axios.get('/api/demo/clients-awaiting-payment');
         clients = response.data || [];
       }
@@ -1750,7 +1754,7 @@ async function loadExecutiveDashboard() {
       chartData = c.data;
     } catch (e) {
       const [s, c] = await Promise.all([
-        axios.get('/api/demo/executive-summary'),
+        (markDemoActive('executive summary'), axios.get('/api/demo/executive-summary')),
         axios.get('/api/demo/executive-revenue-chart'),
       ]);
       summary = s.data;
@@ -1830,6 +1834,7 @@ async function loadCashFlow() {
       const response = await axios.get('/api/cashflow/forecast');
       forecast = response.data;
     } catch (e) {
+      markDemoActive('cashflow forecast');
       const response = await axios.get('/api/demo/cashflow-forecast');
       forecast = response.data;
     }
@@ -1882,7 +1887,7 @@ async function loadMonthlyTrends() {
     updateLiveIndicator(true, lastRefresh);
     renderMonthlyTrendsTable(months);
   } catch (e) {
-    el.innerHTML = '<p class="text-red-500 text-center py-6">Unable to load — sign in with Xero to see live data</p>';
+    el.innerHTML = '<div class="text-center py-6 space-y-3"><p class="text-red-500">Unable to load — your Xero session may have expired.</p><button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-semibold text-sm">Sign in again</button></div>';
   }
 }
 
@@ -1971,7 +1976,7 @@ async function loadClientLifetime() {
       <strong>Billed months:</strong> distinct months with at least one invoice.
     </p>`;
   } catch (e) {
-    el.innerHTML = '<p class="text-red-500 text-center py-6">Unable to load — sign in with Xero to see live data</p>';
+    el.innerHTML = '<div class="text-center py-6 space-y-3"><p class="text-red-500">Unable to load — your Xero session may have expired.</p><button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-semibold text-sm">Sign in again</button></div>';
   }
 }
 
@@ -2019,7 +2024,7 @@ async function loadAnalyticsGoals() {
       <tbody>${rows}</tbody>
     </table>`;
   } catch (e) {
-    el.innerHTML = '<p class="text-red-500 text-center py-6">Unable to load — sign in with Xero to see live data</p>';
+    el.innerHTML = '<div class="text-center py-6 space-y-3"><p class="text-red-500">Unable to load — your Xero session may have expired.</p><button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-semibold text-sm">Sign in again</button></div>';
   }
 }
 
@@ -2527,7 +2532,7 @@ async function loadClientLTVAnalytics() {
     };
   } catch (e) {
     console.error('LTV analytics error:', e);
-    tableEl.innerHTML = '<p class="text-red-500 text-center py-6">Unable to load — sign in with Xero to see live data</p>';
+    tableEl.innerHTML = '<div class="text-center py-6 space-y-3"><p class="text-red-500">Unable to load — your Xero session may have expired.</p><button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-semibold text-sm">Sign in again</button></div>';
   }
 }
 window.loadClientLTVAnalytics = loadClientLTVAnalytics;
@@ -3514,6 +3519,7 @@ async function loadValuation() {
     data = res.data;
   } catch (e) {
     try {
+      markDemoActive('valuation');
       const res = await axios.get('/api/demo/valuation');
       data = res.data;
     } catch (e2) {
@@ -4186,6 +4192,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const init = document.querySelector('.nav-item.active')?.getAttribute('data-tab');
   if (init) setTitle(init);
 })();
+
+
+/* v2.17.0+ — keep the "Live Data" badge honest: any time we fall back to
+   demo data, downgrade the indicator and show a sign-in-again pill. */
+function markDemoActive(reason) {
+  try {
+    window.__hasDemo = true;
+    const indicator = document.getElementById('liveIndicator');
+    const text = document.getElementById('liveIndicatorText');
+    if (indicator && text) {
+      indicator.className = 'flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white';
+      const dot = indicator.querySelector('span');
+      if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-200 mr-2';
+      text.textContent = 'Demo data';
+      indicator.title = 'Some live calls failed — showing demo data. Click Logout in the sidebar to re-authenticate.';
+      // Also add a sign-in-again pill once
+      if (!document.getElementById('signinAgainPill')) {
+        const pill = document.createElement('button');
+        pill.id = 'signinAgainPill';
+        pill.textContent = 'Sign in again';
+        pill.style.cssText = 'margin-left:8px;padding:4px 10px;border-radius:9999px;background:#dc2626;color:#fff;font-size:11px;font-weight:700';
+        pill.onclick = () => { if (window.logout) window.logout(); };
+        indicator.parentNode?.insertBefore(pill, indicator.nextSibling);
+      }
+    }
+    console.warn('[live-indicator] demo data shown:', reason);
+  } catch {}
+}
+window.markDemoActive = markDemoActive;
 
 /* =============================================================================
  * v2.17.0+ — Auto-generated reports (CFO/CEO/VP Sales) and SWOT.
