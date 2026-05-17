@@ -292,7 +292,8 @@
                     <a class="nav-item tab-button" data-tab="mom"><i class="fas fa-chart-line"></i>MoM Evolution</a>
                     <a class="nav-item tab-button" data-tab="swot"><i class="fas fa-compass"></i>SWOT</a>
                     <a class="nav-item tab-button" data-tab="reports"><i class="fas fa-user-tie"></i>Exec Reports</a>
-                    <div class="nav-group-label">External</div>
+                    <div class="nav-group-label">Integrations</div>
+                    <a class="nav-item tab-button" data-tab="extract"><i class="fas fa-share-from-square"></i>Extract Data</a>
                     <a class="nav-item tab-button" data-tab="sheets-links"><i class="fas fa-table"></i>Google Sheets</a>
                     <div class="sidebar-footer">
                         Logged in as <span id="userBadge">Olivier</span><br>
@@ -1642,6 +1643,70 @@
                                 </select>
                             </div>
                         </div>
+
+                <!-- v2.17.0+ — Extract Data (cross-platform integration links) -->
+                <div id="tab-extract" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-800">Extract Data — Integration Links</h2>
+                                <p class="text-sm text-gray-500 mt-1">Copy these URLs into other platforms (company.gershonCRM.com, Google Sheets, internal tools) to pull live data from finance.gershonCRM.com.</p>
+                            </div>
+                            <button id="extract-refresh" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"><i class="fas fa-arrows-rotate mr-1"></i>Refresh values</button>
+                        </div>
+
+                        <!-- Business Assumptions section -->
+                        <h3 class="text-sm font-bold uppercase text-gray-500 tracking-wide mt-4 mb-3">Business assumptions (for company.gershonCRM.com)</h3>
+                        <div class="bg-blue-50 border border-blue-200 rounded p-4 mb-4">
+                            <p class="text-sm text-gray-700 mb-3">Single endpoint returning everything the "Business assumptions" form needs:</p>
+                            <div class="flex gap-2 items-center mb-2">
+                                <code id="extract-ba-url" class="flex-1 bg-white border rounded px-3 py-2 text-xs font-mono text-blue-900 break-all">https://finance.gershoncrm.com/api/extract/business-assumptions</code>
+                                <button data-copy="extract-ba-url" class="copy-btn px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"><i class="fas fa-copy mr-1"></i>Copy</button>
+                                <a id="extract-ba-open" href="/api/extract/business-assumptions" target="_blank" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded text-xs"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Open</a>
+                            </div>
+                            <p class="text-xs text-gray-500">Returns JSON: <code>{ avgInvoiceValue, avgInvoicesPerClient, avgClientLifetimeMonths, conversion: { high, medium, low }, meta }</code></p>
+                        </div>
+
+                        <!-- Live values panel -->
+                        <div class="bg-white border rounded p-4 mb-6">
+                            <h4 class="font-bold text-gray-800 mb-3">Current values</h4>
+                            <div id="extract-ba-values" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+                        </div>
+
+                        <!-- Conversion rates editor (user-supplied — not in Xero) -->
+                        <h3 class="text-sm font-bold uppercase text-gray-500 tracking-wide mt-4 mb-3">Conversion rates (user-supplied, stored in KV)</h3>
+                        <p class="text-xs text-gray-500 mb-3">Set once — every consumer of /api/extract/business-assumptions sees the same value.</p>
+                        <div class="grid grid-cols-3 gap-3 mb-3">
+                            <div>
+                                <label class="text-xs text-gray-600">High priority %</label>
+                                <input id="conv-high" type="number" min="0" max="100" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="e.g. 60">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600">Medium priority %</label>
+                                <input id="conv-medium" type="number" min="0" max="100" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="e.g. 30">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600">Low priority %</label>
+                                <input id="conv-low" type="number" min="0" max="100" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="e.g. 10">
+                            </div>
+                        </div>
+                        <button id="conv-save" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm"><i class="fas fa-save mr-1"></i>Save conversion rates</button>
+                        <span id="conv-save-status" class="ml-3 text-xs text-gray-500"></span>
+
+                        <hr class="my-6">
+
+                        <!-- Google Sheets IMPORTDATA URLs -->
+                        <h3 class="text-sm font-bold uppercase text-gray-500 tracking-wide mt-4 mb-3">Google Sheets — IMPORTDATA links</h3>
+                        <p class="text-xs text-gray-500 mb-3">Use <code>=IMPORTDATA("&lt;url&gt;")</code> in a Google Sheets cell.</p>
+                        <div id="extract-sheets" class="space-y-2"></div>
+
+                        <hr class="my-6">
+
+                        <!-- Other useful JSON endpoints -->
+                        <h3 class="text-sm font-bold uppercase text-gray-500 tracking-wide mt-4 mb-3">Other JSON endpoints (programmatic)</h3>
+                        <div id="extract-other" class="space-y-2"></div>
+                    </div>
+                </div>
                         <p id="reports-narrative" class="italic text-gray-600 mb-4"></p>
                         <div id="reports-widgets" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                     </div>

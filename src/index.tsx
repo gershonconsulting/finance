@@ -1882,4 +1882,124 @@ app.get('/api/reports/role/:role', async (c) => {
   }
 });
 
+
+// =============================================================================
+// v2.17.0+ — /api/extract/* — cross-platform data extracts (consumed by
+// company.gershonCRM.com's "Business assumptions" form and similar).
+// Public-key-protected (or session-protected) JSON endpoints, designed to be
+// fetched server-side from other Gershon properties.
+// =============================================================================
+
+app.get('/api/extract/business-assumptions', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const invoices = await xero.getInvoices();
+
+    // Only count invoices that represent real billed work.
+    const billable = invoices.filter((i: any) =>
+      ['PAID', 'AUTHORISED', 'SUBMITTED'].includes(i.Status));
+
+    // --- Avg Invoice Value (USD) --------------------------------------------
+    const totalValue = billable.reduce((s: number, i: any) => s + (i.Total || 0), 0);
+    const avgInvoiceValue = billable.length > 0
+      ? Math.round((totalValue / billable.length) * 100) / 100
+      : 0;
+
+    // --- Avg Invoices / Client (lifetime count) -----------------------------
+    const contactCount = new Set(billable.map((i: any) => i.Contact?.ContactID || i.Contact?.Name).filter(Boolean)).size;
+    const avgInvoicesPerClient = contactCount > 0
+      ? Math.round((billable.length / contactCount) * 10) / 10
+      : 0;
+
+    // --- Avg Client Lifetime (months) ---------------------------------------
+    const parseDate = (d: any): Date | null => {
+      if (!d) return null;
+      if (typeof d === 'string' && d.includes('/Date(')) {
+        const m = d.match(/\/Date\((\d+)/);
+        return m ? new Date(parseInt(m[1])) : null;
+      }
+      const dt = new Date(d);
+      return isNaN(dt.getTime()) ? null : dt;
+    };
+    const perClient = new Map<string, { first: Date; last: Date }>();
+    for (const inv of billable) {
+      const cid = inv.Contact?.ContactID || inv.Contact?.Name;
+      const dt = parseDate(inv.Date);
+      if (!cid || !dt) continue;
+      const prev = perClient.get(cid);
+      if (!prev) { perClient.set(cid, { first: dt, last: dt }); continue; }
+      if (dt < prev.first) prev.first = dt;
+      if (dt > prev.last)  prev.last  = dt;
+    }
+    let lifetimeTotal = 0, lifetimeN = 0;
+    for (const v of perClient.values()) {
+      const months = (v.last.getFullYear() - v.first.getFullYear()) * 12
+        + (v.last.getMonth() - v.first.getMonth()) + 1;
+      lifetimeTotal += months; lifetimeN += 1;
+    }
+    const avgClientLifetimeMonths = lifetimeN > 0
+      ? Math.round((lifetimeTotal / lifetimeN) * 10) / 10
+      : 0;
+
+    // --- Conversion rates (user-supplied; stored in KV) ---------------------
+    // Default to nulls so the consuming form keeps showing 0 / placeholder.
+    let conv = { high: null as number | null, medium: null as number | null, low: null as number | null };
+    try {
+      const raw = c.env?.GOALS_KV ? await c.env.GOALS_KV.get('conversion-rates') : null;
+      if (raw) {
+        const p = JSON.parse(raw);
+        conv = {
+          high:   typeof p.high   === 'number' ? p.high   : null,
+          medium: typeof p.medium === 'number' ? p.medium : null,
+          low:    typeof p.low    === 'number' ? p.low    : null,
+        };
+      }
+    } catch {}
+
+    return c.json({
+      avgInvoiceValue,             // USD
+      avgInvoicesPerClient,        // count
+      avgClientLifetimeMonths,     // months
+      conversion: conv,            // { high, medium, low }  in %
+      meta: {
+        source: 'finance.gershoncrm.com',
+        tenant: 'Gershon Consulting LLC',
+        computedAt: new Date().toISOString(),
+        sampleSize: { billableInvoices: billable.length, clients: contactCount },
+      },
+    });
+  } catch (error: any) {
+    console.error('extract/business-assumptions error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// User-supplied conversion rates: GET to read, POST to set.
+app.get('/api/extract/conversion-rates', async (c) => {
+  try {
+    if (c.env?.GOALS_KV) {
+      const raw = await c.env.GOALS_KV.get('conversion-rates');
+      if (raw) return c.json(JSON.parse(raw));
+    }
+    return c.json({ high: null, medium: null, low: null });
+  } catch (e: any) { return c.json({ error: e.message }, 500); }
+});
+
+app.post('/api/extract/conversion-rates', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken) return c.json({ error: 'Not authenticated' }, 401);
+    if (!c.env?.GOALS_KV) return c.json({ error: 'GOALS_KV not configured' }, 503);
+    const body = await c.req.json();
+    const norm = (v: any) => (v == null || v === '' || isNaN(Number(v))) ? null : Math.max(0, Math.min(100, Number(v)));
+    const conv = { high: norm(body.high), medium: norm(body.medium), low: norm(body.low) };
+    await c.env.GOALS_KV.put('conversion-rates', JSON.stringify(conv));
+    return c.json({ ok: true, conversion: conv });
+  } catch (e: any) { return c.json({ error: e.message }, 400); }
+});
+
 export default app;

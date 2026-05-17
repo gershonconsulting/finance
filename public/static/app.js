@@ -4966,3 +4966,178 @@ window.markDemoActive = markDemoActive;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
   else wire();
 })();
+
+/* v2.17.0+ — Extract Data tab: copy-able integration links and conversion-rate
+ * editor. Sources the business-assumptions JSON live so the user can see what
+ * the consumer (company.gershonCRM.com) will receive. */
+(function () {
+  function $usd(v) { return v == null || isNaN(v) ? '—' : '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+  function $num(v, dp = 1) { return v == null || isNaN(v) ? '—' : Number(v).toFixed(dp); }
+
+  async function initExtractTab() {
+    const root = document.getElementById('tab-extract');
+    if (!root || root.dataset.wired === '1') {
+      await renderValues();
+      return;
+    }
+    root.dataset.wired = '1';
+
+    // Wire copy buttons
+    root.addEventListener('click', async (e) => {
+      const t = e.target.closest('.copy-btn');
+      if (!t) return;
+      const targetId = t.getAttribute('data-copy');
+      const el = document.getElementById(targetId);
+      const text = el?.textContent?.trim() || el?.value?.trim();
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = t.innerHTML;
+        t.innerHTML = '<i class="fas fa-check mr-1"></i>Copied';
+        setTimeout(() => { t.innerHTML = orig; }, 1500);
+      } catch (err) { alert('Could not copy: ' + err.message); }
+    });
+
+    document.getElementById('extract-refresh').addEventListener('click', renderValues);
+    document.getElementById('conv-save').addEventListener('click', saveConversion);
+
+    // Build the static "Other endpoints" + "Sheets" lists
+    renderSheetsList();
+    renderOtherEndpoints();
+    await renderValues();
+  }
+
+  async function renderValues() {
+    const valuesEl = document.getElementById('extract-ba-values');
+    valuesEl.innerHTML = '<div class="text-sm text-gray-500">Loading…</div>';
+    try {
+      const t = localStorage.getItem('xero_session') || '';
+      const auth = t ? { 'X-Session-Token': t } : {};
+      const r = await fetch('/api/extract/business-assumptions', { headers: auth });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      valuesEl.innerHTML = `
+        <div class="bg-gray-50 rounded p-3 border">
+          <div class="text-xs uppercase text-gray-500">Avg Invoice Value</div>
+          <div class="text-2xl font-bold">${$usd(d.avgInvoiceValue)}</div>
+          <div class="text-xs text-gray-500 mt-1">across ${d.meta?.sampleSize?.billableInvoices || 0} invoices</div>
+        </div>
+        <div class="bg-gray-50 rounded p-3 border">
+          <div class="text-xs uppercase text-gray-500">Avg Invoices / Client</div>
+          <div class="text-2xl font-bold">${$num(d.avgInvoicesPerClient, 1)}</div>
+          <div class="text-xs text-gray-500 mt-1">across ${d.meta?.sampleSize?.clients || 0} clients</div>
+        </div>
+        <div class="bg-gray-50 rounded p-3 border">
+          <div class="text-xs uppercase text-gray-500">Avg Client Lifetime</div>
+          <div class="text-2xl font-bold">${$num(d.avgClientLifetimeMonths, 1)} <span class="text-base font-normal">months</span></div>
+          <div class="text-xs text-gray-500 mt-1">first → last invoice, inclusive</div>
+        </div>
+        <div class="bg-rose-50 rounded p-3 border border-rose-200 sm:col-span-3">
+          <div class="text-xs uppercase text-rose-700 font-semibold">Conversion rates (user-supplied)</div>
+          <div class="mt-1 text-sm text-gray-700">
+            High: <b>${$num(d.conversion?.high, 1)}%</b> · Medium: <b>${$num(d.conversion?.medium, 1)}%</b> · Low: <b>${$num(d.conversion?.low, 1)}%</b>
+          </div>
+          <div class="text-xs text-gray-500 mt-1">Edit below — these are persisted to KV so every consumer sees the same value.</div>
+        </div>
+      `;
+      // Populate the editor inputs with current values
+      const c = d.conversion || {};
+      document.getElementById('conv-high').value   = c.high   ?? '';
+      document.getElementById('conv-medium').value = c.medium ?? '';
+      document.getElementById('conv-low').value    = c.low    ?? '';
+    } catch (e) {
+      valuesEl.innerHTML = `<div class="col-span-full text-rose-600 text-sm">Could not load: ${escapeHtmlV17(e.message)} — sign in to Xero and try again.</div>`;
+    }
+  }
+
+  async function saveConversion() {
+    const status = document.getElementById('conv-save-status');
+    status.textContent = 'Saving…';
+    status.className = 'ml-3 text-xs text-gray-500';
+    const body = {
+      high:   document.getElementById('conv-high').value,
+      medium: document.getElementById('conv-medium').value,
+      low:    document.getElementById('conv-low').value,
+    };
+    try {
+      const t = localStorage.getItem('xero_session') || '';
+      const auth = t ? { 'X-Session-Token': t } : {};
+      const r = await fetch('/api/extract/conversion-rates', {
+        method: 'POST',
+        headers: { ...auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || 'HTTP ' + r.status);
+      }
+      status.textContent = '✓ Saved — visible to every consumer immediately';
+      status.className = 'ml-3 text-xs text-emerald-700';
+      // Refresh display so the live values panel shows the new conversion %s
+      await renderValues();
+    } catch (e) {
+      status.textContent = '✗ Could not save: ' + e.message;
+      status.className = 'ml-3 text-xs text-rose-700';
+    }
+  }
+
+  function renderSheetsList() {
+    const host = document.getElementById('extract-sheets');
+    const base = location.origin;
+    const items = [
+      { label: 'Client list (all active recurring)',  url: `${base}/api/sheets/clients/list` },
+      { label: 'Per-client due — replace {client}',   url: `${base}/api/sheets/{client}/due` },
+    ];
+    host.innerHTML = items.map((it, i) => `
+      <div class="flex gap-2 items-center">
+        <div class="flex-1">
+          <div class="text-xs text-gray-600">${it.label}</div>
+          <code id="sheets-url-${i}" class="block bg-white border rounded px-3 py-2 text-xs font-mono text-blue-900 break-all">${it.url}</code>
+        </div>
+        <button data-copy="sheets-url-${i}" class="copy-btn px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs h-fit"><i class="fas fa-copy mr-1"></i>Copy</button>
+      </div>
+    `).join('');
+  }
+
+  function renderOtherEndpoints() {
+    const host = document.getElementById('extract-other');
+    const base = location.origin;
+    const items = [
+      { label: 'Conversion rates (read)',          url: `${base}/api/extract/conversion-rates`,    method: 'GET'  },
+      { label: 'Conversion rates (write)',         url: `${base}/api/extract/conversion-rates`,    method: 'POST' },
+      { label: 'Monthly snapshots — list',         url: `${base}/api/snapshots` },
+      { label: 'Monthly snapshot — single period', url: `${base}/api/snapshots/2026-04`,          note: 'replace 2026-04' },
+      { label: 'SWOT entries — list',              url: `${base}/api/swot` },
+      { label: 'Role report — CFO',                url: `${base}/api/reports/role/cfo` },
+      { label: 'Role report — CEO',                url: `${base}/api/reports/role/ceo` },
+      { label: 'Role report — VP Sales',           url: `${base}/api/reports/role/vp-sales` },
+      { label: 'MoM evolution — pick metric',      url: `${base}/api/mom?metric=revenue_paid&months=12` },
+      { label: 'Goals — read',                     url: `${base}/api/goals` },
+      { label: 'Bank tab inputs — read',           url: `${base}/api/bank-inputs` },
+    ];
+    host.innerHTML = items.map((it, i) => `
+      <div class="flex gap-2 items-center">
+        <div class="flex-1">
+          <div class="text-xs text-gray-600">${escapeHtmlV17(it.label)} ${it.method ? `<span class="ml-2 text-${it.method==='POST'?'rose':'emerald'}-700 font-semibold">${it.method}</span>` : ''}${it.note ? `<span class="ml-2 text-gray-400">(${escapeHtmlV17(it.note)})</span>` : ''}</div>
+          <code id="other-url-${i}" class="block bg-white border rounded px-3 py-2 text-xs font-mono text-blue-900 break-all">${it.url}</code>
+        </div>
+        <button data-copy="other-url-${i}" class="copy-btn px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs h-fit"><i class="fas fa-copy mr-1"></i>Copy</button>
+      </div>
+    `).join('');
+  }
+
+  function escapeHtmlV17(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+  }
+
+  // Wire to tab click
+  function wire() {
+    document.querySelectorAll('.tab-button[data-tab="extract"]').forEach(btn =>
+      btn.addEventListener('click', () => initExtractTab()));
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+
+  window.initExtractTab = initExtractTab;
+})();
