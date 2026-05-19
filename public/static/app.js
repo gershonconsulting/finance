@@ -5141,3 +5141,328 @@ window.markDemoActive = markDemoActive;
 
   window.initExtractTab = initExtractTab;
 })();
+
+/* =============================================================================
+ * v2.17.0+ — Demo Mode
+ * Flips a localStorage flag and reloads. Once active, intercepts every /api/*
+ * fetch() and axios call with canned, impressive numbers so every tab + chart
+ * fills up. Designed for sales demos of the dashboard.
+ * =============================================================================
+ */
+(function () {
+  const KEY = 'demo_mode';
+
+  // ---- impressive canned data ---------------------------------------------
+  const NOW = Date.now();
+  const day = (n) => new Date(NOW + n * 86400000).toISOString();
+  const months = (n) => new Date(NOW - n * 30 * 86400000).toISOString();
+
+  const DEMO_CLIENTS = [
+    { contactName: 'Microsoft Azure Division',    contactId: 'demo-1',  invoiceCount: 3, totalOutstanding: 24500, totalPaid: 187000, averagePaymentDelay: 12 },
+    { contactName: 'Accenture Consulting',        contactId: 'demo-2',  invoiceCount: 2, totalOutstanding: 18750, totalPaid: 142000, averagePaymentDelay: 8 },
+    { contactName: 'Salesforce Inc.',             contactId: 'demo-3',  invoiceCount: 2, totalOutstanding: 16200, totalPaid: 118000, averagePaymentDelay: 22 },
+    { contactName: 'Goldman Sachs',               contactId: 'demo-4',  invoiceCount: 1, totalOutstanding: 12800, totalPaid: 95000,  averagePaymentDelay: 5 },
+    { contactName: 'Cisco Systems',               contactId: 'demo-5',  invoiceCount: 3, totalOutstanding: 9400,  totalPaid: 72000,  averagePaymentDelay: 18 },
+    { contactName: 'IBM Global Services',         contactId: 'demo-6',  invoiceCount: 2, totalOutstanding: 7300,  totalPaid: 58000,  averagePaymentDelay: 15 },
+    { contactName: 'BlackRock Asset Management',  contactId: 'demo-7',  invoiceCount: 1, totalOutstanding: 5800,  totalPaid: 47000,  averagePaymentDelay: 30 },
+    { contactName: 'Stripe Payments',             contactId: 'demo-8',  invoiceCount: 1, totalOutstanding: 4200,  totalPaid: 36000,  averagePaymentDelay: 9 },
+    { contactName: 'Snowflake Computing',         contactId: 'demo-9',  invoiceCount: 2, totalOutstanding: 3700,  totalPaid: 28000,  averagePaymentDelay: 11 },
+    { contactName: 'Shopify Commerce',            contactId: 'demo-10', invoiceCount: 1, totalOutstanding: 2950,  totalPaid: 22000,  averagePaymentDelay: 6 },
+    { contactName: 'Atlassian Software',          contactId: 'demo-11', invoiceCount: 1, totalOutstanding: 2400,  totalPaid: 18000,  averagePaymentDelay: 14 },
+    { contactName: 'HubSpot Inc.',                contactId: 'demo-12', invoiceCount: 1, totalOutstanding: 1900,  totalPaid: 15000,  averagePaymentDelay: 8 },
+  ];
+
+  const DEMO = {
+    '/api/auth/status': { authenticated: true, tenantId: 'demo-tenant-id' },
+    '/api/invoices/summary': {
+      draftCount: 8, draftAmount: 45230,
+      awaitingCount: 23, awaitingAmount: 215600,
+      overdueCount: 4, overdueAmount: 28400,
+      totalInvoices: 156,
+    },
+    '/api/revenue/metrics': {
+      mrr: 45000, arr: 540000, ytdRevenue: 487000, projectedEOY: 612000,
+      thisMonthInvoiced: 45000, prevMonthInvoiced: 38000,
+      momGrowth: 18.5, yoyGrowth: 52.3, growthRate: 18.5,
+      activeClients: 47, currentMonth: 5, monthsRemaining: 7,
+      avgRevenuePerClient: 10362,
+      mrrFormula: 'MRR = Total invoiced in current month (actual billing)',
+      paidThisYear: 487000,
+    },
+    '/api/executive/summary': {
+      dso: 38, grossMarginPct: 42, revenue: 487000, cogs: 282000,
+      cashPosition: 185000,
+      revenueGrowth: { momGrowth: 18.5, yoyGrowth: 52.3, currentMonthRevenue: 45000, priorMonthRevenue: 38000 },
+      activeInvoices: 23, overdueAmount: 28400,
+    },
+    '/api/executive/revenue-chart': {
+      labels: ['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May'],
+      datasets: [{ label: 'Revenue', data: [29000, 32500, 35200, 31800, 36400, 39200, 42500, 38000, 41500, 43800, 42100, 45000], backgroundColor: 'rgba(99,102,241,0.7)' }],
+    },
+    '/api/invoices/by-aging': {
+      current:  { count: 18, total: 185400, invoices: [] },
+      aged:     { count: 4,  total: 22600,  invoices: [] },
+      critical: { count: 1,  total: 5800,   invoices: [] },
+    },
+    '/api/clients/awaiting-payment': DEMO_CLIENTS,
+    '/api/payment-trends': {
+      viewType: 'monthly',
+      periods: [
+        { periodLabel: 'Dec', periodStart: months(5), periodEnd: months(4), totalOutstanding: 198000, overdueAmount: 38000, overdueCount: 8, paymentsReceived: 168000, paymentsCount: 19, currentAmount: 145000, agedAmount: 38000, criticalAmount: 15000, overdueReduction: 0, paymentVelocity: 28, collectionRate: 84 },
+        { periodLabel: 'Jan', periodStart: months(4), periodEnd: months(3), totalOutstanding: 205000, overdueAmount: 35000, overdueCount: 7, paymentsReceived: 175000, paymentsCount: 21, currentAmount: 152000, agedAmount: 36000, criticalAmount: 17000, overdueReduction: 3000, paymentVelocity: 24, collectionRate: 88 },
+        { periodLabel: 'Feb', periodStart: months(3), periodEnd: months(2), totalOutstanding: 212000, overdueAmount: 32000, overdueCount: 6, paymentsReceived: 184000, paymentsCount: 22, currentAmount: 168000, agedAmount: 30000, criticalAmount: 14000, overdueReduction: 3000, paymentVelocity: 21, collectionRate: 91 },
+        { periodLabel: 'Mar', periodStart: months(2), periodEnd: months(1), totalOutstanding: 218000, overdueAmount: 30000, overdueCount: 5, paymentsReceived: 195000, paymentsCount: 24, currentAmount: 175000, agedAmount: 28000, criticalAmount: 15000, overdueReduction: 2000, paymentVelocity: 18, collectionRate: 94 },
+        { periodLabel: 'Apr', periodStart: months(1), periodEnd: months(0), totalOutstanding: 215600, overdueAmount: 28400, overdueCount: 4, paymentsReceived: 205000, paymentsCount: 25, currentAmount: 185400, agedAmount: 22600, criticalAmount: 7600,  overdueReduction: 1600, paymentVelocity: 15, collectionRate: 96 },
+      ],
+      totalImprovement: 9600,
+      averagePaymentVelocity: 21,
+      bestPeriod: { periodLabel: 'Apr', overdueReduction: 1600 },
+      worstPeriod:{ periodLabel: 'Dec', overdueReduction: 0 },
+    },
+    '/api/monthly/trends': [
+      { month: 'Jun', revenue: 29000, clients: 31, collectionRate: 82 },
+      { month: 'Jul', revenue: 32500, clients: 33, collectionRate: 84 },
+      { month: 'Aug', revenue: 35200, clients: 35, collectionRate: 86 },
+      { month: 'Sep', revenue: 31800, clients: 36, collectionRate: 85 },
+      { month: 'Oct', revenue: 36400, clients: 38, collectionRate: 88 },
+      { month: 'Nov', revenue: 39200, clients: 40, collectionRate: 90 },
+      { month: 'Dec', revenue: 42500, clients: 42, collectionRate: 91 },
+      { month: 'Jan', revenue: 38000, clients: 43, collectionRate: 92 },
+      { month: 'Feb', revenue: 41500, clients: 44, collectionRate: 93 },
+      { month: 'Mar', revenue: 43800, clients: 45, collectionRate: 94 },
+      { month: 'Apr', revenue: 42100, clients: 46, collectionRate: 95 },
+      { month: 'May', revenue: 45000, clients: 47, collectionRate: 96 },
+    ],
+    '/api/cashflow/forecast': Array.from({length:13},(_,i) => {
+      const v = 185000 + i * 4800;
+      const d = new Date(NOW + i * 7 * 86400000);
+      return { weekLabel: `Week ${i+1} (${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})})`,
+               weekStart: d.toISOString().split('T')[0],
+               expectedInflows: 32000 + Math.floor(Math.random()*8000),
+               expectedOutflows: 27000 + Math.floor(Math.random()*5000),
+               projectedBalance: v };
+    }),
+    '/api/cashflow/operating': Array.from({length:12},(_,i) => ({
+      weekLabel: `W${i+1}`, inflows: 32000 + Math.floor(Math.random()*8000),
+      outflows: 27000 + Math.floor(Math.random()*5000), netCashFlow: 5000 + Math.floor(Math.random()*3000),
+    })),
+    '/api/clients/lifetime': {
+      clients: DEMO_CLIENTS.map((c, i) => ({
+        contactName: c.contactName, firstInvoiceDate: '2023-' + String((i%12)+1).padStart(2,'0') + '-15',
+        latestInvoiceDate: '2026-05-' + String(15 - (i%14)).padStart(2,'0'),
+        elapsedMonths: 30 - i, billedMonths: 24 - i,
+        totalInvoiced: c.totalPaid + c.totalOutstanding, latestInvoiceAmount: 8500 - (i*200),
+        invoiceCount: 18 - i,
+      })),
+      lastRefresh: new Date().toISOString(),
+    },
+    '/api/goals': { revenue: 600000, clients: 50, collection: 95 },
+    '/api/bank-inputs': { opex: 32000, existingDebt: 0, yearsInBusiness: 13 },
+    '/api/valuation': {
+      valuation: 2700000, valuationLow: 1900000, valuationHigh: 3600000,
+      method: 'Revenue multiple', multiple: 5.0, basis: 540000,
+      drivers: [ { factor:'Strong ARR growth', impact:'+15%' }, { factor:'Diversified client base', impact:'+8%' }, { factor:'High retention', impact:'+12%' } ],
+    },
+    '/api/extract/business-assumptions': {
+      avgInvoiceValue: 3125,
+      avgInvoicesPerClient: 4.6,
+      avgClientLifetimeMonths: 22.4,
+      conversion: { high: 62, medium: 34, low: 12 },
+      meta: { source: 'finance.gershoncrm.com (demo)', tenant: 'Demo Tenant', computedAt: new Date().toISOString(), sampleSize: { billableInvoices: 156, clients: 47 } },
+    },
+    '/api/extract/conversion-rates': { high: 62, medium: 34, low: 12 },
+    '/api/snapshots': { snapshots: [] },  // empty so SWOT/Reports fall back to live demo data
+    '/api/swot': { entries: [] },
+    '/api/health': { status: 'ok', version: '2.17.0', timestamp: new Date().toISOString(), server:'demo-mode', fixes: [] },
+  };
+
+  // MoM endpoint uses query string — synthesize on demand from monthly trends.
+  function demoMoM(metric, months) {
+    const map = {
+      revenue_paid:      [29000, 32500, 35200, 31800, 36400, 39200, 42500, 38000, 41500, 43800, 42100, 45000],
+      revenue_invoiced:  [31000, 34000, 37000, 33000, 38500, 41000, 44000, 40000, 43000, 45500, 44000, 47000],
+      active_clients:    [31,33,35,36,38,40,42,43,44,45,46,47],
+      cash_position:     [142000, 150000, 158000, 162000, 168000, 173000, 178000, 174000, 180000, 184000, 183000, 185000],
+      gross_margin_pct:  [38, 39, 40, 39, 41, 41, 42, 42, 42, 43, 42, 43],
+      dso_days:          [52, 49, 47, 48, 45, 43, 41, 42, 40, 39, 38, 38],
+      ar_overdue:        [38000, 35000, 32000, 33000, 31000, 30000, 29000, 30000, 28000, 27000, 28000, 28400],
+      loc_recommended:   [60000, 65000, 70000, 72000, 75000, 78000, 82000, 80000, 84000, 86000, 85000, 88000],
+    };
+    const series = (map[metric] || map.revenue_paid).slice(-Math.min(12, months));
+    const labels = ['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May'].slice(-series.length);
+    const data = series.map((v,i) => ({ period: '2026-' + String((i+1)+(12-series.length)).padStart(2,'0'), value: v }));
+    const cur = data[data.length-1].value, prev = data[data.length-2]?.value;
+    return { metric, series: data, delta: prev ? { mom_abs: cur-prev, mom_pct: Math.round((cur-prev)/prev*1000)/10 } : null };
+  }
+
+  // Role reports — substantial canned narrative
+  function demoRoleReport(role) {
+    const history = DEMO['/api/monthly/trends'].map(m => ({
+      period: '2026-' + ['06','07','08','09','10','11','12','01','02','03','04','05'][DEMO['/api/monthly/trends'].indexOf(m)] || '05',
+      revenue_paid: m.revenue, active_clients: m.clients, collection_rate_pct: m.collectionRate,
+      gross_margin_pct: 42, dso_days: 38, cash_position: 185000, ar_overdue: 28400,
+      ar_aging_current: 185400, ar_aging_30_60: 12000, ar_aging_60_90: 10600, ar_aging_90plus: 5800,
+      loc_recommended: 88000, loc_dscr: 2.4, borrowing_base: 145000, bank_score_community: 78, bank_score_sba: 82, bank_score_fintech: 71,
+      goal_revenue_target: 600000, goal_clients_target: 50, goal_collection_pct: 95,
+    }));
+    const cfg = role === 'cfo' ? DEMO_CONFIGS.cfo : role === 'ceo' ? DEMO_CONFIGS.ceo : DEMO_CONFIGS['vp-sales'];
+    return {
+      role, config: cfg, current: history[history.length-1], history,
+      swot: DEMO_SWOT[role] || [],
+      deltas: { revenue_paid:{cur:45000,mom_pct:18.5,mom_abs:7000}, active_clients:{cur:47,mom_pct:2.2,mom_abs:1}, cash_position:{cur:185000,mom_pct:1.1,mom_abs:2000}, gross_margin_pct:{cur:42,mom_pct:0,mom_abs:0}, dso_days:{cur:38,mom_pct:0,mom_abs:0}, ar_overdue:{cur:28400,mom_pct:1.4,mom_abs:400} },
+      narrative: 'Revenue up 18.5% MoM ($45,000) and 52.3% YoY. Cash position increased by $2,000 to $185,000. Overdue AR rose slightly by $400 — still under 13% of total AR.',
+    };
+  }
+  const DEMO_CONFIGS = {
+    cfo: { title: 'CFO — Treasury & Risk', widgets: [
+      { id:'cash_position_today', title:'Cash Position (today, 7d, 13w)' },
+      { id:'dso_trend_12m', title:'DSO — 12-Month Trend' },
+      { id:'gross_margin_mom_yoy', title:'Gross Margin — MoM and YoY' },
+      { id:'ar_aging_buckets', title:'AR Aging Buckets' },
+      { id:'overdue_concentration', title:'Top 10 Overdue Clients' },
+      { id:'bank_tab_full', title:'Bank Tab — Full' },
+      { id:'swot_panel', title:'SWOT — Finance', tag:'Finance' },
+    ]},
+    ceo: { title: 'CEO — Top-Line View', widgets: [
+      { id:'headline_kpis', title:'Revenue MoM/YoY · Cash · Gross Margin · Runway' },
+      { id:'goals_progress', title:'Goals Progress' },
+      { id:'bank_approval_signal', title:'Bank Approval Indicator' },
+      { id:'swot_strategic', title:'SWOT — Strategic', tag:'Strategic' },
+      { id:'what_changed', title:'What Changed This Month' },
+    ]},
+    'vp-sales': { title: 'VP Sales / CRO — Accounts', widgets: [
+      { id:'new_business_mom', title:'New Business (revenue + count, MoM)', metric:'revenue_invoiced' },
+      { id:'client_type_mix', title:'Client Type Mix' },
+      { id:'avg_deal_size', title:'Average Deal Size MoM' },
+      { id:'top10_active_revenue', title:'Top 10 Active Clients — Last 90 Days' },
+      { id:'renewals_60d', title:'Renewals Due in 60 Days' },
+      { id:'swot_panel', title:'SWOT — Sales', tag:'Sales' },
+    ]},
+  };
+  const DEMO_SWOT = {
+    cfo: [
+      { id:1, category:'S', tag:'Finance', body:'DSO at 38 days — best-in-class for B2B SaaS consulting.', author:'Olivier', created_at:new Date().toISOString() },
+      { id:2, category:'O', tag:'Finance', body:'$88k LoC headroom available — ideal for working-capital expansion.', author:'Olivier', created_at:new Date().toISOString() },
+    ],
+    ceo: [
+      { id:3, category:'S', tag:'Strategic', body:'52% YoY growth signals product-market fit and pricing power.', author:'Olivier', created_at:new Date().toISOString() },
+      { id:4, category:'O', tag:'Strategic', body:'Enterprise tier opportunity — top 3 clients each spending >$24k/mo.', author:'Olivier', created_at:new Date().toISOString() },
+    ],
+    'vp-sales': [
+      { id:5, category:'S', tag:'Sales', body:'12 high-quality enterprise accounts producing 70% of revenue.', author:'Olivier', created_at:new Date().toISOString() },
+      { id:6, category:'O', tag:'Sales', body:'Expansion play: 8 clients have outgrown current package — upsell opportunity.', author:'Olivier', created_at:new Date().toISOString() },
+    ],
+  };
+
+  function demoFor(url) {
+    if (!url || typeof url !== 'string') return null;
+    if (!url.startsWith('/api/')) return null;
+    const pathOnly = url.split('?')[0];
+
+    // exact match first
+    if (DEMO.hasOwnProperty(pathOnly)) return DEMO[pathOnly];
+
+    // /api/snapshots/:period → single snapshot
+    if (/^\/api\/snapshots\/\d{4}-\d{2}$/.test(pathOnly)) return null;
+
+    // /api/mom?metric=&months=
+    if (pathOnly === '/api/mom') {
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      return demoMoM(params.get('metric') || 'revenue_paid', Number(params.get('months') || 12));
+    }
+
+    // /api/reports/role/:role
+    const m = pathOnly.match(/^\/api\/reports\/role\/([\w-]+)$/);
+    if (m) return demoRoleReport(m[1]);
+
+    // /api/clients/:id/details etc — return null to let normal fall through
+    return null;
+  }
+
+  function isDemoOn() { return localStorage.getItem(KEY) === '1'; }
+
+  window.toggleDemoMode = function () {
+    if (isDemoOn()) {
+      localStorage.removeItem(KEY);
+    } else {
+      localStorage.setItem(KEY, '1');
+    }
+    location.reload();
+  };
+
+  if (!isDemoOn()) {
+    // Update button label so it reads correctly on idle
+    document.addEventListener('DOMContentLoaded', () => {
+      const lbl = document.getElementById('demoBtnLabel');
+      if (lbl) lbl.textContent = 'Enable Demo Mode';
+    });
+    return;
+  }
+
+  // ---- demo mode is ON: intercept fetch + axios ---------------------------
+  const __origFetch = window.fetch.bind(window);
+  window.fetch = async function (input, opts) {
+    const url = typeof input === 'string' ? input : input?.url;
+    const canned = demoFor(url);
+    if (canned !== null) {
+      return new Response(JSON.stringify(canned), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return __origFetch(input, opts);
+  };
+
+  // axios adapter: short-circuit canned responses by replacing the request adapter
+  function wireAxios() {
+    if (!window.axios) return;
+    window.axios.interceptors.request.use((config) => {
+      const url = (config.url || '');
+      const canned = demoFor(url);
+      if (canned !== null) {
+        config.adapter = () => Promise.resolve({
+          data: canned, status: 200, statusText: 'OK',
+          headers: { 'content-type': 'application/json' },
+          config, request: {},
+        });
+      }
+      return config;
+    });
+  }
+  if (window.axios) wireAxios();
+  else document.addEventListener('DOMContentLoaded', wireAxios);
+
+  // Banner + button-label updates
+  document.addEventListener('DOMContentLoaded', () => {
+    // Banner
+    if (!document.getElementById('demo-mode-banner')) {
+      const banner = document.createElement('div');
+      banner.id = 'demo-mode-banner';
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;padding:10px 24px;background:linear-gradient(90deg,#f59e0b,#dc2626);color:#fff;text-align:center;font-weight:700;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;gap:14px';
+      banner.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i><span>DEMO MODE — all numbers are fake. Use for demos only.</span><button onclick="toggleDemoMode()" style="background:#fff;color:#dc2626;padding:5px 14px;border-radius:9999px;font-size:11px;font-weight:800;letter-spacing:0.05em;">EXIT DEMO</button>';
+      document.body.appendChild(banner);
+      // Push content down a bit so the banner doesn't overlap the topbar
+      document.body.style.paddingTop = '42px';
+    }
+    // Sidebar button label
+    const lbl = document.getElementById('demoBtnLabel');
+    if (lbl) lbl.textContent = 'Exit Demo Mode';
+    const btn = document.getElementById('demoToggleBtn');
+    if (btn) {
+      btn.style.background = '#10b981';
+      btn.style.color = '#fff';
+      btn.style.border = '1px solid #059669';
+    }
+    // Live indicator → "DEMO"
+    setTimeout(() => {
+      const ind = document.getElementById('liveIndicator');
+      const txt = document.getElementById('liveIndicatorText');
+      if (ind && txt) {
+        ind.className = 'flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-600 text-white';
+        ind.querySelector('span').className = 'w-2 h-2 rounded-full bg-purple-200 mr-2';
+        txt.textContent = 'DEMO';
+        // Hide the orphan "Sign in again" pill if it appeared
+        document.getElementById('signinAgainPill')?.remove();
+      }
+    }, 50);
+  });
+
+  console.log('[demo-mode] active — all /api/* calls served from canned data');
+})();
