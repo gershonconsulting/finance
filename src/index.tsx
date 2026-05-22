@@ -181,10 +181,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.17.0',
-    releaseDate: '2026-05-07T00:00:00Z',
+    version: '2.17.1',
+    releaseDate: '2026-05-22T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.17.1: Fix CFO report crash (rev undefined); remove Cash & Gross Margin (data not available yet); auto-backfill MoM from Xero history',
       'v2.17.0: Monthly snapshots (KV) + MoM evolution + SWOT + role views (VP Sales, CFO, CEO)',
       'v2.16.0: Bank tab — line of credit simulator with DSCR, borrowing base, multi-bank approval scoring (community/SBA/fintech)',
       'v2.15.1: Lock POST /api/goals behind session auth; return 503 if KV not configured',

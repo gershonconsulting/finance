@@ -3854,6 +3854,17 @@ document.addEventListener('DOMContentLoaded', () => {
         `<div class="col-span-full text-red-600 text-sm">Could not load MoM data: ${escapeHtml(e.message || e)}</div>`;
       return;
     }
+    // v2.17.1 — if there are no snapshots yet, backfill from /api/monthly/trends
+    // (12 months of Xero invoice history) so the chart isn't empty on first load.
+    if (!data.series || data.series.length === 0) {
+      const filled = await backfillMomFromTrends();
+      if (filled > 0) {
+        // Re-query after backfill so the UI sees the same shape as a cron-populated KV.
+        const r2 = await fetch(`/api/mom?metric=${encodeURIComponent(metric)}&months=${encodeURIComponent(months)}`,
+          { headers: authHeaders() });
+        try { data = await r2.json(); } catch {}
+      }
+    }
     const cur = data.series.length ? data.series[data.series.length - 1].value : null;
     const d = data.delta || {};
     document.getElementById('mom-summary').innerHTML = `
@@ -3883,6 +3894,42 @@ document.addEventListener('DOMContentLoaded', () => {
           return `<tr class="border-b"><td class="px-3 py-1">${s.period}</td><td class="px-3 py-1 text-right">${fmt(s.value, metric)}</td><td class="px-3 py-1 text-right">${delta}</td></tr>`;
         }).join('')
       + '</tbody>';
+  }
+
+  // v2.17.1 — One-shot backfill: pull 12 months of monthly trends from Xero and
+  // upsert them as snapshots so the MoM tab has history without waiting on cron.
+  // Returns the number of months seeded.
+  async function backfillMomFromTrends() {
+    try {
+      const r = await fetch('/api/monthly/trends', { headers: authHeaders() });
+      if (!r.ok) return 0;
+      const j = await r.json();
+      const months = Array.isArray(j.months) ? j.months : [];
+      if (!months.length) return 0;
+      let n = 0;
+      for (const m of months) {
+        const period = `${m.year}-${String(m.monthNum).padStart(2, '0')}`;
+        const body = {
+          period,
+          source: 'backfill',
+          revenue_paid:     Number(m.paidAmount) || 0,
+          revenue_invoiced: Number(m.totalInvoiced) || 0,
+          active_clients:   Number(m.activeClients) || 0,
+          collection_rate_pct: Number(m.collectionRate) || 0,
+          payload: { backfilledFrom: '/api/monthly/trends', month: m.month, year: m.year },
+        };
+        const sv = await fetch('/api/snapshots', {
+          method: 'POST',
+          headers: Object.assign({}, authHeaders(), { 'Content-Type': 'application/json' }),
+          body: JSON.stringify(body),
+        });
+        if (sv.ok) n++;
+      }
+      return n;
+    } catch (e) {
+      console.warn('[backfill] failed:', e);
+      return 0;
+    }
   }
 
   async function captureNow() {
@@ -4377,17 +4424,9 @@ window.markDemoActive = markDemoActive;
     const cashRunwayMonths = (cashPos > 0 && opex > 0) ? cashPos / opex : null;
 
     // ---- STRENGTHS
-    if (gm >= 30) items.S.push({
-      title: `Gross margin ${gm.toFixed(1)}%`,
-      detail: 'Above 30% — healthy unit economics give pricing flexibility and absorb shocks.',
-    });
     if (dso > 0 && dso <= 45) items.S.push({
       title: `DSO ${dso} days`,
       detail: 'Clients pay quickly. Working capital is not stuck in receivables.',
-    });
-    if (cashRunwayMonths && cashRunwayMonths >= 6) items.S.push({
-      title: `Cash runway ${cashRunwayMonths.toFixed(1)} months`,
-      detail: 'Provides strategic optionality — can absorb a slow quarter without distress.',
     });
     if (revGrowthMoM > 5) items.S.push({
       title: `Revenue +${revGrowthMoM.toFixed(1)}% MoM`,
@@ -4411,10 +4450,6 @@ window.markDemoActive = markDemoActive;
       title: `DSO ${dso} days`,
       detail: 'Cash is tied up significantly longer than ideal. Each extra day = working capital cost.',
     });
-    if (gm > 0 && gm < 20) items.W.push({
-      title: `Gross margin ${gm.toFixed(1)}%`,
-      detail: 'Below 20% — pricing or COGS pressure. Investigate per-client unit economics.',
-    });
     if (concentrationPct > 30) items.W.push({
       title: `${concentrationPct.toFixed(0)}% of outstanding AR from one client`,
       detail: `${esc(topClient.contactName)} alone represents major exposure. Diversify or de-risk.`,
@@ -4434,10 +4469,6 @@ window.markDemoActive = markDemoActive;
       title: `${$usd(agedTotal)} in 100-200 day AR could be accelerated`,
       detail: 'Offer a 1-2% early-pay discount on aged balances. Math: even a 2% discount on $10k beats writing it off.',
     });
-    if (d.bank?.opex && cashPos > 0 && cashRunwayMonths > 3) items.O.push({
-      title: 'Line of credit headroom looks viable',
-      detail: 'Healthy cash + margin should support a $50-100k LoC at community-bank pricing. Use the Bank tab simulator to size.',
-    });
     if (d.goals?.revenue && rev.ytdRevenue) {
       const gap = Number(d.goals.revenue) - Number(rev.ytdRevenue);
       if (gap > 0) items.O.push({
@@ -4454,10 +4485,6 @@ window.markDemoActive = markDemoActive;
     if (arCriticalPct > 5) items.T.push({
       title: `${arCriticalPct.toFixed(0)}% of AR is 200+ days old`,
       detail: `${$usd(arCritical)} at material risk of write-off. Establish a 14-day collection-or-discount-or-escalate policy.`,
-    });
-    if (cashRunwayMonths && cashRunwayMonths < 3) items.T.push({
-      title: `Cash runway only ${cashRunwayMonths.toFixed(1)} months`,
-      detail: 'Below 3 months is the danger zone. Establish a 13-week rolling cash forecast and weekly cash standup.',
     });
     if (concentrationPct > 50) items.T.push({
       title: `${concentrationPct.toFixed(0)}% single-client concentration`,
@@ -4575,17 +4602,16 @@ window.markDemoActive = markDemoActive;
     const exec = d.exec || {};
     const aging = d.aging || {};
     const awaiting = d.awaiting || [];
-    const cashFc = Array.isArray(d.cash) ? d.cash : [];
     const trends = d.trends?.periods || [];
     // Pick fields from the most-accurate source for each metric.
     const summary = d.summary || {};
-    const cash = (Array.isArray(cashFc) && cashFc.length)
-      ? Number(cashFc[0]?.projectedBalance) || 0
-      : Number(exec.cashPosition) || 0;
+    const rev = d.rev || {};
     const dso = Number(exec.dso) || 0;
-    const gm = Number(exec.grossMarginPct) || 0;
     const revMoM = Number(rev.momGrowth ?? exec.revenueGrowth?.momGrowth ?? 0);
+    const revYoY = Number(rev.yoyGrowth ?? exec.revenueGrowth?.yoyGrowth ?? 0);
     const overdue = Number(summary.overdueAmount) || Number(exec.overdueAmount) || 0;
+    const arr = Number(rev.arr) || 0;
+    const ytdRev = Number(rev.ytdRevenue) || 0;
 
     const kpi = (label, val, sub, color) => `
       <div class="kpi-pro kpi-pro--${color || 'slate'}">
@@ -4612,10 +4638,6 @@ window.markDemoActive = markDemoActive;
 
     const topOverdue = awaiting.slice(0, 5);
 
-    // Forecast min/end
-    const fcEnd = cashFc.length ? Number(cashFc[cashFc.length - 1].projectedBalance) : null;
-    const fcMin = cashFc.length ? Math.min(...cashFc.map(p => Number(p.projectedBalance))) : null;
-
     const actions = buildCFOActions(d);
 
     return `
@@ -4626,7 +4648,7 @@ window.markDemoActive = markDemoActive;
           <p class="report-hero__sub">${nowLong()} — every number sourced from Xero, refreshed at load.</p>
         </div>
         <div class="report-hero__quick">
-          <div><span>Cash today</span><b>${$usd(cash)}</b></div>
+          <div><span>YTD Revenue</span><b>${$usd(ytdRev)}</b></div>
           <div><span>DSO</span><b>${$num(dso)} days</b></div>
         </div>
       </div>
@@ -4634,22 +4656,10 @@ window.markDemoActive = markDemoActive;
       <section class="report-section">
         <h3>Headline</h3>
         <div class="kpi-pro-grid">
-          ${kpi('Cash position',  $usd(cash),   `${trendArrow[trend(revMoM)]} ${$pct(revMoM)} rev MoM`,   trend(revMoM) === 'up' ? 'emerald' : trend(revMoM) === 'down' ? 'rose' : null)}
+          ${kpi('Revenue MoM',    `${trendArrow[trend(revMoM)]} ${$pct(revMoM)}`, revYoY ? `${$pct(revYoY)} YoY` : null, trend(revMoM) === 'up' ? 'emerald' : trend(revMoM) === 'down' ? 'rose' : null)}
           ${kpi('DSO',            $num(dso) + ' days', dso <= 45 ? '✓ healthy' : dso <= 60 ? 'monitoring' : '↑ collection pressure',   dso <= 45 ? 'emerald' : dso <= 60 ? 'amber' : 'rose')}
-          ${kpi('Gross margin',   $pct(gm),     gm >= 30 ? '✓ healthy unit economics' : gm >= 20 ? 'tightening' : 'pricing pressure',  gm >= 30 ? 'emerald' : gm >= 20 ? 'amber' : 'rose')}
+          ${kpi('ARR',            $usd(arr),    arr > 0 ? 'Annualized run rate' : 'No recurring base detected',                       arr > 0 ? 'emerald' : null)}
           ${kpi('Overdue AR',     $usd(overdue), arTotal > 0 ? `${((overdue / arTotal) * 100).toFixed(0)}% of total AR` : null,        overdue > 0 ? 'rose' : 'emerald')}
-        </div>
-      </section>
-
-      <section class="report-section">
-        <h3>13-Week Cash Forecast</h3>
-        <div class="report-card">
-          <div class="report-card__row" style="justify-content:space-between">
-            <div><span class="muted">Today</span><strong>${$usd(cash)}</strong></div>
-            <div><span class="muted">Trough (next 13w)</span><strong class="${fcMin && fcMin < 0 ? 'text-rose-600' : ''}">${fcMin == null ? '—' : $usd(fcMin)}</strong></div>
-            <div><span class="muted">Projected EoF</span><strong>${fcEnd == null ? '—' : $usd(fcEnd)}</strong></div>
-          </div>
-          <canvas id="cfo-cash-chart" height="120"></canvas>
         </div>
       </section>
 
@@ -4691,18 +4701,20 @@ window.markDemoActive = markDemoActive;
     const exec = d.exec || {};
     const aging = d.aging || {};
     const awaiting = d.awaiting || [];
+    const summary = d.summary || {};
+    const rev = d.rev || {};
     if (Number(exec.dso) > 60) actions.push({ title: 'Tighten collections cadence on >60d invoices', detail: 'Set up weekly statement reminders at d+7, d+14, d+30. Aim to bring DSO under 55 days within a quarter.' });
     if (Number(aging.critical?.total) > 0) actions.push({ title: `Escalate ${$usd(aging.critical.total)} in 200+ day AR`, detail: 'Offer 2% discount for payment within 14 days, otherwise route to formal collections / write-off review.' });
-    if (Number(exec.grossMarginPct) > 0 && Number(exec.grossMarginPct) < 20) actions.push({ title: 'Audit per-client gross margin', detail: 'A few low-margin engagements may be dragging blended margin. Renegotiate or sunset.' });
+    const overdue = Number(summary.overdueAmount) || Number(exec.overdueAmount) || 0;
+    if (overdue > 0) actions.push({ title: `Collect ${$usd(overdue)} in overdue AR`, detail: 'Past-due invoices are the highest-leverage cash lever available right now. Call the top 5 accounts personally this week.' });
     if (awaiting?.[0]) {
       const top = awaiting[0];
       const total = (Number(aging.current?.total)||0) + (Number(aging.aged?.total)||0) + (Number(aging.critical?.total)||0);
       const pct = total > 0 ? (top.totalOutstanding / total) * 100 : 0;
       if (pct > 30) actions.push({ title: `Phone call this week to ${esc(top.contactName)}`, detail: `Single-client concentration at ${pct.toFixed(0)}% of AR — direct conversation typically unlocks payment faster than any other lever.` });
     }
-    if (Array.isArray(d.cash) && d.cash.some(p => Number(p.projectedBalance) < 0)) {
-      actions.push({ title: 'Pull forward inflows for forecast trough', detail: 'Cash forecast dips below zero in the 13-week window. Either accelerate billing or arrange short-term LoC.' });
-    }
+    const revMoM = Number(rev.momGrowth ?? exec.revenueGrowth?.momGrowth ?? 0);
+    if (revMoM < -5) actions.push({ title: `Investigate ${revMoM.toFixed(1)}% MoM revenue decline`, detail: 'Drill into churn vs. invoice-timing vs. new-business slippage so the right lever can be pulled before next cycle.' });
     if (!actions.length) actions.push({ title: 'No urgent finance actions', detail: 'Indicators are within healthy ranges. Use the cycle to strengthen reporting cadence and forecasting accuracy.' });
     return actions;
   }
@@ -4713,17 +4725,15 @@ window.markDemoActive = markDemoActive;
     const rev = d.rev || {};
     const goals = d.goals || {};
     const aging = d.aging || {};
+    const summary = d.summary || {};
     const monthly = Array.isArray(d.monthly) ? d.monthly : (d.monthly?.periods || []);
 
-    // Prefer authoritative sources over exec/summary.
-    const cashFcArr = Array.isArray(d.cash) ? d.cash : [];
-    const cash = cashFcArr.length
-      ? Number(cashFcArr[0]?.projectedBalance) || 0
-      : Number(exec.cashPosition) || 0;
-    const gm = Number(exec.grossMarginPct) || 0;
     const revYoY = Number(rev.yoyGrowth ?? exec.revenueGrowth?.yoyGrowth ?? 0);
     const revMoM = Number(rev.momGrowth ?? exec.revenueGrowth?.momGrowth ?? 0);
     const arr = Number(rev.arr) || 0;
+    const mrr = Number(rev.mrr) || 0;
+    const activeClients = Number(rev.activeClients) || 0;
+    const overdue = Number(summary.overdueAmount) || Number(exec.overdueAmount) || 0;
 
     const goalRev = Number(goals.revenue) || null;
     const ytdRev = Number(rev.ytdRevenue) || 0;
@@ -4753,8 +4763,8 @@ window.markDemoActive = markDemoActive;
         <div class="kpi-pro-grid">
           <div class="kpi-pro kpi-pro--violet"><div class="kpi-pro__label">Revenue (YTD)</div><div class="kpi-pro__value">${$usd(ytdRev)}</div><div class="kpi-pro__sub">${$pct(revYoY)} YoY</div></div>
           <div class="kpi-pro kpi-pro--violet"><div class="kpi-pro__label">ARR</div><div class="kpi-pro__value">${$usd(arr)}</div><div class="kpi-pro__sub">Annualized run rate</div></div>
-          <div class="kpi-pro kpi-pro--violet"><div class="kpi-pro__label">Cash</div><div class="kpi-pro__value">${$usd(cash)}</div><div class="kpi-pro__sub">Position today</div></div>
-          <div class="kpi-pro kpi-pro--violet"><div class="kpi-pro__label">Gross margin</div><div class="kpi-pro__value">${$pct(gm)}</div><div class="kpi-pro__sub">${gm >= 30 ? 'Healthy' : gm >= 20 ? 'Tightening' : 'Under pressure'}</div></div>
+          <div class="kpi-pro kpi-pro--violet"><div class="kpi-pro__label">MRR</div><div class="kpi-pro__value">${$usd(mrr)}</div><div class="kpi-pro__sub">Current month run-rate</div></div>
+          <div class="kpi-pro kpi-pro--violet"><div class="kpi-pro__label">Active Clients</div><div class="kpi-pro__value">${$num(activeClients)}</div><div class="kpi-pro__sub">Billed this month</div></div>
         </div>
       </section>
 
@@ -4789,14 +4799,13 @@ window.markDemoActive = markDemoActive;
     const exec = d.exec || {};
     const rev = d.rev || {};
     const summary = d.summary || {};
-    const cashFcArr = Array.isArray(d.cash) ? d.cash : [];
     const bits = [];
     const revMoM = Number(rev.momGrowth ?? exec.revenueGrowth?.momGrowth ?? 0);
     const revYoY = Number(rev.yoyGrowth ?? exec.revenueGrowth?.yoyGrowth ?? 0);
-    const cash = cashFcArr.length ? Number(cashFcArr[0]?.projectedBalance) || 0 : Number(exec.cashPosition) || 0;
-    const gm = Number(exec.grossMarginPct) || 0;
+    const arr = Number(rev.arr) || 0;
+    const mrr = Number(rev.mrr) || 0;
     if (!isNaN(revMoM)) bits.push(`Revenue is ${revMoM >= 0 ? 'up' : 'down'} <b>${Math.abs(revMoM).toFixed(1)}%</b> MoM and ${revYoY >= 0 ? 'up' : 'down'} <b>${Math.abs(revYoY).toFixed(1)}%</b> YoY.`);
-    bits.push(`Cash position is <b>${$usd(cash)}</b>${gm > 0 ? `, with gross margin holding at <b>${gm.toFixed(1)}%</b>` : ''}.`);
+    if (arr > 0) bits.push(`ARR is <b>${$usd(arr)}</b> (MRR <b>${$usd(mrr)}</b>) — recurring base provides a stable platform.`);
     const overdue = Number(summary.overdueAmount) || Number(exec.overdueAmount) || 0;
     if (overdue > 0) bits.push(`<b>${$usd(overdue)}</b> in AR is past due — material to liquidity if not collected this quarter.`);
     return bits.join(' ');
@@ -4805,10 +4814,13 @@ window.markDemoActive = markDemoActive;
     const out = [];
     const exec = d.exec || {};
     const rev = d.rev || {};
-    if (Number(exec.revenueGrowth?.momGrowth) > 5) out.push({ icon:'fa-arrow-trend-up', color:'emerald', text:'Revenue momentum is positive — invest in what is working.' });
-    if (Number(exec.grossMarginPct) >= 30) out.push({ icon:'fa-shield-halved', color:'emerald', text:'Healthy gross margin — pricing power is intact.' });
+    const revMoM = Number(rev.momGrowth ?? exec.revenueGrowth?.momGrowth ?? 0);
+    const revYoY = Number(rev.yoyGrowth ?? exec.revenueGrowth?.yoyGrowth ?? 0);
+    if (revMoM > 5) out.push({ icon:'fa-arrow-trend-up', color:'emerald', text:`Revenue momentum is positive (+${revMoM.toFixed(1)}% MoM) — invest in what is working.` });
+    if (revYoY > 10) out.push({ icon:'fa-chart-line', color:'emerald', text:`Strong YoY signal (+${revYoY.toFixed(1)}%) — repeatable demand, consider expanding capacity.` });
     if (Number(rev.arr) > 0) out.push({ icon:'fa-rotate', color:'violet', text:`Recurring base of ${$usd(rev.arr)} ARR is a stable platform.` });
     if (Number(exec.dso) > 60) out.push({ icon:'fa-clock', color:'rose', text:'DSO is elevated — clients are slow to pay, watch cash conversion.' });
+    if (Number(rev.activeClients) > 0) out.push({ icon:'fa-users', color:'blue', text:`Active billed clients this month: ${$num(rev.activeClients)}.` });
     if (out.length === 0) out.push({ icon:'fa-circle-info', color:'slate', text:'Indicators are within normal ranges this period.' });
     return out;
   }
@@ -4905,25 +4917,6 @@ window.markDemoActive = markDemoActive;
 
   // ---------- charts ---------------------------------------------------------
   function activateReportCharts(role, d) {
-    if (role === 'cfo') {
-      const el = document.getElementById('cfo-cash-chart');
-      const cash = Array.isArray(d.cash) ? d.cash : [];
-      if (el && cash.length) {
-        new Chart(el.getContext('2d'), {
-          type: 'line',
-          data: {
-            labels: cash.map(p => p.weekLabel),
-            datasets: [{
-              label: 'Projected balance',
-              data: cash.map(p => Number(p.projectedBalance)),
-              borderColor: '#0284c7', backgroundColor: 'rgba(56,189,248,0.12)',
-              fill: true, tension: 0.3,
-            }],
-          },
-          options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } },
-        });
-      }
-    }
     if (role === 'ceo') {
       const el = document.getElementById('ceo-rev-chart');
       const m = Array.isArray(d.monthly) ? d.monthly : (d.monthly?.periods || []);
