@@ -4,6 +4,35 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Gershon.AI · Finance</title>
+        <meta name="robots" content="noindex,nofollow">
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        <script>
+          /* v2.18.0 — hard gate. The dashboard is private, so this runs first:
+             before any markup, chart library or dashboard code gets a chance to
+             execute. It deliberately uses plain fetch rather than axios so the
+             gate still holds if a CDN script fails to load. app.js repeats the
+             check once it boots; this is the belt to that pair of braces.
+             Nothing is ever rendered to a visitor without a live Xero session. */
+          (function () {
+            var token = null;
+            try { token = localStorage.getItem('xero_session'); } catch (e) {}
+
+            function bounce() {
+              try { localStorage.removeItem('xero_session'); } catch (e) {}
+              window.location.replace('/');
+            }
+
+            if (!token) { bounce(); return; }
+
+            // A token can be present but expired or revoked — verify it server-side.
+            try {
+              fetch('/api/auth/status', { headers: { 'X-Session-Token': token } })
+                .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+                .then(function (d) { if (!d || !d.authenticated) bounce(); })
+                .catch(function () { /* transient network error — app.js will retry */ });
+            } catch (e) { /* no fetch — app.js handles it */ }
+          })();
+        </script>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -240,52 +269,17 @@
     </head>
     <body class="bg-gray-50">
         <div id="app">
-            <!-- Login Page (shown by default) -->
-            <div id="loginPage" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-700 px-4">
-                <div class="max-w-md w-full">
-                    <!-- Logo and Title -->
-                    <div class="text-center mb-8">
-                        <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg mb-4">
-                            <i class="fas fa-chart-line text-4xl text-blue-600"></i>
-                        </div>
-                        <h1 class="text-4xl font-bold text-white mb-2">Xero Reports</h1>
-                        <p class="text-blue-100">Accounts Receivable Dashboard</p>
+            <!-- v2.18.0 — Session splash. The sign-in form now lives on the public
+                 home page at "/"; this screen only ever shows for the moment it takes
+                 to validate an existing token. If the token is missing or stale the
+                 visitor is redirected to "/" and never sees any figures. -->
+            <div id="loginPage" class="min-h-screen flex items-center justify-center px-4" style="background:linear-gradient(180deg,#0b1020,#0e1734)">
+                <div class="text-center">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5" style="background:linear-gradient(120deg,#0369a1,#0ea5e9 45%,#13b5ea)">
+                        <i class="fas fa-chart-line text-2xl text-white"></i>
                     </div>
-
-                    <!-- Login Card -->
-                    <div class="bg-white rounded-lg shadow-xl p-8">
-                        <button onclick="loginWithXero()" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-6 rounded-lg hover:from-blue-700 hover:to-blue-800 transition font-semibold text-lg shadow-md">
-                            <i class="fas fa-sign-in-alt mr-2"></i>
-                            Sign in with Xero
-                        </button>
-
-                        <div class="mt-6 text-sm text-gray-600">
-                            <p class="font-semibold mb-2">Features:</p>
-                            <ul class="space-y-2">
-                                <li class="flex items-start">
-                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5"></i>
-                                    <span>Real-time invoice tracking and aging analysis</span>
-                                </li>
-                                <li class="flex items-start">
-                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5"></i>
-                                    <span>Client payment monitoring and trends</span>
-                                </li>
-                                <li class="flex items-start">
-                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5"></i>
-                                    <span>Export to Google Sheets with IMPORTDATA</span>
-                                </li>
-                                <li class="flex items-start">
-                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5"></i>
-                                    <span>Secure OAuth 2.0 authentication</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <p class="text-center text-blue-100 text-sm mt-6">
-                        <i class="fas fa-shield-alt mr-1"></i>
-                        Secure connection to Xero API
-                    </p>
+                    <p class="text-white font-semibold text-lg mb-1">Verifying your Xero session…</p>
+                    <p class="text-sm" style="color:#93a0c9">One moment. <a href="/" style="color:#7dd3fc;font-weight:600">Back to home</a></p>
                 </div>
             </div>
 
@@ -296,7 +290,7 @@
                     <div class="brand">
                         <div class="brand-title"><i class="fas fa-chart-line"></i>Gershon.AI</div>
                         <div class="brand-sub">Finance</div>
-                        <div class="brand-version">v2.17.1 · __BUILD_TIMESTAMP__</div>
+                        <div class="brand-version">v2.18.0 · __BUILD_TIMESTAMP__</div>
                     </div>
                     <a class="nav-item tab-button active" data-tab="dashboard"><i class="fas fa-home"></i>Dashboard</a>
                     <a class="nav-item tab-button" data-tab="invoices"><i class="fas fa-file-invoice-dollar"></i>Invoices</a>
@@ -306,7 +300,7 @@
                     <a class="nav-item tab-button" data-tab="goals"><i class="fas fa-bullseye"></i>Goals</a>
                     <a class="nav-item tab-button" data-tab="valuation"><i class="fas fa-landmark"></i>Valuation</a>
                     <a class="nav-item tab-button" data-tab="bank"><i class="fas fa-university"></i>Bank</a>
-                    <div class="nav-group-label">v2.17.1</div>
+                    <div class="nav-group-label">v2.18.0</div>
                     <a class="nav-item tab-button" data-tab="mom"><i class="fas fa-chart-line"></i>MoM Evolution</a>
                     <a class="nav-item tab-button" data-tab="swot"><i class="fas fa-compass"></i>SWOT</a>
                     <a class="nav-item tab-button" data-tab="reports"><i class="fas fa-user-tie"></i>Exec Reports</a>
