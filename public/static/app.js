@@ -19,21 +19,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   const isAuthenticated = await checkAuthStatus();
   
   if (isAuthenticated) {
-    // Show dashboard, hide login
+    // Show dashboard, hide the session splash
     document.getElementById('loginPage').classList.add('hidden');
     document.getElementById('mainApp').classList.remove('hidden');
     document.getElementById('logoutBtn')?.classList.remove('hidden');
     await loadDashboardData();
     updateSheetsAuthStatus();
   } else {
-    // Show login, hide dashboard - BUT still load demo data for preview
-    document.getElementById('loginPage').classList.remove('hidden');
+    // v2.18.0 — No session, no data. Previously this branch loaded demo figures
+    // "for preview", which meant an anonymous visitor saw a dashboard full of
+    // numbers. Now we clear any stale token and send them to the public home
+    // page without issuing a single data request.
+    console.log('Not authenticated - redirecting to home page');
+    try { localStorage.removeItem('xero_session'); } catch (e) {}
     document.getElementById('mainApp').classList.add('hidden');
     document.getElementById('logoutBtn')?.classList.add('hidden');
-    
-    // Load demo data anyway so user can see the dashboard preview
-    console.log('Not authenticated - loading demo data for preview');
-    await loadDashboardData(); // This will fall back to demo data
+    window.location.replace('/');
   }
 });
 
@@ -45,7 +46,7 @@ function loginWithXero() {
 // Logout
 function logout() {
   localStorage.removeItem('xero_session');
-  window.location.reload();
+  window.location.replace('/');
 }
 
 // Make functions globally available
