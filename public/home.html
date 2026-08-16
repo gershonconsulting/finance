@@ -12,12 +12,22 @@
 <meta name="robots" content="index,follow" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <script>
-  // Already signed in? Go straight to the dashboard — never render marketing over a live session.
-  try {
-    if (localStorage.getItem('xero_session')) {
-      window.location.replace('/app');
-    }
-  } catch (e) { /* localStorage blocked — stay on the landing page */ }
+  /* The home page always renders, signed in or not — it is the product's public
+     face and has to stay reachable to the people who run it. If a Xero session
+     exists we only relabel the calls to action so they lead to the dashboard
+     instead of back through sign-in. (v2.18.1: this used to hard-redirect any
+     signed-in visitor to /app, which made the page invisible to its owners.) */
+  document.addEventListener('DOMContentLoaded', function () {
+    var signedIn = false;
+    try { signedIn = !!localStorage.getItem('xero_session'); } catch (e) {}
+    if (!signedIn) return;
+
+    document.querySelectorAll('a[href="/auth/login"]').forEach(function (a) {
+      a.setAttribute('href', '/app');
+      var label = a.querySelector('.cta-label');
+      if (label) label.textContent = label.getAttribute('data-signed-in') || 'Go to your dashboard';
+    });
+  });
 </script>
 <style>
   :root{
@@ -158,10 +168,10 @@
       <a class="link" href="#how">How it works</a>
       <a class="link" href="#features">Features</a>
       <a class="link" href="#security">Security</a>
-      <a class="link" href="/auth/login">Sign in</a>
+      <a class="link" href="/auth/login"><span class="cta-label" data-signed-in="Dashboard">Sign in</span></a>
       <a class="btn btn-primary" href="/auth/login">
         <svg class="li" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.6"/><path d="M8.4 8.4l7.2 7.2M15.6 8.4l-7.2 7.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Connect Xero
+        <span class="cta-label" data-signed-in="Open dashboard">Connect Xero</span>
       </a>
     </nav>
   </div>
@@ -176,9 +186,9 @@
     <div class="cta-row">
       <a class="btn btn-primary" href="/auth/login">
         <svg class="li" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.6"/><path d="M8.4 8.4l7.2 7.2M15.6 8.4l-7.2 7.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Get started with Xero
+        <span class="cta-label" data-signed-in="Go to your dashboard">Get started with Xero</span>
       </a>
-      <a class="btn btn-lite" href="/auth/login">Already connected? Sign in →</a>
+      <a class="btn btn-lite" href="/auth/login"><span class="cta-label" data-signed-in="Open dashboard →">Already connected? Sign in →</span></a>
     </div>
     <div class="trust">Secure OAuth 2.0 · read-only access to your ledger · nothing is shown until you sign in</div>
 
@@ -274,7 +284,7 @@
       </ul>
       <a class="btn btn-primary" style="width:100%;justify-content:center" href="/auth/login">
         <svg class="li" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.6"/><path d="M8.4 8.4l7.2 7.2M15.6 8.4l-7.2 7.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Sign in with Xero
+        <span class="cta-label" data-signed-in="Go to your dashboard">Sign in with Xero</span>
       </a>
       <p style="text-align:center;color:var(--muted);font-size:.85rem;margin:.9rem 0 0">Questions first? <a href="mailto:support@gershonconsulting.com" style="color:var(--brand);font-weight:600">Talk to us</a>.</p>
     </div>
@@ -288,9 +298,9 @@
     <div class="cta-row">
       <a class="btn btn-primary" href="/auth/login">
         <svg class="li" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.6"/><path d="M8.4 8.4l7.2 7.2M15.6 8.4l-7.2 7.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Get started with Xero
+        <span class="cta-label" data-signed-in="Go to your dashboard">Get started with Xero</span>
       </a>
-      <a class="btn btn-lite" href="/auth/login">Sign in to your dashboard →</a>
+      <a class="btn btn-lite" href="/auth/login"><span class="cta-label" data-signed-in="Open dashboard →">Sign in to your dashboard →</span></a>
     </div>
   </div>
 </section>
@@ -305,7 +315,7 @@
       <a class="link" href="#how">How it works</a>
       <a class="link" href="#features">Features</a>
       <a class="link" href="#security">Security</a>
-      <a class="link" href="/auth/login">Sign in</a>
+      <a class="link" href="/auth/login"><span class="cta-label" data-signed-in="Dashboard">Sign in</span></a>
       <a class="link" href="mailto:support@gershonconsulting.com">Support</a>
     </div>
     <div class="copy">© 2026 Gershon.AI · Finance. Xero-connected finance intelligence for founders, CFOs and their lenders. Xero is a trademark of Xero Limited; Gershon.AI is not affiliated with Xero Limited. All rights reserved.</div>
