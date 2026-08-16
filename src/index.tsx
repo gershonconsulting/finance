@@ -56,6 +56,32 @@ app.use('/api/*', cors());
 // Serve static files from public directory
 app.use('/static/*', serveStatic({ root: './public' }));
 
+// ---------------------------------------------------------------------------
+// v2.18.0 — API session gate.
+// Nothing under /api/* is served to an anonymous caller. Previously several
+// read endpoints (goals, bank inputs, snapshots, MoM, SWOT, role reports and
+// the whole /api/demo/* family) answered without a session, which meant real
+// figures were reachable before login. Everything now needs a Xero session
+// except the handful of routes the login flow itself depends on.
+// ---------------------------------------------------------------------------
+const PUBLIC_API_PATHS = new Set<string>([
+  '/api/health',       // uptime / version probe, carries no ledger data
+  '/api/auth/status',  // the login page asks this to decide where to send you
+  '/api/auto-connect', // returns only a Xero authorisation URL
+]);
+
+app.use('/api/*', async (c, next) => {
+  const path = new URL(c.req.url).pathname;
+  if (PUBLIC_API_PATHS.has(path)) return next();
+  if (c.req.method === 'OPTIONS') return next(); // CORS preflight
+
+  const session = getSession(c);
+  if (!session?.accessToken) {
+    return c.json({ error: 'Not authenticated', authenticated: false }, 401);
+  }
+  return next();
+});
+
 // Session storage - Using client-side tokens instead of server-side Map
 interface SessionData {
   accessToken?: string;
@@ -181,10 +207,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.17.1',
-    releaseDate: '2026-05-22T00:00:00Z',
+    version: '2.18.0',
+    releaseDate: '2026-08-15T10:17:57Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.18.0: Public marketing home page at / with Xero sign-in; dashboard moved to /app behind an auth gate; every /api/* route now requires a session (goals, bank-inputs, snapshots, mom, swot, role reports and the demo endpoints were previously open); no data is rendered before login',
       'v2.17.1: Fix CFO report crash (rev undefined); remove Cash & Gross Margin (data not available yet); auto-backfill MoM from Xero history',
       'v2.17.0: Monthly snapshots (KV) + MoM evolution + SWOT + role views (VP Sales, CFO, CEO)',
       'v2.16.0: Bank tab — line of credit simulator with DSCR, borrowing base, multi-bank approval scoring (community/SBA/fintech)',
@@ -383,7 +410,7 @@ app.get('/auth/callback', async (c) => {
           }
           
           function goToDashboard() {
-            window.location.href = '/';
+            window.location.href = '/app';
           }
           
           // Start diagnostic
@@ -1755,12 +1782,27 @@ app.post('/api/bank-inputs', async (c) => {
   }
 });
 
-// Default route - serve static index.html
-app.get('/', async (c) => {
+// Helper: serve a file out of the Pages asset bucket
+async function serveAsset(c: any, pathname: string) {
   const url = new URL(c.req.url);
-  url.pathname = '/index.html';
+  url.pathname = pathname;
+  url.search = '';
   return (c.env as any).ASSETS.fetch(new Request(url.toString()));
-});
+}
+
+// v2.18.0 — Public marketing home page. No ledger data is rendered here.
+// Visitors land on /, sign in with Xero, and are sent on to /app.
+app.get('/', async (c) => serveAsset(c, '/home.html'));
+
+// The dashboard itself. The page runs its own client-side session check and
+// bounces back to / when there is no Xero session.
+app.get('/app', async (c) => serveAsset(c, '/index.html'));
+
+// Legacy deep link — the dashboard used to be served at /index.html
+app.get('/index.html', async (c) => c.redirect('/app', 302));
+
+// NOTE: the fallback for unmatched paths is registered as a catch-all at the
+// very bottom of this file — it has to come after every other route.
 
 
 // =============================================================================
@@ -2001,6 +2043,54 @@ app.post('/api/extract/conversion-rates', async (c) => {
     await c.env.GOALS_KV.put('conversion-rates', JSON.stringify(conv));
     return c.json({ ok: true, conversion: conv });
   } catch (e: any) { return c.json({ error: e.message }, 400); }
+});
+
+// ---------------------------------------------------------------------------
+// v2.18.0 — Catch-all. Must stay the LAST route in this file.
+// Unmatched paths previously threw "Context is not finalized" and returned a
+// 500 — every /favicon.ico request did it. Try the static asset bucket first,
+// then answer with a proper 404 (JSON for /api/*, a branded page otherwise).
+// ---------------------------------------------------------------------------
+const NOT_FOUND_PAGE =
+  `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">` +
+  `<meta name="viewport" content="width=device-width,initial-scale=1">` +
+  `<meta name="robots" content="noindex"><title>Not found · Gershon.AI Finance</title></head>` +
+  `<body style="margin:0;min-height:100vh;display:grid;place-items:center;` +
+  `font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;` +
+  `background:linear-gradient(180deg,#0b1020,#0e1734);color:#eaf0ff;text-align:center">` +
+  `<div><p style="font-size:3.2rem;font-weight:800;margin:0;letter-spacing:-.03em">404</p>` +
+  `<p style="color:#93a0c9;margin:.4rem 0 1.5rem">That page doesn't exist.</p>` +
+  `<a href="/" style="color:#7dd3fc;font-weight:600;text-decoration:none">&larr; Back to home</a>` +
+  `</div></body></html>`;
+
+// Browsers ask for /favicon.ico unprompted; we ship an SVG mark.
+app.get('/favicon.ico', async (c) => c.redirect('/favicon.svg', 301));
+
+const STATIC_FILE = /\.(css|js|mjs|map|json|txt|xml|svg|png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|pdf|csv|webmanifest)$/i;
+
+app.all('*', async (c) => {
+  const pathname = new URL(c.req.url).pathname;
+
+  // Real static files (fonts, images, extra scripts) still come from the
+  // asset bucket. Everything else gets a 404 — note that Cloudflare Pages
+  // answers unknown paths with a 200 + index.html SPA fallback, so we only
+  // accept a non-HTML response here. Otherwise every typo'd URL would quietly
+  // serve the dashboard shell.
+  if (!pathname.startsWith('/api/') && STATIC_FILE.test(pathname)) {
+    try {
+      const assets = (c.env as any)?.ASSETS;
+      if (assets) {
+        const res = await assets.fetch(c.req.raw);
+        const type = res?.headers?.get('content-type') || '';
+        if (res && res.status === 200 && !type.includes('text/html')) return res;
+      }
+    } catch (e) { /* no asset bucket bound — fall through to the 404 below */ }
+  }
+
+  if (pathname.startsWith('/api/')) {
+    return c.json({ error: 'Not found', path: pathname }, 404);
+  }
+  return c.html(NOT_FOUND_PAGE, 404);
 });
 
 export default app;

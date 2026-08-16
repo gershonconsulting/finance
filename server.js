@@ -646,8 +646,18 @@ app.get('/api/demo/clients-awaiting-payment', (c) => {
   ])
 })
 
-// Default route - serve the dashboard
+// v2.18.0 — public marketing home page (local dev parity with the Worker)
 app.get('/', async (c) => {
+  try {
+    const homePath = path.join(__dirname, 'public', 'home.html')
+    return c.html(await fs.readFile(homePath, 'utf-8'))
+  } catch (error) {
+    return c.redirect('/app', 302)
+  }
+})
+
+// Dashboard - serve behind the client-side session gate in index.html
+app.get('/app', async (c) => {
   try {
     const htmlPath = path.join(__dirname, 'public', 'index.html')
     const html = await fs.readFile(htmlPath, 'utf-8')
