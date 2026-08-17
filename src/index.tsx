@@ -207,10 +207,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.18.1',
-    releaseDate: '2026-08-16T17:31:29Z',
+    version: '2.18.2',
+    releaseDate: '2026-08-17T09:38:20Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.18.2: Home page hero now shows a real product screenshot of the dashboard (sample data) with key-insight callouts, replacing the abstract three-stage diagram',
       'v2.18.1: Home page no longer hard-redirects signed-in visitors to /app — it always renders, and only relabels its CTAs to point at the dashboard when a session exists',
       'v2.18.0: Public marketing home page at / with Xero sign-in; dashboard moved to /app behind an auth gate; every /api/* route now requires a session (goals, bank-inputs, snapshots, mom, swot, role reports and the demo endpoints were previously open); no data is rendered before login',
       'v2.17.1: Fix CFO report crash (rev undefined); remove Cash & Gross Margin (data not available yet); auto-backfill MoM from Xero history',
