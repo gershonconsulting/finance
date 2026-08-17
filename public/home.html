@@ -96,6 +96,13 @@
   .stage ul li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brand2);flex:none}
   .arrow{display:grid;place-items:center;color:#5f6ea3;font-size:1.4rem;padding:0 6px}
 
+  .mock .shot{display:block;width:100%;height:auto;border-bottom:1px solid rgba(19,181,234,.16)}
+  .callouts{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(19,181,234,.16)}
+  .callouts>div{background:#0c1430;padding:14px 16px}
+  .callouts b{display:block;color:#fff;font-size:.98rem;letter-spacing:-.01em}
+  .callouts span{display:block;color:#93a7d4;font-size:.8rem;margin-top:3px;line-height:1.4}
+  @media(max-width:760px){.callouts{grid-template-columns:1fr 1fr}}
+
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-top:-40px;position:relative;z-index:5;box-shadow:var(--shadow)}
   @media(max-width:720px){.stats{grid-template-columns:repeat(2,1fr)}}
   .stat{background:#fff;padding:22px 18px;text-align:center}
@@ -193,28 +200,14 @@
     <div class="trust">Secure OAuth 2.0 · read-only access to your ledger · nothing is shown until you sign in</div>
 
     <div class="mock">
-      <div class="bar"><i></i><i></i><i></i><span class="u">finance.gershoncrm.com/app</span><span class="lock">🔒 Sign-in required</span></div>
-      <div class="flow">
-        <div class="stage">
-          <h4>1 · Connect</h4>
-          <div class="big">Your Xero org</div>
-          <div class="lbl">authorised once, in a click</div>
-          <ul><li>Invoices &amp; contacts</li><li>P&amp;L and balance sheet</li><li>Bank transactions</li></ul>
-        </div>
-        <div class="arrow">→</div>
-        <div class="stage">
-          <h4>2 · Analyse</h4>
-          <div class="big">Every angle</div>
-          <div class="lbl">receivables, cash, growth, risk</div>
-          <ul><li>Aging &amp; collections risk</li><li>MRR / ARR and MoM trend</li><li>Cash flow forecast</li></ul>
-        </div>
-        <div class="arrow">→</div>
-        <div class="stage">
-          <h4>3 · Decide</h4>
-          <div class="big">Board-ready</div>
-          <div class="lbl">reports built for the room you're in</div>
-          <ul><li>CEO, CFO &amp; VP Sales views</li><li>Valuation &amp; SWOT</li><li>Bank credit pack</li></ul>
-        </div>
+      <div class="bar"><i></i><i></i><i></i><span class="u">finance.gershoncrm.com/app</span><span class="lock">Sample data</span></div>
+      <img class="shot" src="/dashboard-shot.jpg" width="1280" height="627" decoding="async"
+           alt="The Gershon.AI Finance dashboard: total outstanding and overdue receivables, a recurring revenue panel showing MRR, ARR, year-to-date and projected end-of-year revenue, and invoice counts split across draft, awaiting payment and overdue." />
+      <div class="callouts">
+        <div><b>$28,400 overdue</b><span>surfaced the moment it passes terms</span></div>
+        <div><b>MRR +18.5%</b><span>month on month, from real invoice history</span></div>
+        <div><b>$612k projected</b><span>end of year, on your current pace</span></div>
+        <div><b>156 invoices</b><span>aged, ranked and export-ready</span></div>
       </div>
     </div>
   </div>
