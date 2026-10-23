@@ -192,7 +192,11 @@ app.js is still untouched.
   - Demo "Paid / unpaid" and "Late invoices" cards no longer show 0 / 0
     and 0.0% collection rate.
   - Version 2.19.0 -> 2.19.1 (sidebar, /api/health, package.json, home
-    page footer).
+    page footer). The sidebar version and the ?v= cache-buster on the theme
+    files are now stamped from package.json at build time by
+    scripts/inject-timestamp.mjs, so public/index.html (120 KB, too big to
+    push comfortably from the nightly box) still reads v2.19.0 in source but
+    the built/deployed page shows v2.19.1. Future bumps: package.json only.
   - Checked: all 13 tabs in demo mode at 1366px and 390px with Playwright:
     0 console errors, no NaN on screen, badge DEMO on every tab, no
     sideways scroll.
