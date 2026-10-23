@@ -1,0 +1,175 @@
+================================================================
+HANDOFF.txt  -  finance
+Written by: Claude (nightly run) - token-limit handoff protocol
+Date: 2026-10-22 (night of 2026-10-21 ET)
+Reason: every repo must carry a handoff so another AI can continue
+        from this file alone.
+================================================================
+
+0. WHO YOU ARE READING THIS
+----------------------------------------------------------------
+You are an AI assistant taking over this repository for Olivier Attia,
+founder / CTO of Gershon Consulting LLC.
+
+Read the MASTER HANDOFF first:
+  github.com/gershonconsulting/memory -> HANDOFF.txt
+
+CRITICAL OPERATING RULES:
+  * Olivier does NOT use a terminal, CLI, git or PowerShell. Never give
+    him commands or 'just run this' steps.
+  * He does NOT upload/download/move files. YOU find the route.
+  * End every actionable reply with:
+      GREEN CHECK = ready for him to test (+ link)
+      RED CROSS   = something still to do (+ exactly 3 options he can
+                    action - never a CLI step)
+  * Executors: Ariel = code/repo work. Charles = Chrome extension and web
+    admin panels (Cloudflare, GitHub settings, DNS, publishing).
+
+1. WHAT THIS REPO IS
+----------------------------------------------------------------
+Product / site name : Gershon.AI Finance (package gershon-finance, v2.19.0
+                      on the 2026-10-23 branch; v2.18.2 live)
+Live URL            : https://finance.gershoncrm.com (also
+                      gershon-finance.pages.dev)
+What it does        : Xero-backed accounts-receivable dashboard and weekly
+                      account report. Public home page with Xero sign-in at /,
+                      dashboard at /app, API under /api/*, 3 /api/sheets
+                      routes feeding Google Sheets via IMPORTDATA. Source of
+                      the weekly account report emailed by scheduled Task #09.
+Who uses it         : Olivier and the finance recipients of the weekly report.
+
+2. STACK AND DEPLOY ROUTE
+----------------------------------------------------------------
+Language / framework: TypeScript/JS, Hono on Cloudflare Pages/Workers, Vite
+                      build (`npm run build`, postbuild injects timestamp),
+                      jose for sessions. Entry: src/index.tsx.
+Hosting             : Cloudflare Pages project `gershon-finance` (exception to
+                      the Hostinger default). KV binding GOALS_KV in
+                      wrangler.jsonc.
+DNS / registrar     : Tierra.net; Cloudflare. Custom domain
+                      finance.gershoncrm.com.
+Deploy method       : GitHub Actions on push to main
+                      (.github/workflows/deploy.yml): npm install, npm run
+                      build, `wrangler pages deploy dist --project-name
+                      gershon-finance`.
+Default branch      : main
+How to ship a change: PR -> merge to main -> workflow deploys. Bump version in
+                      package.json and the in-app changelog.
+Secrets / env vars  : GitHub secrets: CLOUDFLARE_API_TOKEN,
+                      CLOUDFLARE_ACCOUNT_ID. Pages secrets: XERO_CLIENT_ID,
+                      XERO_CLIENT_SECRET, XERO_REDIRECT_URI (callback
+                      https://finance.gershoncrm.com/auth/callback). Values in
+                      1Password. The repo root has many legacy docs (e.g.
+                      XERO_CREDENTIALS.md, SECURITY_CREDENTIALS.md) - treat
+                      them as sensitive and have Ariel audit them for any
+                      embedded values (unverified; not opened in this run).
+
+3. RECENTLY DONE  [DONE]
+----------------------------------------------------------------
+- v2.18.0 (2026-08-16): public home page, dashboard moved to /app, EVERY
+  /api/* route now requires a Xero session.
+- v2.18.1: home page always renders; v2.18.2 (2026-08-17): hero shows real
+  dashboard screenshot. Last commit da91f8c, 2026-08-17.
+- Cash position, DSO, gross margin removed in v2.17.1 (feed never populated).
+
+4. PENDING  [TODO]
+----------------------------------------------------------------
+- Restore automated access for the weekly report (see section 6).
+- Fix or annotate Google Sheets wired to /api/sheets/* (stale since 17 Aug).
+- Decide whether to retire scheduled Task #09 (10+ consecutive missed
+  weekly reports per Olivier's memory areas/finance-gershoncrm.md).
+
+5. MISSING / NOT BUILT YET
+----------------------------------------------------------------
+- Service-token / read-only machine access to /api/*.
+- Durable Xero refresh-token storage for browser-less callers (older code
+  used an in-memory Map that does not survive Worker restarts; KV may be
+  needed).
+
+6. KNOWN BUGS / NEEDS FIXING
+----------------------------------------------------------------
+- AUTH GATE (since v2.18.0): all 15 gated routes return 401 to unattended
+  callers, so the weekly report cannot run. Not a Xero logout. /api/health,
+  / and /app return 200. A nonexistent route returns a byte-identical 401, so
+  probing /api/report/weekly tells you nothing while the gate is up.
+- Gate hook located: getSession(c) in src/index.tsx already accepts a token
+  via the X-Session-Token header; each route repeats
+  `if (!session?.accessToken) return 401`.
+- Recommended fix (needs Olivier's go-ahead): accept a read-only REPORT_TOKEN
+  secret inside getSession, resolve to stored Xero credentials, refuse writes.
+  Ruled out by Olivier: unguessable public URL and browser-session options.
+
+7. NEXT ACTION - START HERE
+----------------------------------------------------------------
+The single most valuable next step is:
+  -> On Olivier's 'go', open a PR adding the read-only REPORT_TOKEN path in
+     getSession (plus KV persistence for the Xero refresh token), then have
+     Charles add the secret in Cloudflare Pages.
+
+8. GOTCHAS / HARD-WON LESSONS
+----------------------------------------------------------------
+- ~90 legacy .md/.txt status docs from the Genspark/sandbox era sit at the
+  root (DEPLOY_*, FIX_*, GENSPARK_*, CURRENT_STATUS.txt with dead novita.ai
+  sandbox URLs). They are historical noise; README.md and this file are the
+  starting points. Consider archiving into /docs.
+- DEPLOY.md shows npx commands - for Charles/Ariel only, never for Olivier.
+- Never paste secrets into chat; rotate any that were.
+- Weekly email is sent from finance@gershon.ai via Resend (see memory
+  areas/report-delivery-via-resend).
+
+9. CONTACT / ESCALATION
+----------------------------------------------------------------
+Olivier Attia - oattia@gmail.com
+Report mailbox - report@gershonconsulting.com
+
+10. 2026-10-23 nightly - UNIFIED GERSHON DESIGN (v2.19.0)
+----------------------------------------------------------------
+Branch nightly/2026-10-23-finance-unified (PR to main, NOT merged).
+Note: this file started as a copy of PR #8's HANDOFF.txt (2026-10-22) with
+this section added. If PR #8 merges first, keep this version.
+
+[DONE - ready to test once merged]
+  - Whole app re-skinned to the Linalysis layout in Gershon.ai red #CC3333:
+    white 240px sidebar with red active pill, white 12px-radius cards,
+    #1d1d1f text, #e5e7eb borders, red buttons / tabs / focus rings.
+  - New file public/static/unified-theme.css re-maps the old Tailwind
+    blue / indigo / purple brand classes to red inside the dashboard.
+  - Money colours KEPT: green = paid/healthy, orange = aged/unpaid,
+    red = overdue/critical. Big brand figures that were blue/purple are now
+    neutral ink, and the Recurring Revenue + Valuation panels are charcoal
+    (not red) so red on screen always means "money at risk".
+  - Home page (/) is now light with red accents; the hero picture is now
+    public/dashboard-shot.svg, a hand-drawn vector of the new dashboard
+    (binary images cannot be pushed from the nightly box; the old
+    dashboard-shot.jpg is left in place but no longer used).
+  - Session splash, Xero sign-in callback page and 404 page restyled.
+    The callback page no longer prints part of the session token on screen.
+  - Charts: main revenue/invoiced series now red; best month stays amber.
+    Done in public/static/unified-theme.js (a small Chart.js plugin loaded
+    after app.js) so the 240 KB app.js is untouched.
+  - Phone (390px): no sideways scroll on any of the 13 tabs (wide tables
+    scroll inside their card, button rows wrap); menu drawer has a dimmed
+    backdrop and sits above the demo banner; demo banner no longer covers
+    the top bar; Invoice Status chart no longer squashed.
+  - Sidebar group label that said "v2.18.2" now says "Reports".
+  - Demo mode: Avg Revenue/Client no longer crashes (missing field).
+  - Version 2.18.2 -> 2.19.0 (sidebar, /api/health, package.json, footer
+    of the home page).
+
+[NOT DONE / still open]
+  - server.js (old Node/Genspark server, not used by Cloudflare) untouched.
+  - Pre-existing demo-mode glitches: "Running NaN% behind projection",
+    two console errors on other tabs (toFixed / null textContent), the
+    badge flips to "Live Data" on some tabs while in demo mode.
+  - Xero client ID AND client secret are hard-coded in src/index.tsx and
+    server.js as fallbacks. Should live only in Cloudflare Pages secrets and
+    be rotated - needs Olivier's go-ahead (secrets change).
+  - The Google Sheets tab still shows =IMPORTDATA(...) links to
+    /api/export/*; since v2.18.0 those need a login, which Google Sheets
+    cannot send, so the links return "Not authenticated" (same root cause
+    as section 6).
+  - Everything in sections 4-7 above (weekly report auth gate) unchanged.
+
+================================================================
+END OF HANDOFF
+================================================================
