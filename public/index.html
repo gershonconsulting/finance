@@ -43,16 +43,17 @@
         /* v2.17.0 — Linalysis-style sidebar layout, scoped to mainApp.
            Login screen (#loginPage) keeps its own existing styling. */
         :root {
-          --sidebar-w: 232px;
+          /* v2.19.0 — unified Gershon design: Linalysis layout in Gershon.ai red */
+          --sidebar-w: 240px;
           --topbar-h: 56px;
-          --brand: #6366f1;
-          --brand-dark: #4338ca;
-          --brand-light: #eef2ff;
+          --brand: #CC3333;
+          --brand-dark: #a8281f;
+          --brand-light: #fdf2f2;
           --border: #e5e7eb;
-          --bg: #f8fafc;
+          --bg: #fafafa;
           --card: #ffffff;
-          --text: #1f2937;
-          --text-muted: #64748b;
+          --text: #1d1d1f;
+          --text-muted: #6e6e73;
         }
         #mainApp { display: block; min-height: 100vh; background: var(--bg); }
         #mainApp.app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; }
@@ -126,12 +127,14 @@
         .menu-toggle { display: none; }
         @media (max-width: 900px) {
           #mainApp.app { grid-template-columns: 1fr; }
-          .sidebar { position: fixed; top: 0; left: -100%; width: 240px; z-index: 50; transition: left .2s ease; }
-          .sidebar.open { left: 0; }
+          .sidebar { position: fixed; top: 0; left: -100%; width: 260px; max-width: 82vw; z-index: 50; transition: left .2s ease; }
+          .sidebar.open { left: 0; box-shadow: 0 20px 60px rgba(29,29,31,.25); }
+          .sidebar.open + .sidebar-backdrop { display: block; }
           .menu-toggle { display: inline-flex; }
           .topbar { padding: 0 14px; }
           .content { padding: 16px; }
         }
+        .sidebar-backdrop { display: none; position: fixed; inset: 0; z-index: 45; background: rgba(29,29,31,.35); }
         .menu-toggle {
           width: 34px; height: 34px; border-radius: 8px;
           align-items: center; justify-content: center; font-size: 18px;
@@ -149,9 +152,9 @@
           box-shadow: 0 10px 30px -10px rgba(15,23,42,0.4);
           gap: 24px; flex-wrap: wrap;
         }
-        .report-hero--cfo   { background: linear-gradient(135deg,#0c4a6e,#0284c7 60%,#38bdf8); }
-        .report-hero--ceo   { background: linear-gradient(135deg,#3b0764,#7c3aed 60%,#a78bfa); }
-        .report-hero--sales { background: linear-gradient(135deg,#064e3b,#059669 60%,#34d399); }
+        .report-hero--cfo   { background: linear-gradient(135deg,#7a1d16,#a8281f 45%,#CC3333); }
+        .report-hero--ceo   { background: linear-gradient(135deg,#a8281f,#CC3333 60%,#e06a6a); }
+        .report-hero--sales { background: linear-gradient(135deg,#1d1d1f,#5a1a14 55%,#a8281f); }
         .report-hero__eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity:.85; }
         .report-hero__eyebrow i { margin-right: 6px; }
         .report-hero__title { font-size: 26px; font-weight: 800; margin: 6px 0 4px; letter-spacing: -0.01em; }
@@ -182,7 +185,7 @@
         .kpi-pro::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background: var(--brand); border-radius: 4px 0 0 4px; }
         .kpi-pro--emerald::before { background:#10b981; } .kpi-pro--rose::before { background:#f43f5e; }
         .kpi-pro--amber::before   { background:#f59e0b; } .kpi-pro--sky::before  { background:#0ea5e9; }
-        .kpi-pro--violet::before  { background:#8b5cf6; } .kpi-pro--slate::before{ background:#64748b; }
+        .kpi-pro--violet::before  { background:#CC3333; } .kpi-pro--slate::before{ background:#64748b; }
         .kpi-pro__label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing:.05em; }
         .kpi-pro__value { font-size: 26px; font-weight: 800; margin-top: 4px; letter-spacing: -0.01em; }
         .kpi-pro__sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
@@ -254,11 +257,11 @@
         .role-tab i { font-size: 14px; }
 
         .progress-bar { background:#f1f5f9; border-radius: 999px; height: 10px; overflow: hidden; }
-        .progress-bar span { display: block; height: 100%; background: linear-gradient(90deg,#7c3aed,#a78bfa); }
+        .progress-bar span { display: block; height: 100%; background: linear-gradient(90deg,#a8281f,#CC3333); }
 
         .ceo-narrative {
           background: linear-gradient(135deg,#fafafa,#fff);
-          border:1px solid var(--border); border-left: 4px solid #7c3aed;
+          border:1px solid var(--border); border-left: 4px solid #CC3333;
           border-radius: 12px; padding: 16px 18px; font-size: 14px; line-height: 1.65;
         }
         .signal-list { list-style:none; padding:0; margin:0; display:grid; gap: 10px; }
@@ -266,6 +269,8 @@
         .signal-list li i { font-size: 14px; margin-top: 3px; }
 
         </style>
+        <!-- v2.19.0 — unified Gershon design layer (re-maps Tailwind brand colours to #CC3333) -->
+        <link href="/static/unified-theme.css?v=2.19.0" rel="stylesheet">
     </head>
     <body class="bg-gray-50">
         <div id="app">
@@ -273,13 +278,13 @@
                  home page at "/"; this screen only ever shows for the moment it takes
                  to validate an existing token. If the token is missing or stale the
                  visitor is redirected to "/" and never sees any figures. -->
-            <div id="loginPage" class="min-h-screen flex items-center justify-center px-4" style="background:linear-gradient(180deg,#0b1020,#0e1734)">
+            <div id="loginPage" class="min-h-screen flex items-center justify-center px-4" style="background:linear-gradient(160deg,#ffffff 0%,#fafafa 55%,#fdf2f2 100%)">
                 <div class="text-center">
-                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5" style="background:linear-gradient(120deg,#0369a1,#0ea5e9 45%,#13b5ea)">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5" style="background:#CC3333">
                         <i class="fas fa-chart-line text-2xl text-white"></i>
                     </div>
-                    <p class="text-white font-semibold text-lg mb-1">Verifying your Xero session…</p>
-                    <p class="text-sm" style="color:#93a0c9">One moment. <a href="/" style="color:#7dd3fc;font-weight:600">Back to home</a></p>
+                    <p class="font-semibold text-lg mb-1" style="color:#1d1d1f">Verifying your Xero session…</p>
+                    <p class="text-sm" style="color:#6e6e73">One moment. <a href="/" style="color:#CC3333;font-weight:600">Back to home</a></p>
                 </div>
             </div>
 
@@ -290,7 +295,7 @@
                     <div class="brand">
                         <div class="brand-title"><i class="fas fa-chart-line"></i>Gershon.AI</div>
                         <div class="brand-sub">Finance</div>
-                        <div class="brand-version">v2.18.2 · __BUILD_TIMESTAMP__</div>
+                        <div class="brand-version">v2.19.0 · __BUILD_TIMESTAMP__</div>
                     </div>
                     <a class="nav-item tab-button active" data-tab="dashboard"><i class="fas fa-home"></i>Dashboard</a>
                     <a class="nav-item tab-button" data-tab="invoices"><i class="fas fa-file-invoice-dollar"></i>Invoices</a>
@@ -300,7 +305,7 @@
                     <a class="nav-item tab-button" data-tab="goals"><i class="fas fa-bullseye"></i>Goals</a>
                     <a class="nav-item tab-button" data-tab="valuation"><i class="fas fa-landmark"></i>Valuation</a>
                     <a class="nav-item tab-button" data-tab="bank"><i class="fas fa-university"></i>Bank</a>
-                    <div class="nav-group-label">v2.18.2</div>
+                    <div class="nav-group-label">Reports</div>
                     <a class="nav-item tab-button" data-tab="mom"><i class="fas fa-chart-line"></i>MoM Evolution</a>
                     <a class="nav-item tab-button" data-tab="swot"><i class="fas fa-compass"></i>SWOT</a>
                     <a class="nav-item tab-button" data-tab="reports"><i class="fas fa-user-tie"></i>Exec Reports</a>
@@ -313,6 +318,7 @@
                         <button id="logoutBtn" onclick="logout()" class="mt-2 w-full px-3 py-2 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;"><i class="fas fa-sign-out-alt"></i>Logout</button>
                     </div>
                 </aside>
+                <div class="sidebar-backdrop" onclick="document.querySelector('.sidebar').classList.remove('open')"></div>
 
                 <!-- Main column -->
                 <main>
@@ -528,7 +534,7 @@
                                 <i class="fas fa-table mr-2"></i>Export to Google Sheets
                             </button>
                         </div>
-                        <canvas id="invoiceChart" height="80"></canvas>
+                        <div class="chart-box" style="position:relative;height:300px"><canvas id="invoiceChart"></canvas></div>
                     </div>
 
                     <!-- Invoice Aging Groups -->
@@ -1735,5 +1741,6 @@
         <script src="/static/fix-urls.js"></script>
 
 <script src="/static/app.js"></script>
+<script src="/static/unified-theme.js?v=2.19.0"></script>
     </body>
     </html>
