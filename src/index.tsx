@@ -207,10 +207,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.19.0',
-    releaseDate: '2026-10-23T02:00:00Z',
+    version: '2.19.1',
+    releaseDate: '2026-10-23T05:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.19.1: Demo mode fixes — no more "Running NaN% behind projection"; the status badge always says DEMO in demo mode (and stays "Demo data" once a card falls back to demo data); Invoices, Valuation and Reports tabs no longer log errors in demo mode (sample invoice list, complete valuation figures, old Reports renderer no longer crashes)',
       'v2.19.0: Unified Gershon design — Linalysis-style white sidebar with a red active pill, white 12px cards, Gershon.ai red #CC3333 for buttons/tabs/focus rings/charts across the home page, session screen, Xero sign-in callback and dashboard; money colours kept (green = paid, orange = aged, red = overdue); phone layout fixes (menu backdrop, demo banner no longer covers the top bar); the sign-in callback no longer prints part of the session token on screen',
       'v2.18.2: Home page hero now shows a real product screenshot of the dashboard (sample data) with key-insight callouts, replacing the abstract three-stage diagram',
       'v2.18.1: Home page no longer hard-redirects signed-in visitors to /app — it always renders, and only relabels its CTAs to point at the dashboard when a session exists',
