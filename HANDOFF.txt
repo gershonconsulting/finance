@@ -27,7 +27,7 @@ CRITICAL OPERATING RULES:
 
 1. WHAT THIS REPO IS
 ----------------------------------------------------------------
-Product / site name : Gershon.AI Finance (package gershon-finance, v2.19.0
+Product / site name : Gershon.AI Finance (package gershon-finance, v2.19.1
                       on the 2026-10-23 branch; v2.18.2 live)
 Live URL            : https://finance.gershoncrm.com (also
                       gershon-finance.pages.dev)
@@ -158,9 +158,8 @@ this section added. If PR #8 merges first, keep this version.
 
 [NOT DONE / still open]
   - server.js (old Node/Genspark server, not used by Cloudflare) untouched.
-  - Pre-existing demo-mode glitches: "Running NaN% behind projection",
-    two console errors on other tabs (toFixed / null textContent), the
-    badge flips to "Live Data" on some tabs while in demo mode.
+  - (Demo-mode glitches listed here last night are fixed in v2.19.1,
+    see section 11.)
   - Xero client ID AND client secret are hard-coded in src/index.tsx and
     server.js as fallbacks. Should live only in Cloudflare Pages secrets and
     be rotated - needs Olivier's go-ahead (secrets change).
@@ -169,6 +168,38 @@ this section added. If PR #8 merges first, keep this version.
     cannot send, so the links return "Not authenticated" (same root cause
     as section 6).
   - Everything in sections 4-7 above (weekly report auth gate) unchanged.
+
+11. 2026-10-23 nightly (later run) - DEMO MODE FIXES (v2.19.1)
+----------------------------------------------------------------
+Same branch / PR #9. All fixes live in public/static/unified-theme.js;
+app.js is still untouched.
+
+[DONE - ready to test once merged]
+  - "Running NaN% behind projection" is gone: the demo figures now get a
+    pace-vs-projection number (ARR vs projected end of year).
+  - Status badge: in demo mode it always says DEMO. Before, the Clients,
+    Trends and later tabs flipped it to "Live Data". Outside demo mode,
+    once a card has fallen back to demo data the badge stays "Demo data"
+    instead of being flipped back to "Live Data" by a later tab.
+  - The 3 demo-mode console errors (also on main) are fixed:
+      1. Invoices tab called the real API and logged "Error loading
+         invoices" -> demo mode now has a sample list of 24 invoices.
+      2. Valuation tab crashed (toFixed) and showed $NaN -> demo figures
+         completed (ARR, low/mid/high, growth, churn, NRR, LTV, Rule of 40).
+      3. Reports tab crashed (null textContent) because an older Reports
+         renderer still runs on click -> it now writes to a hidden spare
+         panel; the visible CFO/CEO/VP Sales reports are unchanged.
+  - Demo "Paid / unpaid" and "Late invoices" cards no longer show 0 / 0
+    and 0.0% collection rate.
+  - Version 2.19.0 -> 2.19.1 (sidebar, /api/health, package.json, home
+    page footer).
+  - Checked: all 13 tabs in demo mode at 1366px and 390px with Playwright:
+    0 console errors, no NaN on screen, badge DEMO on every tab, no
+    sideways scroll.
+
+[NOT DONE / still open]
+  - Same open items as section 10 (Xero secret in code, Google Sheets
+    IMPORTDATA links needing login, weekly report auth).
 
 ================================================================
 END OF HANDOFF
