@@ -207,10 +207,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.18.2',
-    releaseDate: '2026-08-17T09:38:20Z',
+    version: '2.19.0',
+    releaseDate: '2026-10-23T02:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.19.0: Unified Gershon design — Linalysis-style white sidebar with a red active pill, white 12px cards, Gershon.ai red #CC3333 for buttons/tabs/focus rings/charts across the home page, session screen, Xero sign-in callback and dashboard; money colours kept (green = paid, orange = aged, red = overdue); phone layout fixes (menu backdrop, demo banner no longer covers the top bar); the sign-in callback no longer prints part of the session token on screen',
       'v2.18.2: Home page hero now shows a real product screenshot of the dashboard (sample data) with key-insight callouts, replacing the abstract three-stage diagram',
       'v2.18.1: Home page no longer hard-redirects signed-in visitors to /app — it always renders, and only relabels its CTAs to point at the dashboard when a session exists',
       'v2.18.0: Public marketing home page at / with Xero sign-in; dashboard moved to /app behind an auth gate; every /api/* route now requires a session (goals, bank-inputs, snapshots, mom, swot, role reports and the demo endpoints were previously open); no data is rendered before login',
@@ -381,68 +382,61 @@ app.get('/auth/callback', async (c) => {
     // Redirect to dashboard with session
     return c.html(`
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
       <head>
-        <title>Authentication Successful</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <meta name="robots" content="noindex">
+        <title>Signing you in · Gershon.AI Finance</title>
         <style>
-          body { font-family: Arial; padding: 40px; max-width: 800px; margin: 0 auto; }
-          .status { padding: 15px; margin: 10px 0; border-radius: 5px; }
-          .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
-          .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
-          .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
-          code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
-          button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
-          button:hover { background: #0056b3; }
+          body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; box-sizing:border-box;
+                 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                 color:#1d1d1f; background:linear-gradient(160deg,#ffffff 0%,#fafafa 55%,#fdf2f2 100%); }
+          .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:32px 28px; max-width:420px; width:100%; text-align:center; box-shadow:0 18px 50px rgba(29,29,31,.08); }
+          .mark { width:52px; height:52px; border-radius:12px; background:#CC3333; display:inline-grid; place-items:center; margin-bottom:14px; }
+          h1 { font-size:20px; margin:0 0 6px; letter-spacing:-0.01em; }
+          p { color:#6e6e73; margin:0 0 18px; font-size:14px; }
+          .status { font-size:13px; padding:10px 12px; border-radius:8px; margin:0 0 16px; text-align:left; }
+          .ok  { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+          .err { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+          button { background:#CC3333; color:#fff; border:0; padding:11px 20px; border-radius:8px; cursor:pointer; font-size:15px; font-weight:600; width:100%; }
+          button:hover { background:#a8281f; }
+          button:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(204,51,51,.3); }
         </style>
       </head>
       <body>
-        <h1>🔐 Authentication Debug</h1>
-        <div id="status"></div>
-        <button onclick="goToDashboard()" id="continueBtn" style="display:none;">Continue to Dashboard</button>
-        
+        <div class="card">
+          <div class="mark"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h1>Connected to Xero</h1>
+          <p>Opening your finance dashboard…</p>
+          <div id="status"></div>
+          <button onclick="goToDashboard()" id="continueBtn" style="display:none;">Continue to dashboard</button>
+        </div>
         <script>
           const statusDiv = document.getElementById('status');
           const sessionToken = '${sessionToken}';
-          
-          function addStatus(message, type = 'info') {
+
+          function addStatus(message, type) {
             const div = document.createElement('div');
-            div.className = 'status ' + type;
-            div.innerHTML = message;
+            div.className = 'status ' + (type || 'ok');
+            div.textContent = message;
             statusDiv.appendChild(div);
           }
-          
+
           function goToDashboard() {
             window.location.href = '/app';
           }
-          
-          // Start diagnostic
-          addStatus('✅ OAuth callback successful', 'success');
-          addStatus('📦 Session token received from server (length: ' + sessionToken.length + ' chars)', 'success');
-          
+
           try {
-            // Store token
             localStorage.setItem('xero_session', sessionToken);
-            addStatus('✅ Session token stored in localStorage', 'success');
-            
-            // Verify
-            const stored = localStorage.getItem('xero_session');
-            if (stored) {
-              addStatus('✅ Verified: Token retrieved from localStorage (length: ' + stored.length + ' chars)', 'success');
-              addStatus('<strong>Token preview:</strong> <code>' + stored.substring(0, 80) + '...</code>', 'info');
-              
-              // Show continue button
+            if (localStorage.getItem('xero_session')) {
               document.getElementById('continueBtn').style.display = 'inline-block';
-              
-              // Auto-redirect after 3 seconds
-              addStatus('🔄 Auto-redirecting to dashboard in 3 seconds...', 'info');
-              setTimeout(goToDashboard, 3000);
+              setTimeout(goToDashboard, 1200);
             } else {
-              addStatus('❌ ERROR: Token not found in localStorage after storing!', 'error');
-              addStatus('This indicates a browser security issue or localStorage is disabled', 'error');
+              addStatus('Your browser did not keep the sign-in. Check that cookies and site data are allowed for this site, then try again.', 'err');
             }
           } catch (error) {
-            addStatus('❌ ERROR storing token: ' + error.message, 'error');
-            addStatus('Error details: ' + error.stack, 'error');
+            addStatus('Your browser blocked the sign-in from being saved (' + error.message + '). Allow site data for this site and try again.', 'err');
           }
         </script>
       </body>
@@ -2059,10 +2053,10 @@ const NOT_FOUND_PAGE =
   `<meta name="robots" content="noindex"><title>Not found · Gershon.AI Finance</title></head>` +
   `<body style="margin:0;min-height:100vh;display:grid;place-items:center;` +
   `font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;` +
-  `background:linear-gradient(180deg,#0b1020,#0e1734);color:#eaf0ff;text-align:center">` +
-  `<div><p style="font-size:3.2rem;font-weight:800;margin:0;letter-spacing:-.03em">404</p>` +
-  `<p style="color:#93a0c9;margin:.4rem 0 1.5rem">That page doesn't exist.</p>` +
-  `<a href="/" style="color:#7dd3fc;font-weight:600;text-decoration:none">&larr; Back to home</a>` +
+  `background:linear-gradient(160deg,#ffffff 0%,#fafafa 55%,#fdf2f2 100%);color:#1d1d1f;text-align:center">` +
+  `<div><p style="font-size:3.2rem;font-weight:800;margin:0;letter-spacing:-.03em;color:#CC3333">404</p>` +
+  `<p style="color:#6e6e73;margin:.4rem 0 1.5rem">That page doesn't exist.</p>` +
+  `<a href="/" style="color:#CC3333;font-weight:600;text-decoration:none">&larr; Back to home</a>` +
   `</div></body></html>`;
 
 // Browsers ask for /favicon.ico unprompted; we ship an SVG mark.
