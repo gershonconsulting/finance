@@ -1,0 +1,165 @@
+/* =====================================================================
+   Finance - unified Gershon design (v2.19.0, 2026-10-23)
+   Decision 2026-10-13: every Gershon app copies the Linalysis layout and
+   uses the Gershon.ai red #CC3333 as its one brand colour.
+
+   The dashboard markup is built with Tailwind utility classes (blue /
+   indigo / purple). Rather than rewrite 120 KB of HTML and 240 KB of JS,
+   this file re-maps those brand utilities to the Gershon red inside the
+   dashboard (#app). Every rule is prefixed with #app so it beats the
+   Tailwind CDN stylesheet regardless of load order.
+
+   KEPT ON PURPOSE (money semantics):
+   - green  = paid / positive / healthy   (Tailwind green-*, emerald-*)
+   - orange / amber = unpaid / aged / warning
+   - red-500/600/700 = overdue / negative / critical
+   Big figures that used to be brand-blue/purple now render in neutral ink
+   (#1d1d1f), so a red number on screen always means "money at risk",
+   never "brand colour".
+   ===================================================================== */
+
+html:root{
+  --gx-red:#CC3333; --gx-red-dark:#a8281f; --gx-red-light:#fdf2f2; --gx-red-line:#f3caca;
+  --gx-text:#1d1d1f; --gx-muted:#6e6e73; --gx-border:#e5e7eb; --gx-bg:#fafafa; --gx-radius:12px;
+}
+
+/* ---------- Page chrome ---------- */
+#app #mainApp{ background:var(--gx-bg); color:var(--gx-text); }
+#app .topbar h1{ color:var(--gx-text); font-weight:800; letter-spacing:-0.01em; }
+#app .menu-toggle{ background:#fff; }
+
+/* ---------- Cards: white, 12px radius, 1px border, no heavy shadow ---------- */
+#app .content .rounded-lg.shadow-md,
+#app .content .rounded-lg.shadow-lg,
+#app .content .rounded-lg.shadow,
+#app .content .rounded-xl.shadow-md,
+#app .content .rounded-xl.shadow-lg{
+  border-radius:var(--gx-radius);
+  box-shadow:none;
+  border-top:1px solid var(--gx-border);
+  border-right:1px solid var(--gx-border);
+  border-bottom:1px solid var(--gx-border);
+}
+#app .content .rounded-lg.shadow-md:not([class*="border-l-"]),
+#app .content .rounded-lg.shadow-lg:not([class*="border-l-"]),
+#app .content .rounded-lg.shadow:not([class*="border-l-"]),
+#app .content .rounded-xl.shadow-md:not([class*="border-l-"]),
+#app .content .rounded-xl.shadow-lg:not([class*="border-l-"]){ border-left:1px solid var(--gx-border); }
+#app .content .bg-white:hover{ transform:none; box-shadow:0 4px 14px rgba(29,29,31,.06); }
+
+/* ---------- Solid brand fills (buttons, badges, active tabs) ---------- */
+#app .bg-blue-500, #app .bg-blue-600, #app .bg-blue-700,
+#app .bg-indigo-500, #app .bg-indigo-600, #app .bg-indigo-700,
+#app .bg-purple-500, #app .bg-purple-600, #app .bg-purple-700,
+#app .bg-violet-600{ background-color:var(--gx-red); }
+#app .hover\:bg-blue-600:hover, #app .hover\:bg-blue-700:hover, #app .hover\:bg-blue-800:hover,
+#app .hover\:bg-indigo-700:hover, #app .hover\:bg-purple-700:hover{ background-color:var(--gx-red-dark); }
+
+/* ---------- Brand tints ---------- */
+#app .bg-blue-50, #app .bg-indigo-50, #app .bg-purple-50, #app .bg-sky-50{ background-color:var(--gx-red-light); }
+#app .bg-blue-100, #app .bg-indigo-100, #app .bg-purple-100{ background-color:#fbe3e3; }
+#app .bg-purple-200, #app .bg-blue-200{ background-color:#f7d2d2; }
+#app .hover\:bg-blue-50:hover, #app .hover\:bg-indigo-50:hover, #app .hover\:bg-purple-50:hover{ background-color:var(--gx-red-light); }
+#app .border-blue-100, #app .border-blue-200, #app .border-indigo-200, #app .border-purple-200{ border-color:var(--gx-red-line); }
+#app .border-blue-400, #app .border-blue-500, #app .border-blue-600,
+#app .border-indigo-500, #app .border-purple-500{ border-color:var(--gx-red); }
+
+/* ---------- Brand text ---------- */
+/* light accents (icons, links, small labels) -> red */
+#app .text-blue-500, #app .text-blue-600, #app .text-indigo-500, #app .text-indigo-600,
+#app .text-purple-500, #app .text-purple-600, #app .text-violet-600{ color:var(--gx-red); }
+#app .hover\:text-blue-700:hover, #app .hover\:text-blue-800:hover, #app .hover\:text-indigo-700:hover{ color:var(--gx-red-dark); }
+/* dark brand text (headings, body copy in info boxes, big figures) -> neutral ink */
+#app .text-blue-700, #app .text-blue-800, #app .text-blue-900,
+#app .text-indigo-700, #app .text-indigo-800, #app .text-indigo-900,
+#app .text-purple-700, #app .text-purple-800, #app .text-purple-900{ color:var(--gx-text); }
+/* pale text sitting on a brand gradient panel stays light */
+#app .text-blue-100, #app .text-blue-200, #app .text-blue-300, #app .text-blue-400,
+#app .text-purple-100, #app .text-purple-200, #app .text-indigo-100, #app .text-indigo-200{ color:rgba(255,255,255,.86); }
+
+/* ---------- Gradients ---------- */
+/* light gradient panels (AI insights etc.) -> soft red tint into white */
+#app .from-indigo-50, #app .from-blue-50, #app .from-purple-50{
+  --tw-gradient-from:#fdf2f2 var(--tw-gradient-from-position);
+  --tw-gradient-to:rgb(255 255 255 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to); }
+#app .to-purple-50, #app .to-blue-50, #app .to-indigo-50,
+#app .to-purple-100, #app .to-blue-100{ --tw-gradient-to:#ffffff var(--tw-gradient-to-position); }
+/* strong gradient panels (Recurring Revenue, icon chips) -> red into dark red */
+#app .from-blue-500, #app .from-blue-600, #app .from-indigo-500, #app .from-indigo-600, #app .from-purple-500, #app .from-purple-600{
+  --tw-gradient-from:#CC3333 var(--tw-gradient-from-position);
+  --tw-gradient-to:rgb(168 40 31 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to); }
+#app .to-purple-600, #app .to-purple-700, #app .to-indigo-600, #app .to-indigo-700, #app .to-blue-700{ --tw-gradient-to:#a8281f var(--tw-gradient-to-position); }
+
+/* ---------- Focus rings / form controls ---------- */
+#app input:focus, #app select:focus, #app textarea:focus{
+  outline:none; border-color:var(--gx-red) !important; box-shadow:0 0 0 3px rgba(204,51,51,.15) !important; }
+#app .focus\:ring-blue-500:focus, #app .focus\:ring-blue-300:focus, #app .focus\:ring-purple-300:focus{ --tw-ring-color:rgba(204,51,51,.35); }
+#app input[type="checkbox"], #app input[type="radio"], #app input[type="range"]{ accent-color:var(--gx-red); }
+
+/* ---------- Tables ---------- */
+#app .content table thead th{ color:var(--gx-muted); }
+#app .content table tbody tr:hover td{ background:var(--gx-red-light); }
+
+/* ---------- Old in-page tabs (Clients / Analytics sub-tabs) ---------- */
+#app .tab-btn:hover{ color:var(--gx-red); }
+#app .tab-btn.active{ color:var(--gx-red); border-bottom-color:var(--gx-red); }
+
+/* ---------- Big brand-coloured figures -> ink (red is reserved for money at risk) ---------- */
+#app #thisMonthInvoiced, #app #activeClientsThisMonth{ color:var(--gx-text); }
+
+/* ---------- Phone ---------- */
+@media (max-width:900px){
+  #app .topbar #lastSyncTime{ display:none !important; }
+  #app .topbar h1{ font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #app .content{ padding:14px; }
+  #app .content h2.text-2xl{ font-size:1.25rem; }
+  #app .content .text-3xl{ font-size:1.6rem; }
+  #app .content .p-6{ padding:16px; }
+  #app .content table{ font-size:12.5px; }
+}
+
+/* ---------- Big headline panels (Recurring Revenue, Valuation) ----------
+   These hold POSITIVE money. A solid red panel would read as "loss", so
+   they become a charcoal card with a red brand edge instead. */
+#app .content .from-blue-600.to-purple-600,
+#app .content .from-blue-600.to-indigo-700{
+  background-image:linear-gradient(120deg,#2c2c2e 0%,#1d1d1f 100%);
+  border-top:3px solid var(--gx-red);
+}
+
+/* ---------- KPI cards: brand-coloured left edges become neutral so the
+   only red edge on the row is the "Late invoices" one ---------- */
+#app .content .border-l-4.border-blue-500,
+#app .content .border-l-4.border-purple-500,
+#app .content .border-l-4.border-indigo-500{ border-left-color:#d1d5db; }
+
+@media (max-width:900px){ #app .chart-box{ height:240px !important; } }
+
+/* ---------- Phone: no sideways scroll ----------
+   Button rows wrap, card headers wrap, and any wide table scrolls inside
+   its own card instead of pushing the whole page sideways. */
+@media (max-width:900px){
+  #app .content .flex.items-center.justify-between{ flex-wrap:wrap; gap:10px; }
+  #app .content .flex.space-x-2,
+  #app .content .flex.gap-2.items-center{ flex-wrap:wrap; gap:8px; }
+  #app .content .flex.space-x-2 > :not([hidden]) ~ :not([hidden]){ margin-left:0; }
+  #app .content table{ display:block; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+}
+
+/* ---------- Sidebar pills ----------
+   The tab switcher in app.js also stamps the old "text-blue-600" /
+   "text-gray-500" utilities onto nav items; keep the Linalysis look:
+   white text on a red pill when active, ink text otherwise. */
+#app .sidebar .nav-item{ color:#1d1d1f; }
+#app .sidebar .nav-item:hover{ color:var(--gx-red); }
+#app .sidebar .nav-item.active,
+#app .sidebar .nav-item.active:hover{ background:var(--gx-red); color:#fff; }
+#app .sidebar .nav-item.active i{ color:#fff; }
+
+/* Phone drawer sits above the demo-mode banner */
+@media (max-width:900px){
+  #app .sidebar{ z-index:10001; }
+  #app .sidebar-backdrop{ z-index:10000; }
+}

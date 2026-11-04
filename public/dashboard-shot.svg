@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="627" viewBox="0 0 1280 627" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+  <title>Gershon.AI Finance dashboard (sample data, v2.19.0 unified design)</title>
+  <rect width="1280" height="627" fill="#fafafa"/>
+  <!-- sidebar -->
+  <rect width="240" height="627" fill="#ffffff"/>
+  <rect x="239" width="1" height="627" fill="#e5e7eb"/>
+  <text x="24" y="44" font-size="19" font-weight="800" fill="#CC3333">Gershon.AI</text>
+  <text x="24" y="64" font-size="10" font-weight="600" letter-spacing="1.2" fill="#6e6e73">FINANCE</text>
+  <text x="24" y="80" font-size="10" fill="#6e6e73">v2.19.0</text>
+  <rect x="12" y="96" width="216" height="1" fill="#e5e7eb"/>
+  <rect x="12" y="110" width="216" height="36" rx="8" fill="#CC3333"/>
+  <text x="44" y="133" font-size="13" font-weight="600" fill="#ffffff">Dashboard</text>
+  <g font-size="13" fill="#1d1d1f">
+    <text x="44" y="175">Invoices</text>
+    <text x="44" y="210">Clients</text>
+    <text x="44" y="245">Trends</text>
+    <text x="44" y="280">Analytics</text>
+    <text x="44" y="315">Goals</text>
+    <text x="44" y="350">Valuation</text>
+    <text x="44" y="385">Bank</text>
+  </g>
+  <text x="24" y="425" font-size="10" font-weight="700" letter-spacing="0.6" fill="#6e6e73">REPORTS</text>
+  <g font-size="13" fill="#1d1d1f">
+    <text x="44" y="455">MoM Evolution</text>
+    <text x="44" y="490">SWOT</text>
+    <text x="44" y="525">Exec Reports</text>
+  </g>
+  <g fill="#c7c7cc">
+    <rect x="24" y="166" width="12" height="12" rx="3"/><rect x="24" y="201" width="12" height="12" rx="3"/>
+    <rect x="24" y="236" width="12" height="12" rx="3"/><rect x="24" y="271" width="12" height="12" rx="3"/>
+    <rect x="24" y="306" width="12" height="12" rx="3"/><rect x="24" y="341" width="12" height="12" rx="3"/>
+    <rect x="24" y="376" width="12" height="12" rx="3"/><rect x="24" y="446" width="12" height="12" rx="3"/>
+    <rect x="24" y="481" width="12" height="12" rx="3"/><rect x="24" y="516" width="12" height="12" rx="3"/>
+  </g>
+  <rect x="24" y="122" width="12" height="12" rx="3" fill="#ffffff"/>
+
+  <!-- top bar -->
+  <rect x="240" width="1040" height="56" fill="#ffffff"/>
+  <rect x="240" y="55" width="1040" height="1" fill="#e5e7eb"/>
+  <text x="264" y="34" font-size="17" font-weight="800" fill="#1d1d1f">Dashboard</text>
+  <rect x="1086" y="18" width="70" height="22" rx="11" fill="#16a34a"/>
+  <text x="1121" y="33" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">Live</text>
+  <text x="1168" y="33" font-size="11" fill="#6e6e73">Synced 9:41</text>
+
+  <!-- KPI row -->
+  <g>
+    <rect x="264" y="76" width="236" height="96" rx="12" fill="#ffffff" stroke="#e5e7eb"/>
+    <rect x="264" y="76" width="4" height="96" rx="2" fill="#d1d5db"/>
+    <text x="284" y="102" font-size="11" letter-spacing="0.6" fill="#6e6e73">INVOICED THIS MONTH</text>
+    <text x="284" y="136" font-size="26" font-weight="800" fill="#1d1d1f">$45,000</text>
+    <text x="284" y="158" font-size="11" fill="#16a34a">+18.5% vs last month</text>
+
+    <rect x="516" y="76" width="236" height="96" rx="12" fill="#ffffff" stroke="#e5e7eb"/>
+    <rect x="516" y="76" width="4" height="96" rx="2" fill="#d1d5db"/>
+    <text x="536" y="102" font-size="11" letter-spacing="0.6" fill="#6e6e73">ACTIVE CLIENTS</text>
+    <text x="536" y="136" font-size="26" font-weight="800" fill="#1d1d1f">47</text>
+    <text x="536" y="158" font-size="11" fill="#6e6e73">with an invoice this month</text>
+
+    <rect x="768" y="76" width="236" height="96" rx="12" fill="#ffffff" stroke="#e5e7eb"/>
+    <rect x="768" y="76" width="4" height="96" rx="2" fill="#16a34a"/>
+    <text x="788" y="102" font-size="11" letter-spacing="0.6" fill="#6e6e73">PAID / UNPAID</text>
+    <text x="788" y="136" font-size="26" font-weight="800" fill="#16a34a">38 <tspan fill="#9ca3af" font-size="20">/</tspan> <tspan fill="#ea580c">9</tspan></text>
+    <text x="788" y="158" font-size="11" fill="#6e6e73">invoices this month</text>
+
+    <rect x="1020" y="76" width="236" height="96" rx="12" fill="#ffffff" stroke="#e5e7eb"/>
+    <rect x="1020" y="76" width="4" height="96" rx="2" fill="#dc2626"/>
+    <text x="1040" y="102" font-size="11" letter-spacing="0.6" fill="#6e6e73">OVERDUE</text>
+    <text x="1040" y="136" font-size="26" font-weight="800" fill="#dc2626">$28,400</text>
+    <text x="1040" y="158" font-size="11" fill="#6e6e73">4 invoices past terms</text>
+  </g>
+
+  <!-- Recurring revenue panel (charcoal, red edge) -->
+  <rect x="264" y="192" width="992" height="150" rx="12" fill="#232325"/>
+  <rect x="264" y="192" width="992" height="3" fill="#CC3333"/>
+  <text x="288" y="226" font-size="17" font-weight="800" fill="#ffffff">Recurring Revenue Metrics</text>
+  <g>
+    <rect x="288" y="242" width="226" height="80" rx="10" fill="#ffffff" fill-opacity="0.08"/>
+    <text x="304" y="266" font-size="12" fill="#e5e5ea">Current MRR</text>
+    <text x="304" y="300" font-size="26" font-weight="800" fill="#ffffff">$45,000</text>
+    <rect x="530" y="242" width="226" height="80" rx="10" fill="#ffffff" fill-opacity="0.08"/>
+    <text x="546" y="266" font-size="12" fill="#e5e5ea">ARR (run rate)</text>
+    <text x="546" y="300" font-size="26" font-weight="800" fill="#ffffff">$540,000</text>
+    <rect x="772" y="242" width="226" height="80" rx="10" fill="#ffffff" fill-opacity="0.08"/>
+    <text x="788" y="266" font-size="12" fill="#e5e5ea">YTD revenue</text>
+    <text x="788" y="300" font-size="26" font-weight="800" fill="#ffffff">$487,000</text>
+    <rect x="1014" y="242" width="218" height="80" rx="10" fill="#ffffff" fill-opacity="0.08"/>
+    <text x="1030" y="266" font-size="12" fill="#e5e5ea">Projected end of year</text>
+    <text x="1030" y="300" font-size="26" font-weight="800" fill="#ffffff">$612,000</text>
+  </g>
+
+  <!-- Revenue chart card -->
+  <rect x="264" y="362" width="640" height="245" rx="12" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="288" y="392" font-size="15" font-weight="700" fill="#1d1d1f">Monthly revenue</text>
+  <text x="880" y="392" font-size="11" fill="#6e6e73" text-anchor="end">last 12 months</text>
+  <g fill="#f3f4f6"><rect x="288" y="420" width="592" height="1"/><rect x="288" y="470" width="592" height="1"/><rect x="288" y="520" width="592" height="1"/><rect x="288" y="570" width="592" height="1"/></g>
+  <g fill="#CC3333">
+    <rect x="300" y="500" width="30" height="70" rx="3"/>
+    <rect x="348" y="490" width="30" height="80" rx="3"/>
+    <rect x="396" y="482" width="30" height="88" rx="3"/>
+    <rect x="444" y="494" width="30" height="76" rx="3"/>
+    <rect x="492" y="478" width="30" height="92" rx="3"/>
+    <rect x="540" y="470" width="30" height="100" rx="3"/>
+    <rect x="588" y="462" width="30" height="108" rx="3"/>
+    <rect x="636" y="474" width="30" height="96" rx="3"/>
+    <rect x="684" y="458" width="30" height="112" rx="3"/>
+    <rect x="732" y="452" width="30" height="118" rx="3"/>
+    <rect x="828" y="440" width="30" height="130" rx="3"/>
+  </g>
+  <rect x="780" y="430" width="30" height="140" rx="3" fill="#f59e0b"/>
+  <text x="795" y="424" font-size="10" font-weight="700" fill="#b45309" text-anchor="middle">best</text>
+  <g font-size="10" fill="#6e6e73" text-anchor="middle">
+    <text x="315" y="590">Nov</text><text x="363" y="590">Dec</text><text x="411" y="590">Jan</text><text x="459" y="590">Feb</text>
+    <text x="507" y="590">Mar</text><text x="555" y="590">Apr</text><text x="603" y="590">May</text><text x="651" y="590">Jun</text>
+    <text x="699" y="590">Jul</text><text x="747" y="590">Aug</text><text x="795" y="590">Sep</text><text x="843" y="590">Oct</text>
+  </g>
+
+  <!-- Aging card -->
+  <rect x="920" y="362" width="336" height="245" rx="12" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="944" y="392" font-size="15" font-weight="700" fill="#1d1d1f">Receivables aging</text>
+  <g font-size="12">
+    <text x="944" y="426" fill="#1d1d1f">Current (0–99 days)</text>
+    <text x="1232" y="426" fill="#16a34a" font-weight="700" text-anchor="end">$185,400</text>
+    <rect x="944" y="436" width="288" height="8" rx="4" fill="#f1f5f9"/>
+    <rect x="944" y="436" width="250" height="8" rx="4" fill="#16a34a"/>
+
+    <text x="944" y="482" fill="#1d1d1f">Aged (100–199 days)</text>
+    <text x="1232" y="482" fill="#d97706" font-weight="700" text-anchor="end">$22,600</text>
+    <rect x="944" y="492" width="288" height="8" rx="4" fill="#f1f5f9"/>
+    <rect x="944" y="492" width="31" height="8" rx="4" fill="#f59e0b"/>
+
+    <text x="944" y="538" fill="#1d1d1f">Critical (200+ days)</text>
+    <text x="1232" y="538" fill="#dc2626" font-weight="700" text-anchor="end">$5,800</text>
+    <rect x="944" y="548" width="288" height="8" rx="4" fill="#f1f5f9"/>
+    <rect x="944" y="548" width="10" height="8" rx="4" fill="#dc2626"/>
+  </g>
+  <text x="944" y="588" font-size="11" fill="#6e6e73">Sample data</text>
+</svg>
