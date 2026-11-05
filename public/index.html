@@ -295,7 +295,7 @@
                     <div class="brand">
                         <div class="brand-title"><i class="fas fa-chart-line"></i>Gershon.AI</div>
                         <div class="brand-sub">Finance</div>
-                        <div class="brand-version">v2.19.0 · __BUILD_TIMESTAMP__</div>
+                        <div class="brand-version">v2.20.0 · __BUILD_TIMESTAMP__</div>
                     </div>
                     <a class="nav-item tab-button active" data-tab="dashboard"><i class="fas fa-home"></i>Dashboard</a>
                     <a class="nav-item tab-button" data-tab="invoices"><i class="fas fa-file-invoice-dollar"></i>Invoices</a>
@@ -669,6 +669,10 @@
 
                 <!-- Clients Tab -->
                 <div id="tab-clients" class="tab-content hidden">
+                    <!-- v2.20.0 — client profile hint -->
+                    <div class="mb-4 px-4 py-3 rounded-lg border text-sm" style="background:#fff5f5;border-color:#f3c7c7;color:#7f1d1d">
+                        <i class="fas fa-id-card mr-2" style="color:#CC3333"></i><strong>New:</strong> click any client name to open its full profile — client number, invoices, months with us, averages, estimated profit, how fast and how late they pay, fees, grade and call-prep notes.
+                    </div>
                     <!-- AI Insights Panel -->
                     <div class="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4 mb-6">
                         <div class="flex items-center justify-between flex-wrap gap-2">
@@ -1741,6 +1745,7 @@
         <script src="/static/fix-urls.js"></script>
 
 <script src="/static/app.js"></script>
+<script src="/static/client-profile.js"></script>
 <script src="/static/unified-theme.js?v=2.19.0"></script>
     </body>
     </html>

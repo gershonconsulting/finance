@@ -100,6 +100,26 @@ export class XeroApiService {
     });
   }
 
+  // v2.20.0 — every invoice for one contact, WITH line items (Xero only returns
+  // line items on paged requests). 100 per page; capped at 20 pages.
+  async getInvoicesForContact(contactId: string): Promise<XeroInvoice[]> {
+    const out: XeroInvoice[] = [];
+    for (let page = 1; page <= 20; page++) {
+      const data = await this.fetchXero('/Invoices', { ContactIDs: contactId, page: String(page), includeArchived: 'true' });
+      const batch = (data.Invoices || []).filter((inv: XeroInvoice) => inv.Type === 'ACCREC');
+      out.push(...batch);
+      if ((data.Invoices || []).length < 100) break;
+    }
+    return out;
+  }
+
+  async getContact(contactId: string): Promise<any | null> {
+    try {
+      const data = await this.fetchXero(`/Contacts/${encodeURIComponent(contactId)}`);
+      return data.Contacts?.[0] || null;
+    } catch { return null; }
+  }
+
   async getInvoiceSummary(): Promise<XeroInvoiceSummary> {
     const invoices = await this.getInvoices();
     
