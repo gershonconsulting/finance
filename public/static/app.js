@@ -498,7 +498,7 @@ function displayInvoices(invoices) {
         ${invoices.map(inv => `
           <tr class="hover:bg-gray-50">
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${inv.InvoiceNumber || 'N/A'}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${inv.Contact?.Name || 'N/A'}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${inv.Contact?.Name ? (window.clientLink ? window.clientLink(inv.Contact.Name, inv.Contact.ContactID) : inv.Contact.Name) : 'N/A'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(inv.Date)}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(inv.DueDate)}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatCurrency(inv.Total)}</td>
@@ -940,7 +940,7 @@ function displayClientsAwaitingPayment(clients, isDemo = false) {
                   <i class="fas fa-building text-blue-600"></i>
                 </div>
                 <div class="ml-4">
-                  <div class="text-sm font-medium text-gray-900">${client.contactName}${getClientSegmentBadge(client)}</div>
+                  <div class="text-sm font-medium text-gray-900">${(window.clientLink ? window.clientLink(client.contactName, client.contactId) : client.contactName)}${getClientSegmentBadge(client)}</div>
                 </div>
               </div>
             </td>
@@ -1949,7 +1949,7 @@ async function loadClientLifetime() {
 
     const rows = clients.map(c => `
       <tr class="hover:bg-gray-50 border-b border-gray-100">
-        <td class="px-4 py-3 text-sm font-medium text-gray-900">${c.contactName}</td>
+        <td class="px-4 py-3 text-sm font-medium text-gray-900">${(window.clientLink ? window.clientLink(c.contactName, c.contactId) : c.contactName)}</td>
         <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">${c.firstInvoiceDate}</td>
         <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">${c.latestInvoiceDate}</td>
         <td class="px-4 py-3 text-sm text-center font-semibold text-blue-700">${c.elapsedMonths}</td>
@@ -2495,7 +2495,7 @@ async function loadClientLTVAnalytics() {
       const invCount = invoicesOf(c);
       const avgPerInv = invCount > 0 ? (Number(c.totalInvoiced) || 0) / invCount : 0;
       return `<tr class="hover:bg-gray-50 border-b border-gray-100">
-        <td class="px-4 py-3 text-sm font-medium text-gray-800">${c.contactName || ''}</td>
+        <td class="px-4 py-3 text-sm font-medium text-gray-800">${c.contactName ? (window.clientLink ? window.clientLink(c.contactName, c.contactId) : c.contactName) : ''}</td>
         <td class="px-4 py-3 text-sm text-right text-blue-700">${c.elapsedMonths || 0} mo</td>
         <td class="px-4 py-3 text-sm text-right text-purple-700">${c.billedMonths || 0}</td>
         <td class="px-4 py-3 text-sm text-right text-gray-700">${invCount}</td>
@@ -4680,7 +4680,7 @@ window.markDemoActive = markDemoActive;
           <tbody>
           ${topOverdue.length ? topOverdue.map(c => `
             <tr>
-              <td>${esc(c.contactName)}</td>
+              <td>${(window.clientLink ? window.clientLink(c.contactName, c.contactId) : esc(c.contactName))}</td>
               <td class="num">${$num(c.invoiceCount)}</td>
               <td class="num">${$usd(c.totalOutstanding)}</td>
               <td class="num">${$num(c.averagePaymentDelay)} d</td>
@@ -4865,7 +4865,7 @@ window.markDemoActive = markDemoActive;
           <tbody>
           ${top10.length ? top10.map(c => `
             <tr>
-              <td>${esc(c.contactName)}</td>
+              <td>${(window.clientLink ? window.clientLink(c.contactName, c.contactId) : esc(c.contactName))}</td>
               <td class="num">${$num(c.invoiceCount)}</td>
               <td class="num">${$usd(c.totalOutstanding)}</td>
               <td class="num">${$usd(c.totalPaid)}</td>
@@ -4895,7 +4895,7 @@ window.markDemoActive = markDemoActive;
           <tbody>
           ${buildAtRisk(d).map(r => `
             <tr>
-              <td>${esc(r.contactName)}</td>
+              <td>${(window.clientLink ? window.clientLink(r.contactName, r.contactId) : esc(r.contactName))}</td>
               <td class="num">${$usd(r.totalOutstanding)}</td>
               <td class="num text-rose-600 font-semibold">${$num(r.averagePaymentDelay)} d</td>
               <td>${esc(r.reason)}</td>
@@ -5368,6 +5368,12 @@ window.markDemoActive = markDemoActive;
     // /api/reports/role/:role
     const m = pathOnly.match(/^\/api\/reports\/role\/([\w-]+)$/);
     if (m) return demoRoleReport(m[1]);
+
+    // v2.20.0 /api/client-profile?name=
+    if (pathOnly === '/api/client-profile') {
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      return window.__demoClientProfile ? window.__demoClientProfile(params.get('name') || 'Demo client') : null;
+    }
 
     // /api/clients/:id/details etc — return null to let normal fall through
     return null;

@@ -11,6 +11,7 @@ import { upsertSnapshot, getSnapshot, listSnapshots, momSeries, audit as v17audi
 import { createSwot, listSwot, updateSwot, archiveSwot } from './services/swot';
 import { buildReport } from './services/reports';
 import { captureBundle } from './services/snapshot-capture';
+import { buildClientProfile, marginFromPnL } from './services/client-profile';
 
 type Bindings = {
   XERO_CLIENT_ID: string;
@@ -207,10 +208,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.19.1',
-    releaseDate: '2026-10-23T05:00:00Z',
+    version: '2.20.0',
+    releaseDate: '2026-11-05T18:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.20.0: Client profile — click any client name to open a full card: client key number, invoices, months with us, averages, estimated profit, payment speed and lateness, on-time rate, overdue list, what we bill them for (and any late/interest fees), an A–D client grade and call-prep talking points',
       'v2.19.1: Demo mode fixes — no more "Running NaN% behind projection"; the status badge always says DEMO in demo mode (and stays "Demo data" once a card falls back to demo data); Invoices, Valuation and Reports tabs no longer log errors in demo mode (sample invoice list, complete valuation figures, old Reports renderer no longer crashes)',
       'v2.19.0: Unified Gershon design — Linalysis-style white sidebar with a red active pill, white 12px cards, Gershon.ai red #CC3333 for buttons/tabs/focus rings/charts across the home page, session screen, Xero sign-in callback and dashboard; money colours kept (green = paid, orange = aged, red = overdue); phone layout fixes (menu backdrop, demo banner no longer covers the top bar); the sign-in callback no longer prints part of the session token on screen',
       'v2.18.2: Home page hero now shows a real product screenshot of the dashboard (sample data) with key-insight callouts, replacing the abstract three-stage diagram',
@@ -880,6 +882,7 @@ app.get('/api/clients/lifetime', async (c) => {
         + (latestDate.getMonth() - firstDate.getMonth()) + 1;
       return {
         contactName: c.contactName,
+        contactId: c.contactId,
         firstInvoiceDate: firstDate.toISOString().split('T')[0],
         latestInvoiceDate: latestDate.toISOString().split('T')[0],
         elapsedMonths,
@@ -894,6 +897,71 @@ app.get('/api/clients/lifetime', async (c) => {
   } catch (error: any) {
     console.error('Client lifetime error:', error);
     return c.json({ error: error.message }, 500);
+  }
+});
+
+// v2.20.0 — Client profile: one client, everything, for call prep.
+// GET /api/client-profile?contactId=<Xero ContactID>   (or ?name=<contact name>)
+app.get('/api/client-profile', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) {
+      return c.json({ error: 'Not authenticated' }, 401);
+    }
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const now = new Date();
+    const wantedId = (c.req.query('contactId') || '').trim();
+    const wantedName = (c.req.query('name') || '').trim();
+    if (!wantedId && !wantedName) return c.json({ error: 'contactId or name is required' }, 400);
+
+    // All receivable invoices: resolves name -> ContactID and ranks the client.
+    const allInvoices = await xero.getInvoices();
+    const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const byContact = new Map<string, { name: string; total: number }>();
+    for (const inv of allInvoices as any[]) {
+      if (!['PAID', 'AUTHORISED', 'SUBMITTED'].includes(inv.Status)) continue;
+      const id = inv.Contact?.ContactID; if (!id) continue;
+      const cur = byContact.get(id) || { name: inv.Contact?.Name || '', total: 0 };
+      cur.total += inv.Total || 0;
+      byContact.set(id, cur);
+    }
+    let contactId = wantedId;
+    if (!contactId) {
+      const n = norm(wantedName);
+      const hit = (allInvoices as any[]).find(i => norm(i.Contact?.Name) === n)
+        || (allInvoices as any[]).find(i => norm(i.Contact?.Name).includes(n) || n.includes(norm(i.Contact?.Name)));
+      contactId = hit?.Contact?.ContactID || '';
+    }
+    if (!contactId) return c.json({ error: `No invoices found for "${wantedName}"` }, 404);
+
+    const ranked = [...byContact.entries()].sort((a, b) => b[1].total - a[1].total);
+    const rankIdx = ranked.findIndex(([id]) => id === contactId);
+    const totalRevenueAllClients = ranked.reduce((s, [, v]) => s + v.total, 0);
+
+    // Company net margin over the trailing 12 months (Xero has no cost per client).
+    let netMarginPct: number | null = null;
+    let marginSource = 'Xero has no cost per client, and the company P&L could not be read';
+    try {
+      const to = new Date(now.getFullYear(), now.getMonth(), 0);
+      const from = new Date(to.getFullYear(), to.getMonth() - 11, 1);
+      const pnl = await xero.getProfitAndLossReport(from.toISOString().split('T')[0], to.toISOString().split('T')[0]);
+      netMarginPct = marginFromPnL(pnl);
+      if (netMarginPct != null) marginSource = `Company net margin from the Xero P&L, ${from.toISOString().slice(0, 7)} to ${to.toISOString().slice(0, 7)}, applied to this client's billing. Xero does not track cost per client, so this is an estimate.`;
+    } catch (e) { console.error('client-profile P&L:', e); }
+
+    const [invoices, contact] = await Promise.all([
+      xero.getInvoicesForContact(contactId),
+      xero.getContact(contactId),
+    ]);
+
+    const profile = buildClientProfile(invoices as any, contact, {
+      netMarginPct, marginSource, totalRevenueAllClients,
+      clientRank: rankIdx >= 0 ? rankIdx + 1 : null, clientCount: ranked.length,
+    }, now);
+    return c.json(profile);
+  } catch (error: any) {
+    console.error('client-profile error:', error);
+    return c.json({ error: error.message || 'Failed to build client profile' }, 500);
   }
 });
 
