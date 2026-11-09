@@ -24,6 +24,7 @@ type Bindings = {
   GOALS_KV: KVNamespace;
   RESEND_API_KEY?: string;
   CRON_SECRET?: string;
+  CANONICAL_REDIRECT?: string;
 };
 
 const DEFAULT_GOALS = { revenue: null, clients: null, collection: null };
@@ -66,7 +67,9 @@ function getCredentials(c: any) {
 const CANONICAL_HOST = 'finance.gershon.ai';
 app.use('*', async (c, next) => {
   const url = new URL(c.req.url);
-  if (url.hostname === 'finance.gershoncrm.com' && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/auth/')) {
+  // Off until finance.gershon.ai is attached to the Pages project: set the
+  // Pages variable CANONICAL_REDIRECT=on to switch the old host over.
+  if ((c.env as any)?.CANONICAL_REDIRECT === 'on' && url.hostname === 'finance.gershoncrm.com' && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/auth/')) {
     url.hostname = CANONICAL_HOST; url.port = '';
     return c.redirect(url.toString(), 301);
   }
@@ -238,7 +241,7 @@ app.get('/api/health', (c) => {
     releaseDate: '2026-11-09T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
-      'v2.22.0: Moved to finance.gershon.ai (old host redirects); Legal section — long-unpaid cases kept out of collections (owed, overdue, ageing, DSO, collection rate, alerts); Google Sheets + Extract Data integrations removed',
+      'v2.22.0: Ready for finance.gershon.ai (switch with CANONICAL_REDIRECT=on once the domain is attached); Legal section — long-unpaid cases kept out of collections (owed, overdue, ageing, DSO, collection rate, alerts); Google Sheets + Extract Data integrations removed',
       'v2.21.0: Full-width account dashboard; Invoices open on waiting-for-payment with a summary on top; Clients = active/inactive table (months together, paid, avg/month, how they pay, owed, months late green/orange/red); weekly (Mondays) and monthly (1st) e-mail reports built into the app; one shared Xero refresh chain (X-Session-Refresh)',
       'v2.20.0: Client profile — click any client name to open a full card: client key number, invoices, months with us, averages, estimated profit, payment speed and lateness, on-time rate, overdue list, what we bill them for (and any late/interest fees), an A–D client grade and call-prep talking points',
       'v2.19.1: Demo mode fixes — no more "Running NaN% behind projection"; the status badge always says DEMO in demo mode (and stays "Demo data" once a card falls back to demo data); Invoices, Valuation and Reports tabs no longer log errors in demo mode (sample invoice list, complete valuation figures, old Reports renderer no longer crashes)',

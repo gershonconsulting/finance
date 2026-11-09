@@ -19,4 +19,4 @@ jobs:
     steps:
       - name: Wake the report job
         run: |
-          curl -fsS -X POST "https://finance.gershon.ai/api/cron/run?job=auto" | tee result.json
+          curl -fsS -X POST "https://finance.gershoncrm.com/api/cron/run?job=auto" | tee result.json

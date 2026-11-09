@@ -29,7 +29,7 @@ CRITICAL OPERATING RULES:
 ----------------------------------------------------------------
 Product / site name : Gershon.AI Finance (package gershon-finance, v2.19.1
                       on the 2026-10-23 branch; v2.18.2 live)
-Live URL            : https://finance.gershon.ai (old finance.gershoncrm.com redirects; also
+Live URL            : https://finance.gershoncrm.com (moving to finance.gershon.ai; also
                       gershon-finance.pages.dev)
 What it does        : Xero-backed accounts-receivable dashboard and weekly
                       account report. Public home page with Xero sign-in at /,

@@ -14,7 +14,7 @@ const LEVEL = {
   red: { fg: '#b91c1c', bg: '#fee2e2', label: '3+ months' },
 } as const;
 const mShort = (ym: string) => `${MONTH_NAMES[Number(ym.slice(5, 7)) - 1].slice(0, 3)} ${ym.slice(0, 4)}`;
-const DASH_URL = 'https://finance.gershon.ai/app';
+const DASH_URL = 'https://finance.gershoncrm.com/app'; // switch to finance.gershon.ai when the domain is live
 const BILLABLE = new Set(['PAID', 'AUTHORISED', 'SUBMITTED']);
 
 export interface PnLSummary { income: number | null; costOfSales: number | null; grossProfit: number | null; expenses: number | null; netProfit: number | null }
