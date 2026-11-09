@@ -421,6 +421,7 @@ function createInvoiceChart(data) {
 
 // Tab navigation
 // Load invoices
+window.loadInvoices = (...a) => loadInvoices(...a);
 async function loadInvoices(status = null) {
   try {
     const params = new URLSearchParams();
@@ -1579,7 +1580,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadClientsAwaitingPayment();
         loadClientLifetime();
       } else if (tabName === 'invoices') {
-        loadInvoices();
+        // v2.21.0 — open on the invoices waiting for payment
+        if (window.ovShowWaitingInvoices) window.ovShowWaitingInvoices('waiting'); else loadInvoices();
       } else if (tabName === 'trends') {
         loadPaymentTrends();
         loadMonthlyTrends();

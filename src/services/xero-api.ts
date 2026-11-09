@@ -113,6 +113,28 @@ export class XeroApiService {
     return out;
   }
 
+  // v2.21.0 — receivable payments (cash in), newest pages first. Xero pages at 100.
+  async getPayments(fromDate?: string): Promise<any[]> {
+    const out: any[] = [];
+    const params: Record<string, string> = { order: 'Date DESC' };
+    if (fromDate) {
+      const [y, m, d] = fromDate.split('-').map(Number);
+      params.where = `Date >= DateTime(${y}, ${m}, ${d})`;
+    }
+    for (let page = 1; page <= 30; page++) {
+      const data = await this.fetchXero('/Payments', { ...params, page: String(page) });
+      const batch = data.Payments || [];
+      out.push(...batch);
+      if (batch.length < 100) break;
+    }
+    return out;
+  }
+
+  async getBankSummary(fromDate: string, toDate: string): Promise<any> {
+    const data = await this.fetchXero('/Reports/BankSummary', { fromDate, toDate });
+    return data.Reports?.[0] || data;
+  }
+
   async getContact(contactId: string): Promise<any | null> {
     try {
       const data = await this.fetchXero(`/Contacts/${encodeURIComponent(contactId)}`);

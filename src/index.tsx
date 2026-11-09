@@ -11,13 +11,19 @@ import { upsertSnapshot, getSnapshot, listSnapshots, momSeries, audit as v17audi
 import { createSwot, listSwot, updateSwot, archiveSwot } from './services/swot';
 import { buildReport } from './services/reports';
 import { captureBundle } from './services/snapshot-capture';
-import { buildClientProfile, marginFromPnL } from './services/client-profile';
+import { buildClientProfile, marginFromPnL, resolveClientKey } from './services/client-profile';
+import { buildOverview } from './services/account-overview';
+import { buildWeeklyReport, buildMonthlyReport, parsePnL, parseBankSummary, dueReport, lastMonthPeriod } from './services/email-reports';
+import { readServiceToken, writeServiceToken, getServiceAccess } from './services/service-token';
+import { etHour, addMonths, monthKey, etDay } from './services/account-overview';
 
 type Bindings = {
   XERO_CLIENT_ID: string;
   XERO_CLIENT_SECRET: string;
   XERO_REDIRECT_URI: string;
   GOALS_KV: KVNamespace;
+  RESEND_API_KEY?: string;
+  CRON_SECRET?: string;
 };
 
 const DEFAULT_GOALS = { revenue: null, clients: null, collection: null };
@@ -69,6 +75,7 @@ const PUBLIC_API_PATHS = new Set<string>([
   '/api/health',       // uptime / version probe, carries no ledger data
   '/api/auth/status',  // the login page asks this to decide where to send you
   '/api/auto-connect', // returns only a Xero authorisation URL
+  '/api/cron/run',     // v2.21.0 — scheduler ping; sends only to fixed internal recipients, once per period, returns no figures
 ]);
 
 app.use('/api/*', async (c, next) => {
@@ -162,35 +169,38 @@ async function getSessionWithRefresh(c: any): Promise<{ session: SessionData | n
   const fiveMinutes = 5 * 60 * 1000;
   
   if (expiresAt > 0 && expiresAt - now < fiveMinutes) {
-    // Token expired or about to expire, refresh it
+    // v2.21.0 — one refresh chain shared with the scheduled reports. Prefer the
+    // newest credential held server-side (KV); fall back to the browser's own.
     try {
       const credentials = getCredentials(c);
-      const oauth = new XeroOAuthService(
-        credentials.clientId,
-        credentials.clientSecret,
-        credentials.redirectUri
-      );
-      
-      if (session.refreshToken) {
-        console.log('Refreshing expired token...');
-        const newTokens = await oauth.refreshAccessToken(session.refreshToken);
-        
-        // Update session with new tokens
-        session.accessToken = newTokens.accessToken;
-        session.refreshToken = newTokens.refreshToken;
-        session.expiresAt = newTokens.expiresAt;
-        
-        // Return updated session token
+      const oauth = new XeroOAuthService(credentials.clientId, credentials.clientSecret, credentials.redirectUri);
+      const kv = c.env?.GOALS_KV;
+      let fresh: { accessToken: string; refreshToken: string; expiresAt: number } | null = null;
+      const stored = await readServiceToken(kv);
+      if (stored && stored.tenantId === session.tenantId) {
+        try { fresh = await getServiceAccess(kv, oauth, 'browser'); } catch (e) { console.error('KV chain refresh failed, trying browser token:', e); }
+      }
+      if (!fresh && session.refreshToken) {
+        const t = await oauth.refreshAccessToken(session.refreshToken);
+        fresh = { accessToken: t.accessToken, refreshToken: t.refreshToken, expiresAt: t.expiresAt };
+        if (session.tenantId) await writeServiceToken(kv, { ...fresh, tenantId: session.tenantId, source: 'browser' });
+      }
+      if (fresh) {
+        session.accessToken = fresh.accessToken;
+        session.refreshToken = fresh.refreshToken;
+        session.expiresAt = fresh.expiresAt;
         const updatedToken = encodeSession(session);
-        
-        console.log('Token refreshed successfully');
+        try { c.header('X-Session-Refresh', updatedToken); } catch {}
         return { session, sessionToken: updatedToken };
       }
     } catch (error) {
       console.error('Failed to refresh token:', error);
-      // Token refresh failed, session is invalid
       return { session: null, sessionToken: null };
     }
+  } else if (session.refreshToken && session.tenantId && c.env?.GOALS_KV) {
+    // Seed the server-side credential the first time we see a live session.
+    const stored = await readServiceToken(c.env.GOALS_KV);
+    if (!stored) await writeServiceToken(c.env.GOALS_KV, { accessToken: session.accessToken, refreshToken: session.refreshToken, tenantId: session.tenantId, expiresAt: session.expiresAt, source: 'browser-seed' });
   }
   
   return { session, sessionToken: sessionToken };
@@ -208,10 +218,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.20.0',
-    releaseDate: '2026-11-05T18:00:00Z',
+    version: '2.21.0',
+    releaseDate: '2026-11-09T18:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.21.0: Full-width account dashboard; Invoices open on waiting-for-payment with a summary on top; Clients = active/inactive table (months together, paid, avg/month, how they pay, owed, months late green/orange/red); weekly (Mondays) and monthly (1st) e-mail reports built into the app; one shared Xero refresh chain (X-Session-Refresh)',
       'v2.20.0: Client profile — click any client name to open a full card: client key number, invoices, months with us, averages, estimated profit, payment speed and lateness, on-time rate, overdue list, what we bill them for (and any late/interest fees), an A–D client grade and call-prep talking points',
       'v2.19.1: Demo mode fixes — no more "Running NaN% behind projection"; the status badge always says DEMO in demo mode (and stays "Demo data" once a card falls back to demo data); Invoices, Valuation and Reports tabs no longer log errors in demo mode (sample invoice list, complete valuation figures, old Reports renderer no longer crashes)',
       'v2.19.0: Unified Gershon design — Linalysis-style white sidebar with a red active pill, white 12px cards, Gershon.ai red #CC3333 for buttons/tabs/focus rings/charts across the home page, session screen, Xero sign-in callback and dashboard; money colours kept (green = paid, orange = aged, red = overdue); phone layout fixes (menu backdrop, demo banner no longer covers the top bar); the sign-in callback no longer prints part of the session token on screen',
@@ -374,6 +385,9 @@ app.get('/auth/callback', async (c) => {
     const tenantId = await oauth.getTenantId(tokens.accessToken);
     tokens.tenantId = tenantId;
     
+    // v2.21.0 — keep a server-side copy so the weekly / monthly reports can run headless.
+    await writeServiceToken(c.env?.GOALS_KV, { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, tenantId, expiresAt: tokens.expiresAt, source: 'sign-in' });
+
     // Create session token
     const sessionToken = createSessionToken({
       accessToken: tokens.accessToken,
@@ -1845,6 +1859,201 @@ app.post('/api/bank-inputs', async (c) => {
   } catch (e: any) {
     return c.json({ ok: false, error: e.message }, 500);
   }
+});
+
+// ===========================================================================
+// v2.21.0 — Account overview (Dashboard / Invoices / Clients) and the weekly +
+// monthly e-mail reports.
+// ===========================================================================
+const REPORT_FROM = 'GC Finance <finance@gershon.ai>';
+const DEFAULT_RECIPIENTS = ['report@gershonconsulting.com', 'billing@gershonconsulting.com'];
+
+function isoDaysAgo(n: number) { return new Date(Date.now() - n * 86400000).toISOString().slice(0, 10); }
+
+async function loadLedger(xero: XeroApiService) {
+  const [invoices, payments] = await Promise.all([
+    xero.getInvoices(),
+    xero.getPayments(isoDaysAgo(430)).catch((e: any) => { console.error('payments:', e); return null; }),
+  ]);
+  return { invoices: invoices as any[], payments: payments as any[] | null };
+}
+
+const clientKeyFor = (name: string, accountNumber?: string) => resolveClientKey(accountNumber ? { AccountNumber: accountNumber } : null, name).key;
+
+app.get('/api/overview', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) return c.json({ error: 'Not authenticated' }, 401);
+    const xero = new XeroApiService(session.accessToken, session.tenantId);
+    const { invoices, payments } = await loadLedger(xero);
+    return c.json(buildOverview(invoices, payments, new Date(), { clientKeys: clientKeyFor }));
+  } catch (e: any) {
+    console.error('overview error:', e);
+    return c.json({ error: e.message || 'Failed to build overview' }, 500);
+  }
+});
+
+async function reportSettings(kv: KVNamespace | undefined): Promise<{ recipients: string[]; resendKey?: string }> {
+  try { const v = kv ? await kv.get('report_settings') : null; if (v) { const s = JSON.parse(v); return { recipients: s.recipients?.length ? s.recipients : DEFAULT_RECIPIENTS, resendKey: s.resendKey }; } } catch {}
+  return { recipients: DEFAULT_RECIPIENTS };
+}
+
+async function logRun(kv: KVNamespace | undefined, entry: Record<string, any>) {
+  if (!kv) return;
+  try {
+    const cur = JSON.parse((await kv.get('report_runlog')) || '[]');
+    cur.unshift({ at: new Date().toISOString(), ...entry });
+    await kv.put('report_runlog', JSON.stringify(cur.slice(0, 60)));
+  } catch (e) { console.error('logRun', e); }
+}
+
+async function buildEmailReport(xero: XeroApiService, type: 'weekly' | 'monthly', kv: KVNamespace | undefined, now = new Date()) {
+  const { invoices, payments } = await loadLedger(xero);
+  if (type === 'weekly') return buildWeeklyReport(invoices, payments, now);
+  const mp = lastMonthPeriod(now);
+  const prevYm = addMonths(mp.key, -1);
+  const [py, pm] = prevYm.split('-').map(Number);
+  const prevEnd = `${prevYm}-${String(new Date(Date.UTC(py, pm, 0)).getUTCDate()).padStart(2, '0')}`;
+  const safe = async <T,>(f: () => Promise<T>) => { try { return await f(); } catch (e) { console.error('monthly extra:', e); return null; } };
+  const [pnl, pnlPrev, pnlYtd, bank] = await Promise.all([
+    safe(async () => parsePnL(await xero.getProfitAndLossReport(mp.start, mp.end))),
+    safe(async () => parsePnL(await xero.getProfitAndLossReport(`${prevYm}-01`, prevEnd))),
+    safe(async () => parsePnL(await xero.getProfitAndLossReport(`${mp.key.slice(0, 4)}-01-01`, mp.end))),
+    safe(async () => parseBankSummary(await xero.getBankSummary(mp.start, mp.end))),
+  ]);
+  let goals: any = null;
+  try { const g = kv ? await kv.get('goals') : null; goals = g ? JSON.parse(g) : null; } catch {}
+  return buildMonthlyReport(invoices, payments, now, { pnl, pnlPrev, pnlYtd, bank, goals });
+}
+
+async function sendReportEmail(c: any, rep: { subject: string; html: string; text: string; type: string; period: { key: string } }, recipients: string[], idem: string) {
+  const settings = await reportSettings(c.env?.GOALS_KV);
+  const key = c.env?.RESEND_API_KEY || settings.resendKey;
+  if (!key) return { ok: false, error: 'No Resend API key configured' };
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'Idempotency-Key': idem.slice(0, 250) },
+    body: JSON.stringify({ from: REPORT_FROM, to: recipients, subject: rep.subject, html: rep.html, text: rep.text, tags: [{ name: 'report', value: rep.type }] }),
+  });
+  const body: any = await r.json().catch(() => ({}));
+  return r.ok ? { ok: true, id: body.id } : { ok: false, error: body?.message || `Resend HTTP ${r.status}` };
+}
+
+async function serviceXero(c: any): Promise<XeroApiService | null> {
+  const credentials = getCredentials(c);
+  const oauth = new XeroOAuthService(credentials.clientId, credentials.clientSecret, credentials.redirectUri);
+  const access = await getServiceAccess(c.env?.GOALS_KV, oauth, 'cron');
+  return access ? new XeroApiService(access.accessToken, access.tenantId) : null;
+}
+
+// Scheduler ping. Public on purpose (no figures in the response, fixed internal
+// recipients, at most one send per period), so any scheduler — GitHub Actions,
+// a Cloudflare cron, or simply the dashboard being opened — can trigger it.
+app.all('/api/cron/run', async (c) => {
+  const kv = c.env?.GOALS_KV;
+  if (c.env?.CRON_SECRET) {
+    const given = c.req.header('X-Cron-Key') || c.req.query('key') || '';
+    if (given !== c.env.CRON_SECRET && c.req.query('job') !== 'auto') return c.json({ ok: false, error: 'bad key' }, 401);
+  }
+  const want = (c.req.query('job') || 'auto').toLowerCase();
+  const jobs: Array<'weekly' | 'monthly'> = want === 'weekly' ? ['weekly'] : want === 'monthly' ? ['monthly'] : ['monthly', 'weekly'];
+  const now = new Date();
+  const results: any[] = [];
+  for (const job of jobs) {
+    const due = dueReport(job, now, etHour(now));
+    if (!due.due) { results.push({ job, status: 'not-due', reason: due.reason }); continue; }
+    const sentKey = `report_sent:${job}:${due.key}`, lockKey = `report_lock:${job}:${due.key}`;
+    if (kv && await kv.get(sentKey)) { results.push({ job, status: 'already-sent', period: due.key }); continue; }
+    if (kv && await kv.get(lockKey)) { results.push({ job, status: 'in-progress', period: due.key }); continue; }
+    if (kv) await kv.put(lockKey, now.toISOString(), { expirationTtl: 300 });
+    try {
+      const xero = await serviceXero(c);
+      if (!xero) {
+        await logRun(kv, { job, period: due.key, trigger: 'cron', ok: false, error: 'No server-side Xero credential yet — open the dashboard once while signed in' });
+        results.push({ job, status: 'no-credential', period: due.key });
+        continue;
+      }
+      const rep = await buildEmailReport(xero, job, kv, now);
+      const { recipients } = await reportSettings(kv);
+      const sent = await sendReportEmail(c, rep, recipients, `gc-finance-${job}-${due.key}`);
+      await logRun(kv, { job, period: due.key, trigger: 'cron', ok: sent.ok, id: (sent as any).id, error: (sent as any).error, to: recipients, subject: rep.subject });
+      if (sent.ok && kv) await kv.put(sentKey, JSON.stringify({ at: now.toISOString(), id: (sent as any).id }), { expirationTtl: 60 * 60 * 24 * 120 });
+      results.push({ job, status: sent.ok ? 'sent' : 'send-failed', period: due.key });
+    } catch (e: any) {
+      await logRun(kv, { job, period: due.key, trigger: 'cron', ok: false, error: e.message });
+      results.push({ job, status: 'error', period: due.key });
+    } finally {
+      if (kv) { try { await kv.delete(lockKey); } catch {} }
+    }
+  }
+  return c.json({ ok: true, results });
+});
+
+app.get('/api/reports/email/status', async (c) => {
+  const kv = c.env?.GOALS_KV;
+  const t = await readServiceToken(kv);
+  const settings = await reportSettings(kv);
+  let runlog: any[] = [];
+  try { runlog = JSON.parse((kv && await kv.get('report_runlog')) || '[]'); } catch {}
+  const now = new Date();
+  const ageDays = t?.updatedAt ? Math.floor((now.getTime() - Date.parse(t.updatedAt)) / 86400000) : null;
+  const sentW = kv ? await kv.get(`report_sent:weekly:${dueReport('weekly', now, 12).key}`) : null;
+  const sentM = kv ? await kv.get(`report_sent:monthly:${dueReport('monthly', now, 12).key}`) : null;
+  return c.json({
+    credential: t ? { present: true, updatedAt: t.updatedAt, source: t.source, ageDays, warning: ageDays != null && ageDays >= 45 ? 'Xero expires an unused credential after 60 days — open the dashboard to renew it' : null } : { present: false },
+    resendConfigured: !!(c.env?.RESEND_API_KEY || settings.resendKey),
+    recipients: settings.recipients,
+    from: REPORT_FROM,
+    schedule: { weekly: 'Mondays from 6am New York time — the Monday-to-Sunday week just ended', monthly: '1st of the month from 6am New York time — the month just ended' },
+    lastWeekSent: sentW ? JSON.parse(sentW) : null,
+    lastMonthSent: sentM ? JSON.parse(sentM) : null,
+    runlog: runlog.slice(0, 20),
+  });
+});
+
+app.get('/api/reports/email/preview', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) return c.json({ error: 'Not authenticated' }, 401);
+    const type = c.req.query('type') === 'monthly' ? 'monthly' : 'weekly';
+    const rep = await buildEmailReport(new XeroApiService(session.accessToken, session.tenantId), type, c.env?.GOALS_KV);
+    if (c.req.query('format') === 'json') return c.json({ subject: rep.subject, data: rep.data, period: rep.period });
+    return c.html(rep.html);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+app.post('/api/reports/email/send', async (c) => {
+  try {
+    const { session } = await getSessionWithRefresh(c);
+    if (!session?.accessToken || !session?.tenantId) return c.json({ error: 'Not authenticated' }, 401);
+    const type = c.req.query('type') === 'monthly' ? 'monthly' : 'weekly';
+    const kv = c.env?.GOALS_KV;
+    const rep = await buildEmailReport(new XeroApiService(session.accessToken, session.tenantId), type, kv);
+    const { recipients } = await reportSettings(kv);
+    const sent = await sendReportEmail(c, rep, recipients, `gc-finance-manual-${type}-${Date.now()}`);
+    await logRun(kv, { job: type, period: rep.period.key, trigger: 'manual', ok: sent.ok, id: (sent as any).id, error: (sent as any).error, to: recipients, subject: rep.subject });
+    return c.json({ ...sent, subject: rep.subject, to: recipients }, sent.ok ? 200 : 502);
+  } catch (e: any) {
+    return c.json({ ok: false, error: e.message }, 500);
+  }
+});
+
+app.post('/api/reports/email/settings', async (c) => {
+  const { session } = await getSessionWithRefresh(c);
+  if (!session?.accessToken || !session?.tenantId) return c.json({ error: 'Not authenticated' }, 401);
+  const kv = c.env?.GOALS_KV;
+  if (!kv) return c.json({ ok: false, error: 'GOALS_KV not configured' }, 503);
+  const body: any = await c.req.json().catch(() => ({}));
+  const cur = JSON.parse((await kv.get('report_settings')) || '{}');
+  if (Array.isArray(body.recipients)) {
+    const list = body.recipients.map((x: any) => String(x).trim()).filter((x: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+    if (list.length) cur.recipients = list.slice(0, 10);
+  }
+  if (typeof body.resendKey === 'string' && /^re_[A-Za-z0-9_]{10,}$/.test(body.resendKey.trim())) cur.resendKey = body.resendKey.trim();
+  await kv.put('report_settings', JSON.stringify(cur));
+  return c.json({ ok: true, recipients: cur.recipients || DEFAULT_RECIPIENTS, resendConfigured: !!(c.env?.RESEND_API_KEY || cur.resendKey) });
 });
 
 // Helper: serve a file out of the Pages asset bucket

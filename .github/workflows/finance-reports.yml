@@ -1,0 +1,22 @@
+name: Finance e-mail reports (scheduler ping)
+
+# The reports are built and sent by the Finance app itself
+# (POST /api/cron/run). This workflow only wakes it up. The endpoint is
+# idempotent: it sends each weekly / monthly report once per period, so
+# extra or late pings are harmless.
+on:
+  schedule:
+    - cron: '20 11 * * 1'   # Monday 06:20 New York (EST) / 07:20 (EDT)
+    - cron: '50 13 * * 1'   # Monday backup
+    - cron: '20 11 1 * *'   # 1st of the month
+    - cron: '50 13 1 * *'   # 1st backup
+    - cron: '20 12 2 * *'   # 2nd catch-up
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake the report job
+        run: |
+          curl -fsS -X POST "https://finance.gershoncrm.com/api/cron/run?job=auto" | tee result.json
