@@ -12,7 +12,7 @@ import { createSwot, listSwot, updateSwot, archiveSwot } from './services/swot';
 import { buildReport } from './services/reports';
 import { captureBundle } from './services/snapshot-capture';
 import { buildClientProfile, marginFromPnL, resolveClientKey } from './services/client-profile';
-import { buildOverview } from './services/account-overview';
+import { buildOverview, DEFAULT_LEGAL, type LegalSettings } from './services/account-overview';
 import { buildWeeklyReport, buildMonthlyReport, parsePnL, parseBankSummary, dueReport, lastMonthPeriod } from './services/email-reports';
 import { readServiceToken, writeServiceToken, getServiceAccess } from './services/service-token';
 import { etHour, addMonths, monthKey, etDay } from './services/account-overview';
@@ -36,11 +36,10 @@ const PRODUCTION_CREDENTIALS = {
   XERO_CLIENT_SECRET: 'Mq75ulsu-AJPj80E5NOFV7aaZfgh898xEqjnplXPMYL9SdNE',
   // Dynamically set redirect URI based on host
   getRedirectUri: (host: string) => {
-    if (host.includes('finance.gershoncrm.com')) {
-      return 'https://finance.gershoncrm.com/auth/callback';
-    } else if (host.includes('sandbox.novita.ai')) {
-      return `https://${host}/auth/callback`;
-    }
+    // v2.22.0 — the app moved to finance.gershon.ai. The callback always
+    // follows the host the user signed in on, so the session cookie lands on
+    // the same domain.
+    if (host.includes('finance.gershon.ai')) return 'https://finance.gershon.ai/auth/callback';
     return `https://${host}/auth/callback`;
   }
 };
@@ -53,9 +52,26 @@ function getCredentials(c: any) {
   return {
     clientId: env?.XERO_CLIENT_ID || PRODUCTION_CREDENTIALS.XERO_CLIENT_ID,
     clientSecret: env?.XERO_CLIENT_SECRET || PRODUCTION_CREDENTIALS.XERO_CLIENT_SECRET,
-    redirectUri: env?.XERO_REDIRECT_URI || PRODUCTION_CREDENTIALS.getRedirectUri(host)
+    // An env override only applies when it points at the host in use.
+    redirectUri: (env?.XERO_REDIRECT_URI && host && env.XERO_REDIRECT_URI.includes(host.split(':')[0]))
+      ? env.XERO_REDIRECT_URI
+      : PRODUCTION_CREDENTIALS.getRedirectUri(host)
   };
 }
+
+// v2.22.0 — finance.gershon.ai is the canonical address. Pages on the old
+// finance.gershoncrm.com host are sent there permanently; /api/* and /auth/*
+// keep answering on both hosts so anything still pointing at the old address
+// (and a sign-in already in flight) does not break.
+const CANONICAL_HOST = 'finance.gershon.ai';
+app.use('*', async (c, next) => {
+  const url = new URL(c.req.url);
+  if (url.hostname === 'finance.gershoncrm.com' && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/auth/')) {
+    url.hostname = CANONICAL_HOST; url.port = '';
+    return c.redirect(url.toString(), 301);
+  }
+  return next();
+});
 
 // Enable CORS for API routes
 app.use('/api/*', cors());
@@ -218,10 +234,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.21.0',
-    releaseDate: '2026-11-09T18:00:00Z',
+    version: '2.22.0',
+    releaseDate: '2026-11-09T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.22.0: Moved to finance.gershon.ai (old host redirects); Legal section — long-unpaid cases kept out of collections (owed, overdue, ageing, DSO, collection rate, alerts); Google Sheets + Extract Data integrations removed',
       'v2.21.0: Full-width account dashboard; Invoices open on waiting-for-payment with a summary on top; Clients = active/inactive table (months together, paid, avg/month, how they pay, owed, months late green/orange/red); weekly (Mondays) and monthly (1st) e-mail reports built into the app; one shared Xero refresh chain (X-Session-Refresh)',
       'v2.20.0: Client profile — click any client name to open a full card: client key number, invoices, months with us, averages, estimated profit, payment speed and lateness, on-time rate, overdue list, what we bill them for (and any late/interest fees), an A–D client grade and call-prep talking points',
       'v2.19.1: Demo mode fixes — no more "Running NaN% behind projection"; the status badge always says DEMO in demo mode (and stays "Demo data" once a card falls back to demo data); Invoices, Valuation and Reports tabs no longer log errors in demo mode (sample invoice list, complete valuation figures, old Reports renderer no longer crashes)',
@@ -1595,76 +1612,6 @@ app.get('/api/export/payment-trends', async (c) => {
   }
 });
 
-// Google Sheets IMPORTDATA endpoints - return plain text or CSV
-
-// Get specific client balance due
-app.get('/api/sheets/:clientName/due', async (c) => {
-  try {
-    const { session } = await getSessionWithRefresh(c);
-    const clientName = c.req.param('clientName');
-    
-    if (!session?.accessToken || !session?.tenantId) {
-      // Demo data for testing
-      const demoBalances: Record<string, number> = {
-        'Urban Factory': 2055.20,
-        'Milvue': 17512.33,
-        'Acme Corp': 5000.00
-      };
-      const balance = demoBalances[clientName] || 0;
-      return c.text(balance.toFixed(2));
-    }
-
-    const xero = new XeroApiService(session.accessToken, session.tenantId);
-    const clients = await xero.getClientsAwaitingPayment();
-    
-    // Find matching client (case-insensitive)
-    const client = clients.find(
-      (c: any) => c.contactName.toLowerCase() === clientName.toLowerCase()
-    );
-    
-    const balance = client?.totalOutstanding || 0;
-    return c.text(balance.toFixed(2));
-  } catch (error: any) {
-    console.error(`Error fetching balance for ${c.req.param('clientName')}:`, error);
-    return c.text('0.00');
-  }
-});
-
-// Get all clients with balances as CSV
-app.get('/api/sheets/clients/list', async (c) => {
-  try {
-    const { session } = await getSessionWithRefresh(c);
-    
-    let clients;
-    if (!session?.accessToken || !session?.tenantId) {
-      // Demo data
-      clients = [
-        { contactName: 'Urban Factory', totalOutstanding: 2055.20 },
-        { contactName: 'Milvue', totalOutstanding: 17512.33 },
-        { contactName: 'Acme Corp', totalOutstanding: 5000.00 }
-      ];
-    } else {
-      const xero = new XeroApiService(session.accessToken, session.tenantId);
-      clients = await xero.getClientsAwaitingPayment();
-    }
-    
-    // Generate CSV: Client Name,Balance
-    let csv = 'Client Name,Balance Due\n';
-    for (const client of clients) {
-      csv += `${client.contactName},${client.totalOutstanding.toFixed(2)}\n`;
-    }
-    
-    return new Response(csv, {
-      headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
-      },
-    });
-  } catch (error: any) {
-    console.error('Error generating clients list:', error);
-    return c.text('Client Name,Balance Due\nError,0.00');
-  }
-});
-
 // Company Valuation — ARR multiples adjusted for churn, growth, NRR
 app.get('/api/valuation', async (c) => {
   try {
@@ -1880,13 +1827,39 @@ async function loadLedger(xero: XeroApiService) {
 
 const clientKeyFor = (name: string, accountNumber?: string) => resolveClientKey(accountNumber ? { AccountNumber: accountNumber } : null, name).key;
 
+// v2.22.0 — legal cases (long unpaid, handed to legal). Settings in KV.
+async function legalSettings(kv: KVNamespace | undefined): Promise<LegalSettings> {
+  try { const v = kv ? await kv.get('legal_settings') : null; if (v) return { ...DEFAULT_LEGAL, ...JSON.parse(v) }; } catch {}
+  return { ...DEFAULT_LEGAL };
+}
+
+app.get('/api/legal/settings', async (c) => c.json(await legalSettings(c.env?.GOALS_KV)));
+
+app.post('/api/legal/settings', async (c) => {
+  const { session } = await getSessionWithRefresh(c);
+  if (!session?.accessToken || !session?.tenantId) return c.json({ ok: false, error: 'Not authenticated' }, 401);
+  const kv = c.env?.GOALS_KV;
+  if (!kv) return c.json({ ok: false, error: 'GOALS_KV not configured' }, 503);
+  const body: any = await c.req.json().catch(() => ({}));
+  const cur = await legalSettings(kv);
+  const clean = (xs: any) => Array.isArray(xs) ? [...new Set(xs.map((x: any) => String(x).trim()).filter(Boolean))].slice(0, 200) as string[] : null;
+  const days = Number(body.thresholdDays);
+  const next: LegalSettings = {
+    thresholdDays: days >= 30 && days <= 3650 ? Math.round(days) : cur.thresholdDays,
+    include: clean(body.include) ?? cur.include,
+    exclude: clean(body.exclude) ?? cur.exclude,
+  };
+  await kv.put('legal_settings', JSON.stringify(next));
+  return c.json({ ok: true, settings: next });
+});
+
 app.get('/api/overview', async (c) => {
   try {
     const { session } = await getSessionWithRefresh(c);
     if (!session?.accessToken || !session?.tenantId) return c.json({ error: 'Not authenticated' }, 401);
     const xero = new XeroApiService(session.accessToken, session.tenantId);
     const { invoices, payments } = await loadLedger(xero);
-    return c.json(buildOverview(invoices, payments, new Date(), { clientKeys: clientKeyFor }));
+    return c.json(buildOverview(invoices, payments, new Date(), { clientKeys: clientKeyFor, legal: await legalSettings(c.env?.GOALS_KV) }));
   } catch (e: any) {
     console.error('overview error:', e);
     return c.json({ error: e.message || 'Failed to build overview' }, 500);
@@ -1909,7 +1882,8 @@ async function logRun(kv: KVNamespace | undefined, entry: Record<string, any>) {
 
 async function buildEmailReport(xero: XeroApiService, type: 'weekly' | 'monthly', kv: KVNamespace | undefined, now = new Date()) {
   const { invoices, payments } = await loadLedger(xero);
-  if (type === 'weekly') return buildWeeklyReport(invoices, payments, now);
+  const legal = await legalSettings(kv);
+  if (type === 'weekly') return buildWeeklyReport(invoices, payments, now, legal);
   const mp = lastMonthPeriod(now);
   const prevYm = addMonths(mp.key, -1);
   const [py, pm] = prevYm.split('-').map(Number);
@@ -1923,7 +1897,7 @@ async function buildEmailReport(xero: XeroApiService, type: 'weekly' | 'monthly'
   ]);
   let goals: any = null;
   try { const g = kv ? await kv.get('goals') : null; goals = g ? JSON.parse(g) : null; } catch {}
-  return buildMonthlyReport(invoices, payments, now, { pnl, pnlPrev, pnlYtd, bank, goals });
+  return buildMonthlyReport(invoices, payments, now, { pnl, pnlPrev, pnlYtd, bank, goals, legal });
 }
 
 async function sendReportEmail(c: any, rep: { subject: string; html: string; text: string; type: string; period: { key: string } }, recipients: string[], idem: string) {
@@ -2199,125 +2173,6 @@ app.get('/api/reports/role/:role', async (c) => {
   }
 });
 
-
-// =============================================================================
-// v2.17.0+ — /api/extract/* — cross-platform data extracts (consumed by
-// company.gershonCRM.com's "Business assumptions" form and similar).
-// Public-key-protected (or session-protected) JSON endpoints, designed to be
-// fetched server-side from other Gershon properties.
-// =============================================================================
-
-app.get('/api/extract/business-assumptions', async (c) => {
-  try {
-    const { session } = await getSessionWithRefresh(c);
-    if (!session?.accessToken || !session?.tenantId) {
-      return c.json({ error: 'Not authenticated' }, 401);
-    }
-    const xero = new XeroApiService(session.accessToken, session.tenantId);
-    const invoices = await xero.getInvoices();
-
-    // Only count invoices that represent real billed work.
-    const billable = invoices.filter((i: any) =>
-      ['PAID', 'AUTHORISED', 'SUBMITTED'].includes(i.Status));
-
-    // --- Avg Invoice Value (USD) --------------------------------------------
-    const totalValue = billable.reduce((s: number, i: any) => s + (i.Total || 0), 0);
-    const avgInvoiceValue = billable.length > 0
-      ? Math.round((totalValue / billable.length) * 100) / 100
-      : 0;
-
-    // --- Avg Invoices / Client (lifetime count) -----------------------------
-    const contactCount = new Set(billable.map((i: any) => i.Contact?.ContactID || i.Contact?.Name).filter(Boolean)).size;
-    const avgInvoicesPerClient = contactCount > 0
-      ? Math.round((billable.length / contactCount) * 10) / 10
-      : 0;
-
-    // --- Avg Client Lifetime (months) ---------------------------------------
-    const parseDate = (d: any): Date | null => {
-      if (!d) return null;
-      if (typeof d === 'string' && d.includes('/Date(')) {
-        const m = d.match(/\/Date\((\d+)/);
-        return m ? new Date(parseInt(m[1])) : null;
-      }
-      const dt = new Date(d);
-      return isNaN(dt.getTime()) ? null : dt;
-    };
-    const perClient = new Map<string, { first: Date; last: Date }>();
-    for (const inv of billable) {
-      const cid = inv.Contact?.ContactID || inv.Contact?.Name;
-      const dt = parseDate(inv.Date);
-      if (!cid || !dt) continue;
-      const prev = perClient.get(cid);
-      if (!prev) { perClient.set(cid, { first: dt, last: dt }); continue; }
-      if (dt < prev.first) prev.first = dt;
-      if (dt > prev.last)  prev.last  = dt;
-    }
-    let lifetimeTotal = 0, lifetimeN = 0;
-    for (const v of perClient.values()) {
-      const months = (v.last.getFullYear() - v.first.getFullYear()) * 12
-        + (v.last.getMonth() - v.first.getMonth()) + 1;
-      lifetimeTotal += months; lifetimeN += 1;
-    }
-    const avgClientLifetimeMonths = lifetimeN > 0
-      ? Math.round((lifetimeTotal / lifetimeN) * 10) / 10
-      : 0;
-
-    // --- Conversion rates (user-supplied; stored in KV) ---------------------
-    // Default to nulls so the consuming form keeps showing 0 / placeholder.
-    let conv = { high: null as number | null, medium: null as number | null, low: null as number | null };
-    try {
-      const raw = c.env?.GOALS_KV ? await c.env.GOALS_KV.get('conversion-rates') : null;
-      if (raw) {
-        const p = JSON.parse(raw);
-        conv = {
-          high:   typeof p.high   === 'number' ? p.high   : null,
-          medium: typeof p.medium === 'number' ? p.medium : null,
-          low:    typeof p.low    === 'number' ? p.low    : null,
-        };
-      }
-    } catch {}
-
-    return c.json({
-      avgInvoiceValue,             // USD
-      avgInvoicesPerClient,        // count
-      avgClientLifetimeMonths,     // months
-      conversion: conv,            // { high, medium, low }  in %
-      meta: {
-        source: 'finance.gershoncrm.com',
-        tenant: 'Gershon Consulting LLC',
-        computedAt: new Date().toISOString(),
-        sampleSize: { billableInvoices: billable.length, clients: contactCount },
-      },
-    });
-  } catch (error: any) {
-    console.error('extract/business-assumptions error:', error);
-    return c.json({ error: error.message }, 500);
-  }
-});
-
-// User-supplied conversion rates: GET to read, POST to set.
-app.get('/api/extract/conversion-rates', async (c) => {
-  try {
-    if (c.env?.GOALS_KV) {
-      const raw = await c.env.GOALS_KV.get('conversion-rates');
-      if (raw) return c.json(JSON.parse(raw));
-    }
-    return c.json({ high: null, medium: null, low: null });
-  } catch (e: any) { return c.json({ error: e.message }, 500); }
-});
-
-app.post('/api/extract/conversion-rates', async (c) => {
-  try {
-    const { session } = await getSessionWithRefresh(c);
-    if (!session?.accessToken) return c.json({ error: 'Not authenticated' }, 401);
-    if (!c.env?.GOALS_KV) return c.json({ error: 'GOALS_KV not configured' }, 503);
-    const body = await c.req.json();
-    const norm = (v: any) => (v == null || v === '' || isNaN(Number(v))) ? null : Math.max(0, Math.min(100, Number(v)));
-    const conv = { high: norm(body.high), medium: norm(body.medium), low: norm(body.low) };
-    await c.env.GOALS_KV.put('conversion-rates', JSON.stringify(conv));
-    return c.json({ ok: true, conversion: conv });
-  } catch (e: any) { return c.json({ error: e.message }, 400); }
-});
 
 // ---------------------------------------------------------------------------
 // v2.18.0 — Catch-all. Must stay the LAST route in this file.

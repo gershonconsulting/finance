@@ -80,7 +80,7 @@
     const monthName = new Date(k.thisMonth + '-15T12:00:00Z').toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
     const lastName = new Date(k.lastMonth + '-15T12:00:00Z').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
     const alerts = (o.alerts || []).slice(0, 6).map(a => `<div class="ov-alert ov-alert--${a.level}"><i class="fas ${a.level === 'info' ? 'fa-circle-info' : 'fa-triangle-exclamation'}"></i>${esc(a.text)}</div>`).join('');
-    const debtors = o.clients.filter(c => c.owed > 0.005).sort((a, b) => b.oldestOverdueDays - a.oldestOverdueDays || b.owed - a.owed);
+    const debtors = o.clients.filter(c => c.owed > 0.005 && !c.inLegal).sort((a, b) => b.oldestOverdueDays - a.oldestOverdueDays || b.owed - a.owed);
     const agingTotal = o.aging.reduce((s, a) => s + a.amount, 0) || 1;
     const agingColors = { notdue: '#0ea5e9', d1_30: '#22c55e', d30_60: '#f59e0b', d60_90: '#ea580c', d90: '#dc2626' };
 
@@ -137,10 +137,19 @@
         ${kpi('Inactive clients', String(k.inactiveClients), 'no invoice in 2 months', '#64748b', true)}
         ${kpi('Drafts not sent', String(o.drafts.count), money(o.drafts.amount), '#64748b', true)}
       </div>
-      <div class="ov-foot">Invoiced = invoices dated in the month (drafts and voids excluded). Collected = ${o.collectedSource === 'payments' ? 'payments recorded in Xero' : 'invoices fully paid in the month'}. Late colour: under 1 month green, 1–3 months orange, 3 months or more red.</div>`;
+      ${legalStrip(o)}
+      <div class="ov-foot">Invoiced = invoices dated in the month (drafts and voids excluded). Collected = ${o.collectedSource === 'payments' ? 'payments recorded in Xero' : 'invoices fully paid in the month'}. Late colour: under 1 month green, 1–3 months orange, 3 months or more red. Cases in legal are left out of owed, overdue, ageing, DSO and collection rate.</div>`;
 
     el.querySelectorAll('[data-goto]').forEach(a => a.addEventListener('click', () => document.querySelector(`.tab-button[data-tab="${a.dataset.goto}"]`)?.click()));
     drawChart(o);
+  }
+  function legalStrip(o) {
+    const L = o.legal; if (!L || !L.cases || !L.cases.length) return '';
+    return `<div class="ov-card" style="border-left:4px solid #475569;margin-bottom:14px">
+      <div class="ov-card-h"><span><i class="fas fa-gavel" style="color:#475569"></i> In legal — not counted in collections</span><a class="ov-a" data-goto="legal">Legal →</a></div>
+      <div class="ov-row ov-row--tight"><div><strong>${money(L.amount)}</strong> <span class="ov-muted">across ${L.count} invoice${L.count > 1 ? 's' : ''} · ${L.cases.length} client${L.cases.length > 1 ? 's' : ''}</span></div>
+        <div class="ov-muted" style="font-size:12px">${L.cases.slice(0, 4).map(c => esc(c.client) + ' ' + moneyK(c.amountDue)).join(' · ')}${L.cases.length > 4 ? ' …' : ''}</div></div>
+    </div>`;
   }
   function kpi(label, value, sub, color, small) {
     return `<div class="ov-kpi${small ? ' ov-kpi--small' : ''}" style="--c:${color}"><div class="ov-kpi-l">${esc(label)}</div><div class="ov-kpi-v">${esc(value)}</div>${sub ? `<div class="ov-kpi-s">${esc(sub)}</div>` : ''}</div>`;
@@ -184,10 +193,12 @@
         ${kpi('Oldest overdue', oldest ? lateTxt(oldest.daysOverdue) : '—', oldest ? `${oldest.client} · ${money(oldest.amountDue)}` : 'nothing overdue', '#b91c1c')}
         ${kpi('Average lateness', od.length ? avgLate + ' days' : '—', 'across overdue invoices', '#6d28d9')}
       </div>
+      ${o.legal && o.legal.count ? `<div class="ov-muted" style="font-size:12px;margin:-6px 0 12px"><i class="fas fa-gavel"></i> ${money(o.legal.amount)} in legal (${o.legal.count} invoices) is not included above — see the <a class="ov-a" data-goto="legal">Legal</a> page.</div>` : ''}
       <div class="ov-card" style="margin-bottom:14px">
         <div class="ov-stack" style="height:14px">${o.aging.map(a => a.amount > 0 ? `<span title="${esc(a.label)}: ${money(a.amount)}" style="width:${(a.amount / tot) * 100}%;background:${col[a.key]}"></span>` : '').join('')}</div>
         <div class="ov-aging-legend">${o.aging.map(a => `<span><span class="ov-dot" style="background:${col[a.key]}"></span>${esc(a.label)} <strong>${money(a.amount)}</strong> <span class="ov-muted">(${a.count})</span></span>`).join('')}</div>
       </div>`;
+    el.querySelectorAll('[data-goto]').forEach(a => a.addEventListener('click', () => document.querySelector(`.tab-button[data-tab="${a.dataset.goto}"]`)?.click()));
   }
   window.ovShowWaitingInvoices = async function (filter) {
     invFilter = filter || 'waiting';
@@ -198,7 +209,7 @@
     if (invFilter === 'all') return window.loadInvoices && window.loadInvoices();
     if (!OV) listEl.innerHTML = loadingBox();
     let o; try { o = await getOverview(); } catch (e) { listEl.innerHTML = errorBox(e); return; }
-    let rows = o.openInvoices.slice();
+    let rows = invFilter === 'legal' ? ((o.legal && o.legal.invoices) || []).slice() : o.openInvoices.slice();
     if (invFilter === 'overdue') rows = rows.filter(x => x.daysOverdue > 0);
     const k = invSort.k, d = invSort.d;
     rows.sort((a, b) => { const x = a[k], y = b[k]; return (typeof x === 'number' ? x - y : String(x || '').localeCompare(String(y || ''))) * d; });
@@ -208,7 +219,7 @@
       <tbody>${rows.map(x => `<tr><td><strong>${esc(x.number)}</strong>${x.reference ? `<div class="ov-muted" style="font-size:11px">${esc(x.reference)}</div>` : ''}</td><td>${link(x.client, x.contactId)}</td><td>${fdate(x.date)}</td><td>${fdate(x.dueDate)}</td><td class="r">${money(x.total)}</td><td class="r"><strong>${money(x.amountDue)}</strong></td>
         <td class="r">${x.daysOverdue > 0 ? pill(x.lateLevel, lateTxt(x.daysOverdue)) : pill('blue', x.daysOverdue === 0 ? 'Due today' : `Due in ${-x.daysOverdue} d`)}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td colspan="4">${rows.length} invoices</td><td class="r">${money(rows.reduce((s, x) => s + x.total, 0))}</td><td class="r"><strong>${money(rows.reduce((s, x) => s + x.amountDue, 0))}</strong></td><td></td></tr></tfoot></table>`
-      : '<p class="ov-muted" style="text-align:center;padding:30px">No invoice is waiting for payment. 🎉</p>';
+      : `<p class="ov-muted" style="text-align:center;padding:30px">${invFilter === 'legal' ? 'No invoice is in legal.' : 'No invoice is waiting for payment. 🎉'}</p>`;
     listEl.querySelectorAll('th[data-sort]').forEach(h => h.addEventListener('click', () => { const key = h.dataset.sort; invSort = { k: key, d: invSort.k === key ? -invSort.d : (key === 'daysOverdue' || key === 'amountDue' || key === 'total' ? -1 : 1) }; ovShowWaitingInvoices(invFilter); }));
   };
 
@@ -235,8 +246,8 @@
         ${kpi('Active clients', String(act.length), 'invoiced in the last 2 months', '#6d28d9')}
         ${kpi('Recurring per month', money(act.reduce((s, c) => s + c.avgPerMonth, 0)), 'sum of their monthly average', RED)}
         ${kpi('Active clients owe us', money(actOwed), `${money(actOver)} overdue`, '#0369a1')}
-        ${kpi('Late 1–3 months', String(act.filter(c => c.lateLevel === 'orange').length), 'active clients in orange', '#b45309')}
-        ${kpi('Late 3+ months', String(act.filter(c => c.lateLevel === 'red').length), 'active clients in red', '#b91c1c')}
+        ${kpi('Late 1–3 months', String(act.filter(c => !c.inLegal && c.lateLevel === 'orange').length), 'active clients in orange', '#b45309')}
+        ${kpi('Late 3+ months', String(act.filter(c => !c.inLegal && c.lateLevel === 'red').length), 'active clients in red', '#b91c1c')}
         ${kpi('Inactive clients', String(ina.length), ina.filter(c => c.owed > 0).length ? `${ina.filter(c => c.owed > 0).length} still owe ${money(ina.reduce((s, c) => s + c.owed, 0))}` : 'nothing owed', '#64748b')}
       </div>
       <div class="ov-card" style="padding:0">
@@ -260,7 +271,7 @@
           ${th('oldestOverdueDays', 'Months late', 'c', 'Oldest unpaid invoice past its due date')}
         </tr></thead><tbody>
         ${rows.map(c => `<tr class="ov-lvl-${c.lateLevel}">
-          <td><div class="ov-cname">${link(c.name, c.contactId)}</div><div class="ov-muted" style="font-size:11px">${c.clientKey ? '#' + esc(c.clientKey) + ' · ' : ''}since ${fdate(c.firstInvoice)}${c.active ? '' : ' · last invoice ' + fdate(c.lastInvoice)}${c.lastPayment ? ' · last paid ' + fdate(c.lastPayment) : ''}</div></td>
+          <td><div class="ov-cname">${link(c.name, c.contactId)}${c.inLegal ? ' ' + pill('blue', 'In legal') : ''}</div><div class="ov-muted" style="font-size:11px">${c.clientKey ? '#' + esc(c.clientKey) + ' · ' : ''}since ${fdate(c.firstInvoice)}${c.active ? '' : ' · last invoice ' + fdate(c.lastInvoice)}${c.lastPayment ? ' · last paid ' + fdate(c.lastPayment) : ''}</div></td>
           <td class="c"><strong>${c.monthsTogether}</strong><div class="ov-muted" style="font-size:11px">${c.monthsBilled} billed</div></td>
           <td class="c">${c.invoicesPaid}<span class="ov-muted"> / ${c.invoiceCount}</span></td>
           <td class="r">${money(c.totalPaid)}<div class="ov-muted" style="font-size:11px">of ${money(c.totalInvoiced)}</div></td>
@@ -286,6 +297,69 @@
     const csv = [cols.join(',')].concat(OV.clients.map(c => cols.map(k => { const v = c[k] == null ? '' : String(c[k]); return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }).join(','))).join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `clients-${OV.today}.csv`; a.click();
   };
+
+  // ---------------------------------------------------------------------------
+  // LEGAL — long unpaid cases, kept out of collections (v2.22.0)
+  // ---------------------------------------------------------------------------
+  async function renderLegal() {
+    const el = document.getElementById('ovLegal'); if (!el) return;
+    if (!OV) el.innerHTML = loadingBox();
+    let o; try { o = await getOverview(); } catch (e) { el.innerHTML = errorBox(e); return; }
+    const L = o.legal || { settings: { thresholdDays: 180, include: [], exclude: [] }, amount: 0, count: 0, cases: [], invoices: [] };
+    const st = L.settings;
+    const candidates = o.clients.filter(c => c.owed > 0.005 && !c.inLegal).sort((a, b) => b.oldestOverdueDays - a.oldestOverdueDays);
+    const oldest = L.cases.reduce((m, c) => Math.max(m, c.oldestDays), 0);
+    el.innerHTML = `
+      <div class="ov-head"><div><div class="ov-eyebrow">Legal · ${esc(fdate(o.today))}</div>
+        <div class="ov-title">${money(L.amount)} in legal — kept out of every collection figure</div></div>
+        <div class="ov-head-actions"><button class="ov-btn" onclick="ovRefresh()"><i class="fas fa-rotate"></i> Refresh</button></div></div>
+      <div class="ov-kpis">
+        ${kpi('In legal', money(L.amount), `${L.count} invoice${L.count === 1 ? '' : 's'}`, '#475569')}
+        ${kpi('Cases', String(L.cases.length), 'clients', '#475569')}
+        ${kpi('Oldest', oldest ? (oldest / 30.44).toFixed(1) + ' months' : '—', 'past due', '#b91c1c')}
+        ${kpi('Collectible owed', money(o.kpis.outstanding), 'what we still expect to collect', '#0369a1')}
+        ${kpi('Collectible overdue', money(o.kpis.overdue), `${o.kpis.overdueCount} invoices`, '#b91c1c')}
+        ${kpi('Collection rate', o.kpis.collectionRate == null ? '—' : o.kpis.collectionRate + '%', '12 months, legal excluded', '#15803d')}
+      </div>
+      <div class="ov-card" style="padding:0;margin-bottom:14px">
+        <div class="ov-card-h" style="padding:12px 14px 0"><span>Cases</span><span class="ov-muted">auto = unpaid ${st.thresholdDays}+ days · manual = flagged by you</span></div>
+        <div style="overflow-x:auto"><table class="ov-table"><thead><tr><th>Client</th><th class="c">Invoices</th><th>First due</th><th class="c">Late</th><th>Last paid</th><th class="r">Owed</th><th class="c">Why</th><th></th></tr></thead><tbody>
+        ${L.cases.map(c => `<tr><td><strong>${link(c.client, c.contactId)}</strong></td><td class="c">${c.invoiceCount}</td><td>${fdate(c.firstDue)}</td><td class="c">${pill('red', c.monthsLate.toFixed(1) + ' mo')}</td><td>${fdate(c.lastPayment)}</td><td class="r"><strong>${money(c.amountDue)}</strong></td>
+          <td class="c">${pill(c.reason === 'manual' ? 'orange' : 'blue', c.reason)}</td>
+          <td class="r"><button class="ov-btn" data-legal-out="${esc(c.contactId || c.client)}" data-reason="${c.reason}" title="Count this client in collections again">Back to collections</button></td></tr>`).join('') || '<tr><td colspan="8" class="ov-muted" style="text-align:center;padding:24px">No case is in legal.</td></tr>'}
+        </tbody><tfoot><tr><td>${L.cases.length} cases</td><td class="c">${L.count}</td><td></td><td></td><td></td><td class="r"><strong>${money(L.amount)}</strong></td><td></td><td></td></tr></tfoot></table></div>
+      </div>
+      <div class="ov-grid ov-grid--2">
+        <div class="ov-card">
+          <div class="ov-card-h"><span>Rule</span></div>
+          <div style="font-size:13px;line-height:1.6">A client moves to legal automatically when an invoice is unpaid for
+            <input id="ovLegalDays" class="ov-input" type="number" min="30" max="3650" value="${st.thresholdDays}" style="width:80px;display:inline-block"> days past due.
+            <button class="ov-btn ov-btn--red" id="ovLegalSave">Save</button> <span id="ovLegalMsg" class="ov-muted"></span></div>
+          ${st.exclude.length ? `<div class="ov-muted" style="font-size:12px;margin-top:8px">Kept in collections despite the rule: ${st.exclude.map(x => `${esc(nameFor(o, x))} <a class="ov-a" data-legal-unexclude="${esc(x)}">undo</a>`).join(' · ')}</div>` : ''}
+        </div>
+        <div class="ov-card">
+          <div class="ov-card-h"><span>Send a client to legal</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><select id="ovLegalPick" class="ov-input" style="min-width:240px">
+            ${candidates.map(c => `<option value="${esc(c.contactId || c.name)}">${esc(c.name)} — ${money(c.owed)}${c.oldestOverdueDays > 0 ? ', ' + c.monthsLate.toFixed(1) + ' mo late' : ''}</option>`).join('') || '<option value="">No other client owes us</option>'}
+          </select><button class="ov-btn" id="ovLegalAdd"><i class="fas fa-gavel"></i> Move to legal</button></div>
+          <div class="ov-muted" style="font-size:12px;margin-top:8px">All of that client's open invoices leave collections and appear above.</div>
+        </div>
+      </div>
+      <div class="ov-foot">Invoices in legal are excluded from owed, overdue, ageing, DSO, collection rate, late alerts and the weekly / monthly e-mails' late lists. They are still listed in those e-mails under "In legal".</div>`;
+    el.querySelectorAll('[data-goto]').forEach(a => a.addEventListener('click', () => document.querySelector(`.tab-button[data-tab="${a.dataset.goto}"]`)?.click()));
+    const save = async (patch) => {
+      if (isDemo()) { alert('Demo Mode — settings are not saved.'); return; }
+      const msg = document.getElementById('ovLegalMsg'); if (msg) msg.textContent = 'Saving…';
+      try { await axios.post('/api/legal/settings', patch); await getOverview(true); renderLegal(); }
+      catch (e) { if (msg) msg.textContent = 'Save failed: ' + (e?.response?.data?.error || e.message); }
+    };
+    const without = (xs, v) => xs.filter(x => x.toLowerCase() !== String(v).toLowerCase());
+    document.getElementById('ovLegalSave')?.addEventListener('click', () => save({ thresholdDays: Number(document.getElementById('ovLegalDays').value) }));
+    document.getElementById('ovLegalAdd')?.addEventListener('click', () => { const v = document.getElementById('ovLegalPick').value; if (v) save({ include: [...without(st.include, v), v], exclude: without(st.exclude, v) }); });
+    el.querySelectorAll('[data-legal-out]').forEach(b => b.addEventListener('click', () => { const v = b.dataset.legalOut; save({ include: without(st.include, v), exclude: b.dataset.reason === 'auto' ? [...without(st.exclude, v), v] : st.exclude }); }));
+    el.querySelectorAll('[data-legal-unexclude]').forEach(a => a.addEventListener('click', () => save({ exclude: without(st.exclude, a.dataset.legalUnexclude) })));
+  }
+  function nameFor(o, idOrName) { const c = o.clients.find(c => c.contactId === idOrName || c.name.toLowerCase() === String(idOrName).toLowerCase()); return c ? c.name : idOrName; }
 
   // ---------------------------------------------------------------------------
   // EMAIL REPORTS tab
@@ -357,6 +431,7 @@
     if (active === 'dashboard') renderDashboard();
     if (active === 'invoices') { renderInvoicesSummary(); ovShowWaitingInvoices(invFilter); }
     if (active === 'clients') renderClients();
+    if (active === 'legal') renderLegal();
   }
   window.ovRenderDashboard = renderDashboard;
   document.addEventListener('DOMContentLoaded', () => {
@@ -366,6 +441,7 @@
       if (t === 'dashboard') renderDashboard();
       else if (t === 'invoices') { renderInvoicesSummary(); }
       else if (t === 'clients') renderClients();
+      else if (t === 'legal') renderLegal();
       else if (t === 'email-reports') renderReportsTab();
     }));
     document.querySelectorAll('[data-inv-filter]').forEach(b => b.addEventListener('click', () => ovShowWaitingInvoices(b.dataset.invFilter)));
@@ -409,6 +485,7 @@
       aging: [['notdue', 'Not yet due', 'blue', d => d <= 0], ['d1_30', '1–30 days late', 'green', d => d > 0 && d < 30], ['d30_60', '30–60 days late', 'orange', d => d >= 30 && d < 60], ['d60_90', '60–90 days late', 'orange', d => d >= 60 && d < 90], ['d90', '90+ days late', 'red', d => d >= 90]].map(([key, label, level, f]) => ({ key, label, level, ...b(f) })),
       recentPayments: names.slice(0, 8).map((n, i) => ({ date: new Date(Date.now() - i * 2 * 864e5).toISOString().slice(0, 10), client: n, number: 'INV-' + (4000 + i), amount: clients[i].avgPerMonth })),
       upcomingDue: openInvoices.filter(x => x.daysOverdue <= 0),
+      legal: { settings: { thresholdDays: 180, include: [], exclude: [] }, amount: 18500, count: 4, cases: [{ contactId: '', client: 'Old Harbor Retail', reason: 'auto', amountDue: 12500, invoiceCount: 3, oldestDays: 260, monthsLate: 8.5, firstDue: new Date(Date.now() - 260 * 864e5).toISOString().slice(0, 10), lastPayment: null }, { contactId: '', client: 'Granite Peak Media', reason: 'manual', amountDue: 6000, invoiceCount: 1, oldestDays: 150, monthsLate: 4.9, firstDue: new Date(Date.now() - 150 * 864e5).toISOString().slice(0, 10), lastPayment: null }], invoices: [] },
       alerts: [{ level: 'red', text: 'Kestrel Security owes $10,000 — 4.3 months late (inactive client)' }, { level: 'red', text: 'Riverstone Foods owes $9,000 — 3.4 months late' }, { level: 'orange', text: 'Corvid Analytics owes $7,800 — 1.5 months late' }, { level: 'info', text: '2 draft invoices ($4,100) not yet sent' }] };
   }
 })();

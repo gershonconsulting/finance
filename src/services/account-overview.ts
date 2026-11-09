@@ -118,6 +118,7 @@ export interface ClientRow {
   lateLevel: 'green' | 'orange' | 'red';
   lastPayment: string | null;
   sharePct: number;             // share of trailing-12-month billing
+  inLegal: boolean;             // v2.22.0 — open balance handed to legal, excluded from collections
 }
 
 export interface OpenInvoice {
@@ -135,6 +136,27 @@ export interface OpenInvoice {
   lateLevel: 'green' | 'orange' | 'red';
 }
 
+/** v2.22.0 — Long unpaid cases handed to legal. Collection on them is unlikely,
+ *  so they are kept out of every collection figure (owed, overdue, ageing, DSO,
+ *  collection rate, late alerts) and shown in a section of their own.
+ *  A client is "in legal" when any of its open invoices is at least
+ *  `thresholdDays` past due, or when it is listed in `include`; `exclude`
+ *  overrides both. Entries match a ContactID or a client name (case-insensitive). */
+export interface LegalSettings { thresholdDays: number; include: string[]; exclude: string[] }
+export const DEFAULT_LEGAL: LegalSettings = { thresholdDays: 180, include: [], exclude: [] };
+
+export interface LegalCase {
+  contactId: string;
+  client: string;
+  reason: 'auto' | 'manual';
+  amountDue: number;
+  invoiceCount: number;
+  oldestDays: number;
+  monthsLate: number;
+  firstDue: string | null;
+  lastPayment: string | null;
+}
+
 export interface Overview {
   generatedAt: string;
   today: string;
@@ -149,6 +171,7 @@ export interface Overview {
   alerts: Array<{ level: 'red' | 'orange' | 'info'; text: string }>;
   drafts: { count: number; amount: number };
   collectedSource: 'payments' | 'fully-paid-date';
+  legal: { settings: LegalSettings; amount: number; count: number; cases: LegalCase[]; invoices: OpenInvoice[] };
 }
 
 export function gradePayment(avgDaysLate: number | null, onTimeRate: number | null, oldestOverdueDays: number): { grade: ClientRow['paymentGrade']; label: string } {
@@ -166,8 +189,13 @@ export function buildOverview(
   invoicesIn: OvInvoice[],
   paymentsIn: OvPayment[] | null,
   now: Date = new Date(),
-  opts: { clientKeys?: (name: string, accountNumber?: string) => string | null } = {},
+  opts: { clientKeys?: (name: string, accountNumber?: string) => string | null; legal?: Partial<LegalSettings> | null } = {},
 ): Overview {
+  const legalSettings: LegalSettings = {
+    thresholdDays: Number(opts.legal?.thresholdDays) > 0 ? Math.round(Number(opts.legal!.thresholdDays)) : DEFAULT_LEGAL.thresholdDays,
+    include: Array.isArray(opts.legal?.include) ? opts.legal!.include!.map(String) : [],
+    exclude: Array.isArray(opts.legal?.exclude) ? opts.legal!.exclude!.map(String) : [],
+  };
   const today = etDay(now);
   const thisMonth = monthKey(today);
   const lastMonth = addMonths(thisMonth, -1);
@@ -197,7 +225,7 @@ export function buildOverview(
   const monthlyOut = monthly.map(m => ({ month: m.month, label: m.label, invoiced: r2(m.invoiced), collected: r2(m.collected), invoices: m.invoices, activeClients: m._c.size }));
 
   // ---- open invoices ----------------------------------------------------------
-  const openInvoices: OpenInvoice[] = billable
+  const allOpen: OpenInvoice[] = billable
     .filter(i => (i.AmountDue || 0) > 0.005 && i.Status !== 'PAID')
     .map(i => {
       const due = xeroDay(i.DueDate);
@@ -210,6 +238,20 @@ export function buildOverview(
       };
     })
     .sort((a, b) => b.daysOverdue - a.daysOverdue);
+
+  // ---- legal: split long-unpaid cases out of collections ---------------------
+  const keyOf = (o: { contactId: string; client: string }) => o.contactId || 'name:' + o.client;
+  const listed = (list: string[], o: { contactId: string; client: string }) =>
+    list.some(x => { const v = x.trim().toLowerCase(); return !!v && (v === o.contactId.toLowerCase() || v === o.client.trim().toLowerCase()); });
+  const legalReason = new Map<string, 'auto' | 'manual'>();
+  for (const o of allOpen) {
+    const k = keyOf(o);
+    if (legalReason.has(k) || listed(legalSettings.exclude, o)) continue;
+    if (listed(legalSettings.include, o)) legalReason.set(k, 'manual');
+    else if (o.daysOverdue >= legalSettings.thresholdDays) legalReason.set(k, 'auto');
+  }
+  const legalInvoices = allOpen.filter(o => legalReason.has(keyOf(o)));
+  const openInvoices = allOpen.filter(o => !legalReason.has(keyOf(o)));
   const overdueInv = openInvoices.filter(o => o.daysOverdue > 0);
   const outstanding = openInvoices.reduce((s, o) => s + o.amountDue, 0);
   const overdueAmt = overdueInv.reduce((s, o) => s + o.amountDue, 0);
@@ -243,7 +285,8 @@ export function buildOverview(
     const name = invs[0].Contact?.Name || 'Unknown';
     const dates = invs.map(i => xeroDay(i.Date)).filter(Boolean).sort() as string[];
     const first = dates[0] || null, last = dates[dates.length - 1] || null;
-    const open = openInvoices.filter(o => (o.contactId || 'name:' + o.client) === id);
+    const open = allOpen.filter(o => (o.contactId || 'name:' + o.client) === id);
+    const inLegal = legalReason.has(id);
     const hasFutureDue = open.some(o => o.daysOverdue <= 0);
     const active = !!last && (daysBetween(last, today) <= 62 || hasFutureDue);
     const monthsTogether = first ? monthsInclusive(monthKey(first), active ? thisMonth : monthKey(last!)) : 0;
@@ -286,6 +329,7 @@ export function buildOverview(
       lateLevel: lateLevel(oldest),
       lastPayment: lastPayByClient.get(id) || invs.map(i => xeroDay(i.FullyPaidOnDate)).filter(Boolean).sort().pop() || null,
       sharePct: ttmBilled > 0 ? r1((ttm / ttmBilled) * 100) : 0,
+      inLegal,
     });
   }
   clients.sort((a, b) => (Number(b.active) - Number(a.active)) || (b.avgPerMonth - a.avgPerMonth));
@@ -296,6 +340,10 @@ export function buildOverview(
   const cur = mo(thisMonth), prev = mo(lastMonth);
   const complete12 = monthlyOut.slice(0, 12);
   const ttmInvoiced = complete12.reduce((s, m) => s + m.invoiced, 0);
+  // Invoices in legal are taken out of the collection-rate base.
+  const ttmFrom = complete12[0].month + '-01', ttmTo = complete12[11].month + '-31';
+  const legalTtmInvoiced = legalInvoices.reduce((s, o) => (o.date && o.date >= ttmFrom && o.date <= ttmTo ? s + o.total : s), 0);
+  const collectibleInvoiced = Math.max(0, ttmInvoiced - legalTtmInvoiced);
   const ttmCollected = complete12.reduce((s, m) => s + m.collected, 0);
   const since90 = addDays(today, -90);
   const recentPaid = billable.filter(i => i.Status === 'PAID' && (xeroDay(i.FullyPaidOnDate) || '') >= since90);
@@ -315,12 +363,13 @@ export function buildOverview(
     overdue: r2(overdueAmt), overdueCount: overdueInv.length,
     overdueShare: outstanding > 0 ? Math.round((overdueAmt / outstanding) * 100) : 0,
     activeClients: activeClients.length, inactiveClients: clients.length - activeClients.length,
-    clientsRed: clients.filter(c => c.lateLevel === 'red').length,
-    clientsOrange: clients.filter(c => c.lateLevel === 'orange').length,
+    clientsRed: clients.filter(c => !c.inLegal && c.lateLevel === 'red').length,
+    clientsOrange: clients.filter(c => !c.inLegal && c.lateLevel === 'orange').length,
     recurringMonthly: r2(recurring),
     ttmInvoiced: r2(ttmInvoiced), ttmCollected: r2(ttmCollected),
     avgMonthlyInvoiced: r2(ttmInvoiced / 12),
-    collectionRate: ttmInvoiced > 0 ? Math.round((ttmCollected / ttmInvoiced) * 100) : null,
+    collectionRate: collectibleInvoiced > 0 ? Math.round((ttmCollected / collectibleInvoiced) * 100) : null,
+    legalAmount: 0, legalCount: 0, legalClients: 0,
     avgDaysToPay90,
     dso: ttmInvoiced > 0 ? Math.round(outstanding / (ttmInvoiced / 365)) : null,
     topClientShare: clients.length ? Math.max(...clients.map(c => c.sharePct)) : 0,
@@ -333,12 +382,30 @@ export function buildOverview(
   const upcomingDue = openInvoices.filter(o => o.daysOverdue <= 0 && o.daysOverdue >= -30).sort((a, b) => b.daysOverdue - a.daysOverdue);
 
   const alerts: Overview['alerts'] = [];
-  for (const c of clients.filter(c => c.lateLevel === 'red').sort((a, b) => b.overdue - a.overdue)) {
+  for (const c of clients.filter(c => !c.inLegal && c.lateLevel === 'red').sort((a, b) => b.overdue - a.overdue)) {
     alerts.push({ level: 'red', text: `${c.name} owes ${fmtMoney(c.overdue, currency)} — ${c.monthsLate} months late${c.active ? '' : ' (inactive client)'}` });
   }
-  for (const c of clients.filter(c => c.lateLevel === 'orange').sort((a, b) => b.overdue - a.overdue)) {
+  for (const c of clients.filter(c => !c.inLegal && c.lateLevel === 'orange').sort((a, b) => b.overdue - a.overdue)) {
     alerts.push({ level: 'orange', text: `${c.name} owes ${fmtMoney(c.overdue, currency)} — ${c.monthsLate} months late` });
   }
+  // legal cases
+  const cases: LegalCase[] = [];
+  for (const [k, reason] of legalReason) {
+    const xs = legalInvoices.filter(o => keyOf(o) === k);
+    const oldest = Math.max(0, ...xs.map(o => o.daysOverdue));
+    const dues = xs.map(o => o.dueDate).filter(Boolean).sort() as string[];
+    cases.push({
+      contactId: xs[0].contactId, client: xs[0].client, reason,
+      amountDue: r2(xs.reduce((s, o) => s + o.amountDue, 0)), invoiceCount: xs.length,
+      oldestDays: oldest, monthsLate: r1(oldest / MONTH_DAYS), firstDue: dues[0] || null,
+      lastPayment: clients.find(c => (c.contactId || 'name:' + c.name) === k)?.lastPayment || null,
+    });
+  }
+  cases.sort((a, b) => b.amountDue - a.amountDue);
+  const legalAmount = r2(legalInvoices.reduce((s, o) => s + o.amountDue, 0));
+  Object.assign(kpis, { legalAmount, legalCount: legalInvoices.length, legalClients: cases.length });
+  if (cases.length) alerts.push({ level: 'info', text: `${cases.length} case${cases.length > 1 ? 's' : ''} in legal (${fmtMoney(legalAmount, currency)}) — kept out of collections` });
+
   if (drafts.length) alerts.push({ level: 'info', text: `${drafts.length} draft invoice${drafts.length > 1 ? 's' : ''} (${fmtMoney(drafts.reduce((s, i) => s + (i.Total || 0), 0), currency)}) not yet sent` });
 
   return {
@@ -347,6 +414,7 @@ export function buildOverview(
     recentPayments, upcomingDue, alerts,
     drafts: { count: drafts.length, amount: r2(drafts.reduce((s, i) => s + (i.Total || 0), 0)) },
     collectedSource,
+    legal: { settings: legalSettings, amount: legalAmount, count: legalInvoices.length, cases, invoices: legalInvoices },
   };
 }
 

@@ -4,7 +4,7 @@
 
 import {
   buildOverview, collectPayments, xeroDay, etDay, addDays, addMonths, monthKey, monthLabel,
-  daysBetween, fmtMoney, lateLevel, r2, MONTH_NAMES, type OvInvoice, type OvPayment, type ClientRow,
+  daysBetween, fmtMoney, lateLevel, r2, MONTH_NAMES, type OvInvoice, type OvPayment, type ClientRow, type LegalSettings, type Overview,
 } from './account-overview';
 
 const RED = '#CC3333', DARK = '#a8281f', TEXT = '#1d1d1f', MUTED = '#6e6e73', BORDER = '#e5e7eb', TINT = '#fdf2f2';
@@ -14,7 +14,7 @@ const LEVEL = {
   red: { fg: '#b91c1c', bg: '#fee2e2', label: '3+ months' },
 } as const;
 const mShort = (ym: string) => `${MONTH_NAMES[Number(ym.slice(5, 7)) - 1].slice(0, 3)} ${ym.slice(0, 4)}`;
-const DASH_URL = 'https://finance.gershoncrm.com/app';
+const DASH_URL = 'https://finance.gershon.ai/app';
 const BILLABLE = new Set(['PAID', 'AUTHORISED', 'SUBMITTED']);
 
 export interface PnLSummary { income: number | null; costOfSales: number | null; grossProfit: number | null; expenses: number | null; netProfit: number | null }
@@ -127,9 +127,17 @@ function clientLateTable(clients: ClientRow[], cur: string, onlyLate = false) {
 // ---------------------------------------------------------------------------
 // Weekly
 // ---------------------------------------------------------------------------
-export function buildWeeklyReport(invoices: OvInvoice[], payments: OvPayment[] | null, now: Date = new Date()) {
+/** v2.22.0 — cases in legal: one line in the e-mail, never counted as late. */
+function legalSection(ov: Overview, cur: string): string {
+  if (!ov.legal?.cases?.length) return '';
+  return section(`In legal — kept out of collections (${fmtMoney(ov.legal.amount, cur)})`, table(['Client', 'Invoices', 'Owed', 'Late'],
+    ov.legal.cases.map(c => [`<strong>${esc(c.client)}</strong>`, String(c.invoiceCount), fmtMoney(c.amountDue, cur), `${c.monthsLate} mo`]), ['left', 'center', 'right', 'center'])
+    + `<div style="font-size:11px;color:${MUTED};padding-top:6px;">Unpaid ${ov.legal.settings.thresholdDays}+ days or flagged as legal. Collection is unlikely, so these amounts are not in owed, overdue, ageing, DSO or collection rate.</div>`);
+}
+
+export function buildWeeklyReport(invoices: OvInvoice[], payments: OvPayment[] | null, now: Date = new Date(), legal: Partial<LegalSettings> | null = null) {
   const wk = lastWeek(now);
-  const ov = buildOverview(invoices, payments, now);
+  const ov = buildOverview(invoices, payments, now, { legal });
   const cur = ov.currency;
   const { pays } = collectPayments(invoices, payments);
   const inRange = (d: string | null, a: string, b: string) => !!d && d >= a && d <= b;
@@ -146,7 +154,7 @@ export function buildWeeklyReport(invoices: OvInvoice[], payments: OvPayment[] |
 
   const mtdMonth = monthKey(wk.end);
   const mtd = ov.monthly.find(m => m.month === mtdMonth);
-  const late = ov.clients.filter(c => c.overdue > 0.005);
+  const late = ov.clients.filter(c => c.overdue > 0.005 && !c.inLegal);
   const red = late.filter(c => c.lateLevel === 'red'), orange = late.filter(c => c.lateLevel === 'orange');
   const dueSoon = ov.openInvoices.filter(o => o.daysOverdue <= 0 && o.daysOverdue >= -7);
 
@@ -169,7 +177,8 @@ export function buildWeeklyReport(invoices: OvInvoice[], payments: OvPayment[] |
     section('Invoices issued', table(['Date', 'Client', 'Invoice', 'Amount', 'Due'],
       weekInv.sort((a, b) => (xeroDay(a.Date)! < xeroDay(b.Date)! ? -1 : 1)).map(i => [shortDate(xeroDay(i.Date)), esc(i.Contact?.Name), esc(i.InvoiceNumber), fmtMoney(i.Total || 0, cur), shortDate(xeroDay(i.DueDate))]),
       ['left', 'left', 'left', 'right', 'left'])),
-    section('Who is late', clientLateTable(ov.clients, cur, true) + `<div style="font-size:11px;color:${MUTED};padding-top:6px;">Late = oldest unpaid invoice past its due date. ${pill('green', 'under 1 month')} ${pill('orange', '1–3 months')} ${pill('red', '3+ months')}</div>`),
+    section('Who is late', clientLateTable(ov.clients.filter(c => !c.inLegal), cur, true) + `<div style="font-size:11px;color:${MUTED};padding-top:6px;">Late = oldest unpaid invoice past its due date. ${pill('green', 'under 1 month')} ${pill('orange', '1–3 months')} ${pill('red', '3+ months')}</div>`),
+    legalSection(ov, cur),
     section('Due in the next 7 days', table(['Due', 'Client', 'Invoice', 'Amount'],
       dueSoon.map(o => [shortDate(o.dueDate), esc(o.client), esc(o.number), fmtMoney(o.amountDue, cur)]), ['left', 'left', 'left', 'right'])),
     section(`${monthLabel(mtdMonth)} so far`, tiles([
@@ -181,7 +190,7 @@ export function buildWeeklyReport(invoices: OvInvoice[], payments: OvPayment[] |
 
   const subject = `Gershon.AI Finance Weekly Report — ${wk.label}${red.length ? ` · ${red.length} client${red.length > 1 ? 's' : ''} 3+ months late` : ''}`;
   const pre = `${fmtMoney(collected, cur)} collected · ${fmtMoney(invoiced, cur)} invoiced · ${fmtMoney(ov.kpis.overdue, cur)} overdue`;
-  const footer = `Week ${wk.key}: Monday ${wk.start} to Sunday ${wk.end} (New York time). Collected = payments recorded in Xero${ov.collectedSource === 'payments' ? '' : ' (dates from “fully paid on”, part-payments not dated)'}; invoiced = invoices dated in the week (drafts and voids excluded). Balances are as of ${ov.today}.<br>Generated ${now.toISOString().slice(0, 16).replace('T', ' ')} UTC by finance.gershoncrm.com — this report is a feature of the Finance app, no other system has to run for it to arrive.`;
+  const footer = `Week ${wk.key}: Monday ${wk.start} to Sunday ${wk.end} (New York time). Collected = payments recorded in Xero${ov.collectedSource === 'payments' ? '' : ' (dates from “fully paid on”, part-payments not dated)'}; invoiced = invoices dated in the week (drafts and voids excluded). Balances are as of ${ov.today}.<br>Generated ${now.toISOString().slice(0, 16).replace('T', ' ')} UTC by finance.gershon.ai — this report is a feature of the Finance app, no other system has to run for it to arrive.`;
 
   const text = [
     subject, '',
@@ -202,10 +211,10 @@ export function buildWeeklyReport(invoices: OvInvoice[], payments: OvPayment[] |
 // ---------------------------------------------------------------------------
 export function buildMonthlyReport(
   invoices: OvInvoice[], payments: OvPayment[] | null, now: Date = new Date(),
-  extra: { pnl?: PnLSummary | null; pnlPrev?: PnLSummary | null; pnlYtd?: PnLSummary | null; bank?: BankLine[] | null; goals?: { revenue?: number | null } | null } = {},
+  extra: { pnl?: PnLSummary | null; pnlPrev?: PnLSummary | null; pnlYtd?: PnLSummary | null; bank?: BankLine[] | null; goals?: { revenue?: number | null } | null; legal?: Partial<LegalSettings> | null } = {},
 ) {
   const mp = lastMonthPeriod(now);
-  const ov = buildOverview(invoices, payments, now);
+  const ov = buildOverview(invoices, payments, now, { legal: extra.legal || null });
   const cur = ov.currency;
   const { pays } = collectPayments(invoices, payments);
   const billable = invoices.filter(i => (!i.Type || i.Type === 'ACCREC') && BILLABLE.has(String(i.Status)));
@@ -242,7 +251,7 @@ export function buildMonthlyReport(
   const paidBy = new Map<string, number>();
   for (const p of monthPays) paidBy.set(p.client, (paidBy.get(p.client) || 0) + p.amount);
 
-  const late = ov.clients.filter(c => c.overdue > 0.005);
+  const late = ov.clients.filter(c => c.overdue > 0.005 && !c.inLegal);
   const red = late.filter(c => c.lateLevel === 'red'), orange = late.filter(c => c.lateLevel === 'orange');
   const pnl = extra.pnl || null;
   const goal = extra.goals?.revenue || null;
@@ -291,7 +300,7 @@ export function buildMonthlyReport(
       { label: 'Owed to us', value: fmtMoney(ov.kpis.outstanding, cur), sub: `${ov.kpis.outstandingCount} open invoices`, color: '#0369a1' },
       { label: 'Overdue', value: fmtMoney(ov.kpis.overdue, cur), sub: `${ov.kpis.overdueShare}% of what is owed`, color: '#b91c1c' },
       { label: 'Days to get paid', value: ov.kpis.avgDaysToPay90 == null ? '—' : `${ov.kpis.avgDaysToPay90} d`, sub: `DSO ${ov.kpis.dso ?? '—'} d · last 90 days`, color: '#b45309' },
-      { label: 'Collection rate', value: ov.kpis.collectionRate == null ? '—' : `${ov.kpis.collectionRate}%`, sub: 'collected ÷ invoiced, 12 months', color: '#15803d' },
+      { label: 'Collection rate', value: ov.kpis.collectionRate == null ? '—' : `${ov.kpis.collectionRate}%`, sub: 'collected ÷ invoiced, 12 months, legal excluded', color: '#15803d' },
     ])}</td></tr>`,
     goal ? section('Revenue goal', `<div style="font-size:14px;">${fmtMoney(invoiced, cur)} of ${fmtMoney(goal, cur)} target — <strong style="color:${invoiced >= goal ? '#15803d' : '#b91c1c'};">${Math.round((invoiced / goal) * 100)}%</strong></div>`) : '',
     section('Needs attention', watch.join('')),
@@ -304,7 +313,8 @@ export function buildMonthlyReport(
         fmtMoney(c.avgPerMonth, cur), fmtMoney(c.owed, cur), pill(c.lateLevel, lateText(c)), c.paymentGrade,
       ]), ['left', 'center', 'right', 'right', 'right', 'right', 'center', 'center'])
       + `<div style="font-size:11px;color:${MUTED};padding-top:6px;">Payer grade: A pays on time · B a little late · C often late · D very late. ${newClients.length ? `New this month: ${newClients.map(esc).join(', ')}.` : ''}</div>`),
-    section('Who owes us', clientLateTable(ov.clients.filter(c => c.owed > 0.005), cur, false)),
+    section('Who owes us', clientLateTable(ov.clients.filter(c => c.owed > 0.005 && !c.inLegal), cur, false)),
+    legalSection(ov, cur),
     section('Ageing of what is owed', table(['Bucket', 'Invoices', 'Amount'],
       ov.aging.map(a => [esc(a.label), String(a.count), fmtMoney(a.amount, cur)]), ['left', 'center', 'right'])),
     section('Concentration', `<div style="font-size:13px;line-height:1.6;">Top client: <strong>${esc(ranked[0]?.[0] || '—')}</strong> (${invoiced ? Math.round(((ranked[0]?.[1] || 0) / invoiced) * 100) : 0}% of the month). Top 3: ${invoiced ? Math.round((top3 / invoiced) * 100) : 0}%. Over 12 months the largest client is ${ov.kpis.topClientShare}% of billing.</div>`),
@@ -314,7 +324,7 @@ export function buildMonthlyReport(
 
   const subject = `Gershon.AI Finance Monthly Report — ${mp.label}`;
   const pre = `${fmtMoney(invoiced, cur)} invoiced · ${fmtMoney(collected, cur)} collected · ${fmtMoney(ov.kpis.overdue, cur)} overdue`;
-  const footer = `${mp.label}: ${mp.start} to ${mp.end}. Invoiced = invoices dated in the month (drafts and voids excluded); collected = payments recorded in Xero in the month. Balances (owed, overdue, ageing, late) are as of ${ov.today}, the day the report was generated. Profit &amp; loss and bank figures come straight from Xero reports.<br>Generated ${now.toISOString().slice(0, 16).replace('T', ' ')} UTC by finance.gershoncrm.com.`;
+  const footer = `${mp.label}: ${mp.start} to ${mp.end}. Invoiced = invoices dated in the month (drafts and voids excluded); collected = payments recorded in Xero in the month. Balances (owed, overdue, ageing, late) are as of ${ov.today}, the day the report was generated. Profit &amp; loss and bank figures come straight from Xero reports.<br>Generated ${now.toISOString().slice(0, 16).replace('T', ' ')} UTC by finance.gershon.ai.`;
   const text = [
     subject, '',
     `Invoiced: ${fmtMoney(invoiced, cur)} (prev month ${fmtMoney(invoicedPrev, cur)}, last year ${fmtMoney(invoicedLY, cur)})`,
