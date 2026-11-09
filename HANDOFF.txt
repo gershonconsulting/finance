@@ -72,6 +72,26 @@ Secrets / env vars  : GitHub secrets: CLOUDFLARE_API_TOKEN,
   dashboard screenshot. Last commit da91f8c, 2026-08-17.
 - Cash position, DSO, gross margin removed in v2.17.1 (feed never populated).
 
+3b. v2.21.0 (2026-11-09)  [DONE]
+----------------------------------------------------------------
+- Dashboard = full-width account overview (public/static/overview.js +
+  overview.css, data from GET /api/overview -> src/services/account-overview.ts).
+  Old dashboard kept inside a collapsed "More metrics" block.
+- Invoices tab opens on "Waiting for payment" with a summary on top.
+- Clients tab = Active / Inactive table: months together, invoices paid,
+  total paid, avg / month, how they pay (A-D), owes us, overdue, months late.
+  Late colour rule (Olivier): < 1 month green, 1-3 months orange, 3+ red.
+- Weekly (Mondays, last Mon-Sun) + monthly (1st, last month) e-mail reports,
+  built into the app (src/services/email-reports.ts). Trigger: public,
+  idempotent POST /api/cron/run?job=auto|weekly|monthly (sends once per
+  period to fixed recipients, returns no figures). Fired by the dashboard
+  being opened + .github/workflows/finance-reports.yml if present.
+  Server-side Xero credential in GOALS_KV `xero_service_token`, shared
+  refresh chain with the browser (X-Session-Refresh header).
+  Resend key: env RESEND_API_KEY or KV report_settings.resendKey.
+  Recipients default report@ + billing@gershonconsulting.com.
+  New "Email Reports" tab: status, preview, send now.
+
 4. PENDING  [TODO]
 ----------------------------------------------------------------
 - Restore automated access for the weekly report (see section 6).
