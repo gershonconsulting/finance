@@ -1,0 +1,30 @@
+name: Attach custom domain (finance.gershon.ai)
+
+# v2.22.x — idempotent: attaches finance.gershon.ai to the Pages project and
+# makes sure the DNS record exists. Approved by Olivier 2026-11-09. Safe to re-run.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ops/custom-domain]
+
+jobs:
+  domain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Attach domain and DNS
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACC: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          API=https://api.cloudflare.com/client/v4
+          H=(-H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json")
+          echo "== pages domain add"; curl -s "${H[@]}" -X POST "$API/accounts/$ACC/pages/projects/gershon-finance/domains" -d '{"name":"finance.gershon.ai"}' | jq -c '{success, errors, status: .result.status}'
+          echo "== zone"; ZONE=$(curl -s "${H[@]}" "$API/zones?name=gershon.ai" | tee /tmp/z.json | jq -r '.result[0].id // empty'); jq -c '{success, errors, n: (.result|length)}' /tmp/z.json
+          if [ -n "$ZONE" ]; then
+            echo "== existing record"; curl -s "${H[@]}" "$API/zones/$ZONE/dns_records?name=finance.gershon.ai" | tee /tmp/r.json | jq -c '{success, errors, records: [.result[]? | {type, content, proxied}]}'
+            if [ "$(jq '.result|length' /tmp/r.json)" = "0" ]; then
+              echo "== create CNAME"; curl -s "${H[@]}" -X POST "$API/zones/$ZONE/dns_records" -d '{"type":"CNAME","name":"finance","content":"gershon-finance.pages.dev","proxied":true,"comment":"Gershon Finance (Pages)"}' | jq -c '{success, errors}'
+            fi
+          fi
+          sleep 30
+          echo "== domain status"; curl -s "${H[@]}" "$API/accounts/$ACC/pages/projects/gershon-finance/domains/finance.gershon.ai" | jq -c '{success, errors, status: .result.status, validation: .result.validation_data.status, verification: .result.verification_data.status}'
