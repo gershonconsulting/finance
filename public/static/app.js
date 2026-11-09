@@ -2170,7 +2170,7 @@ function autoSortableContainer(containerId) {
 document.addEventListener('DOMContentLoaded', () => {
   [
     'tab-dashboard', 'tab-invoices', 'tab-clients',
-    'tab-trends', 'tab-analytics', 'tab-goals', 'tab-valuation', 'tab-sheets-links'
+    'tab-trends', 'tab-analytics', 'tab-goals', 'tab-valuation'
   ].forEach(id => autoSortableContainer(id));
 });
 
@@ -4224,7 +4224,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const titles = {
     dashboard: 'Dashboard', invoices: 'Invoices', clients: 'Clients', trends: 'Trends',
     analytics: 'Analytics', goals: 'Goals', valuation: 'Valuation', bank: 'Bank',
-    mom: 'MoM Evolution', swot: 'SWOT', reports: 'Executive Reports', 'sheets-links': 'Google Sheets',
+    mom: 'MoM Evolution', swot: 'SWOT', reports: 'Executive Reports', legal: 'Legal',
   };
   function setTitle(tab) {
     const h1 = document.getElementById('pageTitle');
@@ -5264,7 +5264,7 @@ window.markDemoActive = markDemoActive;
       avgInvoicesPerClient: 4.6,
       avgClientLifetimeMonths: 22.4,
       conversion: { high: 62, medium: 34, low: 12 },
-      meta: { source: 'finance.gershoncrm.com (demo)', tenant: 'Demo Tenant', computedAt: new Date().toISOString(), sampleSize: { billableInvoices: 156, clients: 47 } },
+      meta: { source: 'finance.gershon.ai (demo)', tenant: 'Demo Tenant', computedAt: new Date().toISOString(), sampleSize: { billableInvoices: 156, clients: 47 } },
     },
     '/api/extract/conversion-rates': { high: 62, medium: 34, low: 12 },
     '/api/snapshots': { snapshots: [] },  // empty so SWOT/Reports fall back to live demo data

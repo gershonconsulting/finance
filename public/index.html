@@ -296,11 +296,12 @@
                     <div class="brand">
                         <div class="brand-title"><i class="fas fa-chart-line"></i>Gershon.AI</div>
                         <div class="brand-sub">Finance</div>
-                        <div class="brand-version">v2.21.0 · __BUILD_TIMESTAMP__</div>
+                        <div class="brand-version">v2.22.0 · __BUILD_TIMESTAMP__</div>
                     </div>
                     <a class="nav-item tab-button active" data-tab="dashboard"><i class="fas fa-home"></i>Dashboard</a>
                     <a class="nav-item tab-button" data-tab="invoices"><i class="fas fa-file-invoice-dollar"></i>Invoices</a>
                     <a class="nav-item tab-button" data-tab="clients"><i class="fas fa-users"></i>Clients</a>
+                    <a class="nav-item tab-button" data-tab="legal"><i class="fas fa-gavel"></i>Legal</a>
                     <a class="nav-item tab-button" data-tab="trends"><i class="fas fa-chart-line"></i>Trends</a>
                     <a class="nav-item tab-button" data-tab="analytics"><i class="fas fa-chart-pie"></i>Analytics</a>
                     <a class="nav-item tab-button" data-tab="goals"><i class="fas fa-bullseye"></i>Goals</a>
@@ -311,9 +312,6 @@
                     <a class="nav-item tab-button" data-tab="swot"><i class="fas fa-compass"></i>SWOT</a>
                     <a class="nav-item tab-button" data-tab="email-reports"><i class="fas fa-envelope-open-text"></i>Email Reports</a>
                     <a class="nav-item tab-button" data-tab="reports"><i class="fas fa-user-tie"></i>Exec Reports</a>
-                    <div class="nav-group-label">Integrations</div>
-                    <a class="nav-item tab-button" data-tab="extract"><i class="fas fa-share-from-square"></i>Extract Data</a>
-                    <a class="nav-item tab-button" data-tab="sheets-links"><i class="fas fa-table"></i>Google Sheets</a>
                     <div class="sidebar-footer">
                         Logged in as <span id="userBadge">Olivier</span>
                         <button id="demoToggleBtn" onclick="toggleDemoMode()" class="mt-3 w-full px-3 py-2 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;"><i class="fas fa-wand-magic-sparkles"></i><span id="demoBtnLabel">Enable Demo Mode</span></button>
@@ -538,7 +536,7 @@
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-xl font-bold text-gray-800">Invoice Status Overview</h2>
                             <button onclick="exportToGoogleSheets('summary')" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center">
-                                <i class="fas fa-table mr-2"></i>Export to Google Sheets
+                                <i class="fas fa-table mr-2"></i>Export CSV
                             </button>
                         </div>
                         <div class="chart-box" style="position:relative;height:300px"><canvas id="invoiceChart"></canvas></div>
@@ -639,6 +637,7 @@
                             <div class="flex flex-wrap gap-2 items-center">
                                 <button data-inv-filter="waiting" class="ov-chip ov-chip--on">Waiting for payment</button>
                                 <button data-inv-filter="overdue" class="ov-chip">Overdue only</button>
+                                <button data-inv-filter="legal" class="ov-chip"><i class="fas fa-gavel mr-1"></i>In legal</button>
                                 <button data-inv-filter="draft" class="ov-chip">Draft</button>
                                 <button data-inv-filter="paid" class="ov-chip">Paid</button>
                                 <button data-inv-filter="all" class="ov-chip">All</button>
@@ -670,6 +669,11 @@
                     </div>
 
                     </div>
+                </div>
+
+                <!-- v2.22.0 — Legal: long unpaid cases, kept out of collections -->
+                <div id="tab-legal" class="tab-content hidden">
+                    <div id="ovLegal"></div>
                 </div>
 
                 <!-- Clients Tab -->
@@ -885,202 +889,7 @@
                     </div>
                 </div>
 
-                <!-- Google Sheets Links Tab -->
-                <div id="tab-sheets-links" class="tab-content hidden">
-                    <!-- AI Insights Panel -->
-                    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4 mb-6">
-                        <div class="flex items-center justify-between flex-wrap gap-2">
-                            <div class="flex items-center">
-                                <div class="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg mr-3">
-                                    <i class="fas fa-wand-magic-sparkles text-white"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-base font-semibold text-gray-800">AI Insights — Google Sheets Links</h3>
-                                    <p class="text-xs text-gray-500">Suggestions for which IMPORTDATA endpoints to wire up first and common formula combos</p>
-                                </div>
-                            </div>
-                            <button onclick="generateAIInsights('sheets-links')" class="px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition flex items-center">
-                                <i class="fas fa-sparkles mr-2"></i>Analyze this page
-                            </button>
-                        </div>
-                        <div id="aiInsights-sheets-links" class="mt-3 hidden"></div>
-                    </div>
-
-                    <!-- Header -->
-                    <div class="bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500 p-6 mb-6 rounded-lg">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                <i class="fas fa-table text-green-600 text-3xl mr-4"></i>
-                                <div>
-                                    <h2 class="text-xl font-bold text-gray-800">Google Sheets Integration</h2>
-                                    <p class="text-sm text-gray-600 mt-1">Direct URLs ready to use with =IMPORTDATA() formula</p>
-                                </div>
-                            </div>
-                            <div id="sheetsAuthStatus" class="text-right">
-                                <!-- Status will be updated by JS -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Usage Instructions -->
-                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-lg">
-                        <div class="flex items-start">
-                            <i class="fas fa-info-circle text-blue-500 text-lg mr-3 mt-1"></i>
-                            <div class="flex-1">
-                                <p class="text-sm text-blue-900 font-semibold mb-2">How to use these URLs:</p>
-                                <ol class="text-sm text-blue-800 space-y-1 ml-4">
-                                    <li>1. Copy any full URL below (click to select all)</li>
-                                    <li>2. Open Google Sheets and select a cell</li>
-                                    <li>3. Paste: <code class="bg-white px-2 py-1 rounded text-xs">=IMPORTDATA("url")</code></li>
-                                    <li>4. Press Enter - Your Xero data appears!</li>
-                                </ol>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Per-Client IMPORTDATA Formulas -->
-                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-base font-semibold text-gray-800 flex items-center">
-                                <i class="fas fa-building text-blue-600 mr-2"></i>
-                                Active Clients — IMPORTDATA by Client
-                            </h3>
-                            <button onclick="loadClientSheetFormulas()" class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition">
-                                <i class="fas fa-sync-alt mr-1"></i>Reload
-                            </button>
-                        </div>
-                        <p class="text-xs text-gray-500 mb-4">Active recurring clients (2+ billed months, invoiced in the last month). Sorted by name.</p>
-                        <div id="clientSheetFormulas" class="space-y-2">
-                            <p class="text-sm text-gray-400 italic">Loading clients...</p>
-                        </div>
-                    </div>
-
-                    <!-- Grid Layout for Categories -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Invoice Summary -->
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                <i class="fas fa-chart-pie text-blue-600 mr-2"></i>
-                                Invoice Summary
-                            </h3>
-                            <p class="text-xs text-gray-600 mb-3">Draft, Awaiting Payment, Overdue counts & amounts</p>
-                            <div class="bg-blue-50 p-3 rounded border border-blue-200">
-                                <code id="urlInvoiceSummary" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/summary")</code>
-                            </div>
-                        </div>
-
-                        <!-- All Invoices -->
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                <i class="fas fa-file-invoice text-green-600 mr-2"></i>
-                                All Invoices
-                            </h3>
-                            <p class="text-xs text-gray-600 mb-3">Complete list with Contact, Date, Amount, Status</p>
-                            <div class="bg-green-50 p-3 rounded border border-green-200">
-                                <code id="urlInvoices" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/invoices")</code>
-                            </div>
-                        </div>
-
-                        <!-- Bank Transactions -->
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                <i class="fas fa-university text-purple-600 mr-2"></i>
-                                Bank Transactions
-                            </h3>
-                            <p class="text-xs text-gray-600 mb-3">Date, Payee, Description, Amount, Balance</p>
-                            <div class="bg-purple-50 p-3 rounded border border-purple-200">
-                                <code id="urlTransactions" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/transactions")</code>
-                            </div>
-                        </div>
-
-                        <!-- Profit & Loss Report -->
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                <i class="fas fa-chart-line text-red-600 mr-2"></i>
-                                Profit & Loss Report
-                            </h3>
-                            <p class="text-xs text-gray-600 mb-3">Account, Amount breakdown for financial period</p>
-                            <div class="bg-red-50 p-3 rounded border border-red-200">
-                                <code id="urlProfitLoss" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/profit-loss")</code>
-                            </div>
-                        </div>
-
-                        <!-- Balance Sheet -->
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                <i class="fas fa-balance-scale text-yellow-600 mr-2"></i>
-                                Balance Sheet
-                            </h3>
-                            <p class="text-xs text-gray-600 mb-3">Assets, Liabilities, Equity snapshot</p>
-                            <div class="bg-yellow-50 p-3 rounded border border-yellow-200">
-                                <code id="urlBalanceSheet" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/balance-sheet")</code>
-                            </div>
-                        </div>
-
-                        <!-- Clients Awaiting Payment -->
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                <i class="fas fa-users text-orange-600 mr-2"></i>
-                                Clients Awaiting Payment
-                            </h3>
-                            <p class="text-xs text-gray-600 mb-3">Contact Name, Total Outstanding, Invoice Count, Oldest Date</p>
-                            <div class="bg-orange-50 p-3 rounded border border-orange-200">
-                                <code id="urlClientsAwaitingPayment" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/clients-awaiting-payment")</code>
-                            </div>
-                        </div>
-
-                        <!-- Invoices By Aging -->
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                <i class="fas fa-hourglass-half text-indigo-600 mr-2"></i>
-                                Invoices By Aging
-                            </h3>
-                            <p class="text-xs text-gray-600 mb-3">Category, Age Range, Invoice Count, Total Outstanding</p>
-                            <div class="bg-indigo-50 p-3 rounded border border-indigo-200">
-                                <code id="urlInvoicesAging" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/invoices-by-aging")</code>
-                            </div>
-                        </div>
-
-                        <!-- Payment Trends -->
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-                            <h3 class="text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                <i class="fas fa-chart-bar text-teal-600 mr-2"></i>
-                                Payment Trends
-                            </h3>
-                            <p class="text-xs text-gray-600 mb-3">Period, Outstanding, Overdue, Payments, Velocity metrics</p>
-                            <div class="bg-teal-50 p-3 rounded border border-teal-200">
-                                <code id="urlPaymentTrends" class="text-xs text-gray-800 break-all select-all">=IMPORTDATA("https://finance.gershoncrm.com/api/export/payment-trends")</code>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tips Section -->
-                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-6 rounded-lg">
-                        <div class="flex items-start">
-                            <i class="fas fa-lightbulb text-yellow-600 text-lg mr-3 mt-1"></i>
-                            <div class="flex-1">
-                                <p class="text-sm text-yellow-900 font-semibold mb-2">💡 Pro Tips:</p>
-                                <ul class="text-sm text-yellow-800 space-y-1 ml-4">
-                                    <li>• Data auto-refreshes every time you open the sheet</li>
-                                    <li>• Use these in multiple sheets/tabs for different views</li>
-                                    <li>• Combine with Google Sheets formulas for custom reports</li>
-                                    <li>• Share the sheet with your team - they see live data</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Authentication Notice -->
-                    <div class="bg-red-50 border-l-4 border-red-400 p-4 mt-6 rounded-lg" id="authNotice" style="display: none;">
-                        <div class="flex items-start">
-                            <i class="fas fa-exclamation-triangle text-red-600 text-lg mr-3 mt-1"></i>
-                            <div class="flex-1">
-                                <p class="text-sm text-red-900 font-semibold mb-1">🔒 Authentication Required</p>
-                                <p class="text-sm text-red-800">Some endpoints require Xero authentication. Make sure you're logged in to access all data.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                
 
                 <!-- Analytics & Goals Tab -->
                 <div id="tab-analytics" class="tab-content hidden">
@@ -1689,69 +1498,7 @@
                     </div>
                 </div>
 
-                <!-- v2.17.0+ — Extract Data (cross-platform integration links) -->
-                <div id="tab-extract" class="tab-content hidden">
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-                            <div>
-                                <h2 class="text-2xl font-bold text-gray-800">Extract Data — Integration Links</h2>
-                                <p class="text-sm text-gray-500 mt-1">Copy these URLs into other platforms (company.gershonCRM.com, Google Sheets, internal tools) to pull live data from finance.gershonCRM.com.</p>
-                            </div>
-                            <button id="extract-refresh" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"><i class="fas fa-arrows-rotate mr-1"></i>Refresh values</button>
-                        </div>
-
-                        <!-- Business Assumptions section -->
-                        <h3 class="text-sm font-bold uppercase text-gray-500 tracking-wide mt-4 mb-3">Business assumptions (for company.gershonCRM.com)</h3>
-                        <div class="bg-blue-50 border border-blue-200 rounded p-4 mb-4">
-                            <p class="text-sm text-gray-700 mb-3">Single endpoint returning everything the "Business assumptions" form needs:</p>
-                            <div class="flex gap-2 items-center mb-2">
-                                <code id="extract-ba-url" class="flex-1 bg-white border rounded px-3 py-2 text-xs font-mono text-blue-900 break-all">https://finance.gershoncrm.com/api/extract/business-assumptions</code>
-                                <button data-copy="extract-ba-url" class="copy-btn px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"><i class="fas fa-copy mr-1"></i>Copy</button>
-                                <a id="extract-ba-open" href="/api/extract/business-assumptions" target="_blank" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded text-xs"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Open</a>
-                            </div>
-                            <p class="text-xs text-gray-500">Returns JSON: <code>{ avgInvoiceValue, avgInvoicesPerClient, avgClientLifetimeMonths, conversion: { high, medium, low }, meta }</code></p>
-                        </div>
-
-                        <!-- Live values panel -->
-                        <div class="bg-white border rounded p-4 mb-6">
-                            <h4 class="font-bold text-gray-800 mb-3">Current values</h4>
-                            <div id="extract-ba-values" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
-                        </div>
-
-                        <!-- Conversion rates editor (user-supplied — not in Xero) -->
-                        <h3 class="text-sm font-bold uppercase text-gray-500 tracking-wide mt-4 mb-3">Conversion rates (user-supplied, stored in KV)</h3>
-                        <p class="text-xs text-gray-500 mb-3">Set once — every consumer of /api/extract/business-assumptions sees the same value.</p>
-                        <div class="grid grid-cols-3 gap-3 mb-3">
-                            <div>
-                                <label class="text-xs text-gray-600">High priority %</label>
-                                <input id="conv-high" type="number" min="0" max="100" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="e.g. 60">
-                            </div>
-                            <div>
-                                <label class="text-xs text-gray-600">Medium priority %</label>
-                                <input id="conv-medium" type="number" min="0" max="100" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="e.g. 30">
-                            </div>
-                            <div>
-                                <label class="text-xs text-gray-600">Low priority %</label>
-                                <input id="conv-low" type="number" min="0" max="100" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="e.g. 10">
-                            </div>
-                        </div>
-                        <button id="conv-save" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm"><i class="fas fa-save mr-1"></i>Save conversion rates</button>
-                        <span id="conv-save-status" class="ml-3 text-xs text-gray-500"></span>
-
-                        <hr class="my-6">
-
-                        <!-- Google Sheets IMPORTDATA URLs -->
-                        <h3 class="text-sm font-bold uppercase text-gray-500 tracking-wide mt-4 mb-3">Google Sheets — IMPORTDATA links</h3>
-                        <p class="text-xs text-gray-500 mb-3">Use <code>=IMPORTDATA("&lt;url&gt;")</code> in a Google Sheets cell.</p>
-                        <div id="extract-sheets" class="space-y-2"></div>
-
-                        <hr class="my-6">
-
-                        <!-- Other useful JSON endpoints -->
-                        <h3 class="text-sm font-bold uppercase text-gray-500 tracking-wide mt-4 mb-3">Other JSON endpoints (programmatic)</h3>
-                        <div id="extract-other" class="space-y-2"></div>
-                    </div>
-                </div>
+                
 
                 </div>     <!-- /.content -->
                 </main>
