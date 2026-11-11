@@ -95,6 +95,7 @@ const PUBLIC_API_PATHS = new Set<string>([
   '/api/auth/status',  // the login page asks this to decide where to send you
   '/api/auto-connect', // returns only a Xero authorisation URL
   '/api/cron/run',     // v2.21.0 — scheduler ping; sends only to fixed internal recipients, once per period, returns no figures
+  '/api/machine/clients', // v2.23.0 — read-only per-client invoice figures for health.gershon.ai; checks a SHA-256 of the matrix secret itself
 ]);
 
 app.use('/api/*', async (c, next) => {
@@ -237,7 +238,7 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.22.0',
+    version: '2.23.0',
     releaseDate: '2026-11-09T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
@@ -1922,6 +1923,39 @@ async function serviceXero(c: any): Promise<XeroApiService | null> {
   const access = await getServiceAccess(c.env?.GOALS_KV, oauth, 'cron');
   return access ? new XeroApiService(access.accessToken, access.tenantId) : null;
 }
+
+// v2.23.0 — read-only per-client invoice figures for health.gershon.ai (Business tab).
+// POST {secret}. Auth: SHA-256 of the client-platform-matrix secret (no new secret,
+// nothing stored here). Uses the same server-side Xero credential as the reports.
+const MACHINE_SECRET_SHA = 'a0bd24f14ca4d279b49b83bd43efad23545ba720156bdbb33c043392e9d33982';
+async function sha256Hex(s: string) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+app.post('/api/machine/clients', async (c) => {
+  const b: any = await c.req.json().catch(() => ({}));
+  if (typeof b.secret !== 'string' || (await sha256Hex(b.secret)) !== MACHINE_SECRET_SHA) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  try {
+    const xero = await serviceXero(c);
+    if (!xero) return c.json({ ok: false, error: 'no-credential: open finance.gershon.ai once while signed in to Xero' }, 503);
+    const { invoices, payments } = await loadLedger(xero);
+    const ov = buildOverview(invoices, payments, new Date(), { clientKeys: clientKeyFor, legal: await legalSettings(c.env?.GOALS_KV) });
+    const k = ov.kpis || {};
+    return c.json({
+      ok: true, generated_at: ov.generatedAt, currency: ov.currency,
+      totals: { outstanding: k.outstanding ?? null, overdue: k.overdue ?? null, invoicedLastMonth: k.invoicedLastMonth ?? null, collectedLastMonth: k.collectedLastMonth ?? null, recurringMonthly: k.recurringMonthly ?? null, activeClients: k.activeClients ?? null, clientsRed: k.clientsRed ?? null, clientsOrange: k.clientsOrange ?? null },
+      clients: ov.clients.map((r) => ({
+        name: r.name, clientKey: r.clientKey, active: r.active, monthsTogether: r.monthsTogether, monthsBilled: r.monthsBilled,
+        totalInvoiced: r.totalInvoiced, totalPaid: r.totalPaid, avgPerMonth: r.avgPerMonth, owed: r.owed, overdue: r.overdue,
+        overdueCount: r.overdueCount, monthsLate: r.monthsLate, lateLevel: r.lateLevel, paymentGrade: r.paymentGrade,
+        lastPayment: r.lastPayment, inLegal: r.inLegal,
+      })),
+    });
+  } catch (e: any) {
+    console.error('machine/clients error:', e);
+    return c.json({ ok: false, error: e.message || 'failed' }, 500);
+  }
+});
 
 // Scheduler ping. Public on purpose (no figures in the response, fixed internal
 // recipients, at most one send per period), so any scheduler — GitHub Actions,
