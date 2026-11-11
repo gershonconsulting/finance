@@ -2,7 +2,7 @@
    Finance - unified Gershon design, behaviour half (v2.19.1, 2026-10-23)
    Loaded right after app.js. Kept separate so the 240 KB app.js is not
    rewritten for a colour change.
-   1. Charts: the old brand blues / indigo become Gershon red #CC3333.
+   1. Charts: the old brand blues / indigo become Gershon red #FE1B04.
       Amber "best month", grey "draft", orange "awaiting" and red
       "overdue" series are left alone (they carry meaning).
    2. Charts that sit in a fixed-height .chart-box fill that box instead
@@ -33,9 +33,9 @@
 
   // ---- 1 + 2. Chart.js colour + sizing plugin ----------------------------
   var MAP = {
-    '#2563eb': '#CC3333', '#3b82f6': '#CC3333', '#1d4ed8': '#a8281f',
-    '#6366f1': '#CC3333', '#4f46e5': '#a8281f', '#7c3aed': '#CC3333', '#8b5cf6': '#CC3333',
-    'rgb(59, 130, 246)': 'rgb(204, 51, 51)', 'rgb(37, 99, 235)': 'rgb(204, 51, 51)',
+    '#2563eb': '#FE1B04', '#3b82f6': '#FE1B04', '#1d4ed8': '#d11200',
+    '#6366f1': '#FE1B04', '#4f46e5': '#d11200', '#7c3aed': '#FE1B04', '#8b5cf6': '#FE1B04',
+    'rgb(59, 130, 246)': 'rgb(254, 27, 4)', 'rgb(37, 99, 235)': 'rgb(254, 27, 4)',
     'rgb(99, 102, 241)': 'rgb(110, 110, 115)'   // dashed "projected" line -> neutral grey
   };
   var RGBA = /^rgba\(\s*(59\s*,\s*130\s*,\s*246|37\s*,\s*99\s*,\s*235|99\s*,\s*102\s*,\s*241)\s*,\s*([0-9.]+)\s*\)$/i;
@@ -45,7 +45,7 @@
     var k = c.trim().toLowerCase();
     if (MAP[k]) return MAP[k];
     var m = k.match(RGBA);
-    if (m) return 'rgba(204, 51, 51, ' + m[2] + ')';
+    if (m) return 'rgba(254, 27, 4, ' + m[2] + ')';
     return c;
   }
   function swapAny(v) { return Array.isArray(v) ? v.map(swap) : swap(v); }

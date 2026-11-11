@@ -1,7 +1,7 @@
 /* =====================================================================
    Finance - unified Gershon design (v2.19.0, 2026-10-23)
    Decision 2026-10-13: every Gershon app copies the Linalysis layout and
-   uses the Gershon.ai red #CC3333 as its one brand colour.
+   uses the Gershon.ai red #FE1B04 as its one brand colour.
 
    The dashboard markup is built with Tailwind utility classes (blue /
    indigo / purple). Rather than rewrite 120 KB of HTML and 240 KB of JS,
@@ -19,7 +19,7 @@
    ===================================================================== */
 
 html:root{
-  --gx-red:#CC3333; --gx-red-dark:#a8281f; --gx-red-light:#fdf2f2; --gx-red-line:#f3caca;
+  --gx-red:#FE1B04; --gx-red-dark:#d11200; --gx-red-light:#fff5f5; --gx-red-line:#f3caca;
   --gx-text:#1d1d1f; --gx-muted:#6e6e73; --gx-border:#e5e7eb; --gx-bg:#fafafa; --gx-radius:12px;
 }
 
@@ -80,22 +80,22 @@ html:root{
 /* ---------- Gradients ---------- */
 /* light gradient panels (AI insights etc.) -> soft red tint into white */
 #app .from-indigo-50, #app .from-blue-50, #app .from-purple-50{
-  --tw-gradient-from:#fdf2f2 var(--tw-gradient-from-position);
+  --tw-gradient-from:#fff5f5 var(--tw-gradient-from-position);
   --tw-gradient-to:rgb(255 255 255 / 0) var(--tw-gradient-to-position);
   --tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to); }
 #app .to-purple-50, #app .to-blue-50, #app .to-indigo-50,
 #app .to-purple-100, #app .to-blue-100{ --tw-gradient-to:#ffffff var(--tw-gradient-to-position); }
 /* strong gradient panels (Recurring Revenue, icon chips) -> red into dark red */
 #app .from-blue-500, #app .from-blue-600, #app .from-indigo-500, #app .from-indigo-600, #app .from-purple-500, #app .from-purple-600{
-  --tw-gradient-from:#CC3333 var(--tw-gradient-from-position);
+  --tw-gradient-from:#FE1B04 var(--tw-gradient-from-position);
   --tw-gradient-to:rgb(168 40 31 / 0) var(--tw-gradient-to-position);
   --tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to); }
-#app .to-purple-600, #app .to-purple-700, #app .to-indigo-600, #app .to-indigo-700, #app .to-blue-700{ --tw-gradient-to:#a8281f var(--tw-gradient-to-position); }
+#app .to-purple-600, #app .to-purple-700, #app .to-indigo-600, #app .to-indigo-700, #app .to-blue-700{ --tw-gradient-to:#d11200 var(--tw-gradient-to-position); }
 
 /* ---------- Focus rings / form controls ---------- */
 #app input:focus, #app select:focus, #app textarea:focus{
-  outline:none; border-color:var(--gx-red) !important; box-shadow:0 0 0 3px rgba(204,51,51,.15) !important; }
-#app .focus\:ring-blue-500:focus, #app .focus\:ring-blue-300:focus, #app .focus\:ring-purple-300:focus{ --tw-ring-color:rgba(204,51,51,.35); }
+  outline:none; border-color:var(--gx-red) !important; box-shadow:0 0 0 3px rgba(254, 27, 4,.15) !important; }
+#app .focus\:ring-blue-500:focus, #app .focus\:ring-blue-300:focus, #app .focus\:ring-purple-300:focus{ --tw-ring-color:rgba(254, 27, 4,.35); }
 #app input[type="checkbox"], #app input[type="radio"], #app input[type="range"]{ accent-color:var(--gx-red); }
 
 /* ---------- Tables ---------- */

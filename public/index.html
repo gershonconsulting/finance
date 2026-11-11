@@ -46,9 +46,9 @@
           /* v2.19.0 — unified Gershon design: Linalysis layout in Gershon.ai red */
           --sidebar-w: 240px;
           --topbar-h: 56px;
-          --brand: #CC3333;
-          --brand-dark: #a8281f;
-          --brand-light: #fdf2f2;
+          --brand: #FE1B04;
+          --brand-dark: #d11200;
+          --brand-light: #fff5f5;
           --border: #e5e7eb;
           --bg: #fafafa;
           --card: #ffffff;
@@ -152,9 +152,9 @@
           box-shadow: 0 10px 30px -10px rgba(15,23,42,0.4);
           gap: 24px; flex-wrap: wrap;
         }
-        .report-hero--cfo   { background: linear-gradient(135deg,#7a1d16,#a8281f 45%,#CC3333); }
-        .report-hero--ceo   { background: linear-gradient(135deg,#a8281f,#CC3333 60%,#e06a6a); }
-        .report-hero--sales { background: linear-gradient(135deg,#1d1d1f,#5a1a14 55%,#a8281f); }
+        .report-hero--cfo   { background: linear-gradient(135deg,#7a1d16,#d11200 45%,#FE1B04); }
+        .report-hero--ceo   { background: linear-gradient(135deg,#d11200,#FE1B04 60%,#e06a6a); }
+        .report-hero--sales { background: linear-gradient(135deg,#1d1d1f,#5a1a14 55%,#d11200); }
         .report-hero__eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity:.85; }
         .report-hero__eyebrow i { margin-right: 6px; }
         .report-hero__title { font-size: 26px; font-weight: 800; margin: 6px 0 4px; letter-spacing: -0.01em; }
@@ -185,7 +185,7 @@
         .kpi-pro::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background: var(--brand); border-radius: 4px 0 0 4px; }
         .kpi-pro--emerald::before { background:#10b981; } .kpi-pro--rose::before { background:#f43f5e; }
         .kpi-pro--amber::before   { background:#f59e0b; } .kpi-pro--sky::before  { background:#0ea5e9; }
-        .kpi-pro--violet::before  { background:#CC3333; } .kpi-pro--slate::before{ background:#64748b; }
+        .kpi-pro--violet::before  { background:#FE1B04; } .kpi-pro--slate::before{ background:#64748b; }
         .kpi-pro__label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing:.05em; }
         .kpi-pro__value { font-size: 26px; font-weight: 800; margin-top: 4px; letter-spacing: -0.01em; }
         .kpi-pro__sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
@@ -257,11 +257,11 @@
         .role-tab i { font-size: 14px; }
 
         .progress-bar { background:#f1f5f9; border-radius: 999px; height: 10px; overflow: hidden; }
-        .progress-bar span { display: block; height: 100%; background: linear-gradient(90deg,#a8281f,#CC3333); }
+        .progress-bar span { display: block; height: 100%; background: linear-gradient(90deg,#d11200,#FE1B04); }
 
         .ceo-narrative {
           background: linear-gradient(135deg,#fafafa,#fff);
-          border:1px solid var(--border); border-left: 4px solid #CC3333;
+          border:1px solid var(--border); border-left: 4px solid #FE1B04;
           border-radius: 12px; padding: 16px 18px; font-size: 14px; line-height: 1.65;
         }
         .signal-list { list-style:none; padding:0; margin:0; display:grid; gap: 10px; }
@@ -269,7 +269,7 @@
         .signal-list li i { font-size: 14px; margin-top: 3px; }
 
         </style>
-        <!-- v2.19.0 — unified Gershon design layer (re-maps Tailwind brand colours to #CC3333) -->
+        <!-- v2.19.0 — unified Gershon design layer (re-maps Tailwind brand colours to #FE1B04) -->
         <link href="/static/unified-theme.css?v=2.19.0" rel="stylesheet">
         <link href="/static/overview.css?v=2.21.0" rel="stylesheet">
     </head>
@@ -279,13 +279,13 @@
                  home page at "/"; this screen only ever shows for the moment it takes
                  to validate an existing token. If the token is missing or stale the
                  visitor is redirected to "/" and never sees any figures. -->
-            <div id="loginPage" class="min-h-screen flex items-center justify-center px-4" style="background:linear-gradient(160deg,#ffffff 0%,#fafafa 55%,#fdf2f2 100%)">
+            <div id="loginPage" class="min-h-screen flex items-center justify-center px-4" style="background:linear-gradient(160deg,#ffffff 0%,#fafafa 55%,#fff5f5 100%)">
                 <div class="text-center">
-                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5" style="background:#CC3333">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5" style="background:#FE1B04">
                         <i class="fas fa-chart-line text-2xl text-white"></i>
                     </div>
                     <p class="font-semibold text-lg mb-1" style="color:#1d1d1f">Verifying your Xero session…</p>
-                    <p class="text-sm" style="color:#6e6e73">One moment. <a href="/" style="color:#CC3333;font-weight:600">Back to home</a></p>
+                    <p class="text-sm" style="color:#6e6e73">One moment. <a href="/" style="color:#FE1B04;font-weight:600">Back to home</a></p>
                 </div>
             </div>
 
@@ -296,7 +296,7 @@
                     <div class="brand">
                         <div class="brand-title"><i class="fas fa-chart-line"></i>Gershon.AI</div>
                         <div class="brand-sub">Finance</div>
-                        <div class="brand-version">v2.22.0 · __BUILD_TIMESTAMP__</div>
+                        <div class="brand-version">v2.22.1 · __BUILD_TIMESTAMP__</div>
                     </div>
                     <a class="nav-item tab-button active" data-tab="dashboard"><i class="fas fa-home"></i>Dashboard</a>
                     <a class="nav-item tab-button" data-tab="invoices"><i class="fas fa-file-invoice-dollar"></i>Invoices</a>
@@ -685,7 +685,7 @@
                         <div style="padding-top:14px">
                     <!-- v2.20.0 — client profile hint -->
                     <div class="mb-4 px-4 py-3 rounded-lg border text-sm" style="background:#fff5f5;border-color:#f3c7c7;color:#7f1d1d">
-                        <i class="fas fa-id-card mr-2" style="color:#CC3333"></i><strong>New:</strong> click any client name to open its full profile — client number, invoices, months with us, averages, estimated profit, how fast and how late they pay, fees, grade and call-prep notes.
+                        <i class="fas fa-id-card mr-2" style="color:#FE1B04"></i><strong>New:</strong> click any client name to open its full profile — client number, invoices, months with us, averages, estimated profit, how fast and how late they pay, fees, grade and call-prep notes.
                     </div>
                     <!-- AI Insights Panel -->
                     <div class="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4 mb-6">
