@@ -19,7 +19,7 @@
    ===================================================================== */
 
 html:root{
-  --gx-red:#FE1B04; --gx-red-dark:#d11200; --gx-red-light:#fff5f5; --gx-red-line:#f3caca;
+  --gx-red:#FE1B04; --gx-red-dark:#d11200; --gx-red-light:#fff5f5; --gx-red-line:#ffd0c9;
   --gx-text:#1d1d1f; --gx-muted:#6e6e73; --gx-border:#e5e7eb; --gx-bg:#fafafa; --gx-radius:12px;
 }
 
