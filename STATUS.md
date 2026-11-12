@@ -1,31 +1,21 @@
-# Finance (finance.gershon.ai) - status
+# finance.gershon.ai — status
+Last updated: 2026-11-12 · v2.23.1 (branch nightly/2026-11-11-finance-brand-red, PR #14)
 
-Updated 2026-11-11 (wave 3).
+## Current state
+- Hono on Cloudflare Pages (project gershon-finance). Xero-backed accounts receivable.
+- Headless access: server-side Xero credential in GOALS_KV (service token), renewed by every signed-in visit; expires if unused for 60 days.
+- Deploy route: merge to main → .github/workflows/deploy.yml deploys.
 
-## Version
-v2.22.1 (branch nightly/2026-11-11-finance-brand-red). Main was v2.22.0.
-Open PR #13 (claude/machine-clients, v2.23.0) is independent; if it merges
-first, bump on merge.
+## ✅ Done
+- ✅ v2.21.0 weekly/monthly e-mail reports run headless (/api/cron/run).
+- ✅ v2.22.0 Legal section; Sheets/Extract integrations removed.
+- ✅ v2.23.0 (2026-11-10): POST /api/machine/clients — read-only per-client invoice figures (invoiced, paid, owed, overdue, months late, grade) for health.gershon.ai's Business tab. Auth = SHA-256 of the client-platform-matrix secret; no new secret.
 
-## Done (ready to test)
-- Brand red switched: #CC3333 -> #FE1B04, dark #a8281f -> #d11200,
-  tint #fdf2f2 -> #fff5f5, rgb(204,51,51) -> rgb(254,27,4).
-- Scope: src/index.tsx (login + 404 pages, changelog), email-reports.ts,
-  public/index.html, home.html, dashboard-shot.svg, static/overview.*,
-  static/unified-theme.*, static/client-profile.js.
+- ✅ v2.23.1 (PR #14, not merged): brand red #FE1B04 / dark #d11200 / tint #fff5f5 replaces #CC3333 in app, login/404, emails; derived shades retuned. Semantic error reds kept. Awaiting visual test.
 
-## Left on purpose
-- Semantic error/status reds (#b91c1c, #dc2626, #c33 in styles.css) are a
-  separate colour family, untouched.
-- Derived accents not in the brief: #e06a6a, #f3caca (tint line), #7a1d16 and
-  #5a1a14 (dark hero gradients). Still the old hue; retune if wanted.
+## ❌ Open
+- ❌ Xero client ID/secret hard-coded as fallbacks in src/index.tsx and server.js — move to Pages secrets and rotate (needs Olivier's go-ahead).
+- ❌ ~90 legacy status docs at the root — archive into /docs.
 
-## Tests
-- node --check on all public/static/*.js: pass.
-- vite build: pass. tsc --noEmit reports pre-existing lib errors
-  (btoa/fetch/console) unrelated to this change.
-- No automated test suite (npm test is a curl smoke).
-
-## Open
-- Not deployed. Visual check on preview needed.
-- Older *.md fix notes in root are historical.
+## Known issues
+- If the server-side Xero credential is missing or older than 60 days, /api/machine/clients returns 503 until someone signs in once.
