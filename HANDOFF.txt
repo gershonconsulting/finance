@@ -1,7 +1,7 @@
 ================================================================
 HANDOFF.txt  -  finance
 Written by: Claude (nightly run) - token-limit handoff protocol
-Date: 2026-10-22 (night of 2026-10-21 ET)
+Date: 2026-10-22 (night of 2026-10-21 ET); status refreshed 2026-11-13 (see below)
 Reason: every repo must carry a handoff so another AI can continue
         from this file alone.
 ================================================================
@@ -27,8 +27,18 @@ CRITICAL OPERATING RULES:
 
 1. WHAT THIS REPO IS
 ----------------------------------------------------------------
-Product / site name : Gershon.AI Finance (package gershon-finance, v2.19.1
-                      on the 2026-10-23 branch; v2.18.2 live)
+Product / site name : Gershon.AI Finance (package gershon-finance).
+                      STATUS 2026-11-13: main = v2.23.0 (commit 05a4736);
+                      branch nightly/2026-11-13-finance-version = v2.23.2
+                      (PR pending, not merged).
+                      Live per /api/health on finance.gershoncrm.com
+                      (checked 2026-11-13): 2.23.0. The home page footer
+                      there still showed v2.20.0 because it was hard-coded
+                      (fixed in v2.23.2). Older lines below that say
+                      v2.19.1 / v2.18.2 live are STALE history.
+                      Open PR #14 (new brand red #FE1B04) is titled v2.23.1
+                      but its body says 'bump to 2.22.1' - reconcile the
+                      version line when merging.
 Live URL            : https://finance.gershoncrm.com (moving to finance.gershon.ai; also
                       gershon-finance.pages.dev)
 What it does        : Xero-backed accounts-receivable dashboard and weekly
@@ -228,3 +238,18 @@ app.js is still untouched.
 ================================================================
 END OF HANDOFF
 ================================================================
+
+12. 2026-11-13 nightly - ONE SOURCE OF TRUTH FOR THE VERSION (v2.23.2)
+----------------------------------------------------------------
+Dated 2026-11-13. Branch nightly/2026-11-13-finance-version (PR, NOT merged,
+NOT deployed).
+Cause: the version was written in 3 places by hand. /api/health said 2.23.0,
+the dashboard sidebar was already filled from package.json at build time, but
+the home page footer (public/home.html) was hard-coded at v2.20.0.
+Fix: package.json is the only place to bump. /api/health imports it;
+scripts/inject-timestamp.mjs (postbuild) now also writes it into the home
+page footer. package.json 2.23.0 -> 2.23.2 (2.23.1 is claimed by PR #14).
+Checks: npm ci ok; npm run build ok (dist shows v2.23.2 in both pages);
+npx tsc --noEmit reports 92 errors both before and after this change
+(pre-existing lib/type errors, none new).
+Not verified: what is actually deployed beyond /api/health = 2.23.0.
