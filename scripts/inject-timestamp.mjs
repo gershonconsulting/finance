@@ -22,4 +22,12 @@ const html = readFileSync(file, 'utf8')
   .replace(/(class="brand-version">)v\d+\.\d+\.\d+/, `$1v${version}`)
   .replace(/(unified-theme\.(?:css|js)\?v=)\d+\.\d+\.\d+/g, `$1${version}`)
 writeFileSync(file, html)
+
+// v2.23.2 — the public home page footer was hard-coded (stuck on v2.20.0).
+// Same rule: package.json is the only place the version is written.
+const homeFile = 'dist/home.html'
+writeFileSync(
+  homeFile,
+  readFileSync(homeFile, 'utf8').replace(/(class="ver">· v)\d+\.\d+\.\d+/, `$1${version}`),
+)
 console.log(`Build timestamp injected: ${timestamp} (v${version})`)
