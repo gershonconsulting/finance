@@ -228,3 +228,5 @@ app.js is still untouched.
 ================================================================
 END OF HANDOFF
 ================================================================
+
+2026-11-11 wave 3: brand red switched to #FE1B04 (dark #d11200, tint #fff5f5), v2.22.1, branch nightly/2026-11-11-finance-brand-red. See STATUS.md.

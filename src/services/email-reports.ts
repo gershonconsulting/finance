@@ -7,7 +7,7 @@ import {
   daysBetween, fmtMoney, lateLevel, r2, MONTH_NAMES, type OvInvoice, type OvPayment, type ClientRow, type LegalSettings, type Overview,
 } from './account-overview';
 
-const RED = '#CC3333', DARK = '#a8281f', TEXT = '#1d1d1f', MUTED = '#6e6e73', BORDER = '#e5e7eb', TINT = '#fdf2f2';
+const RED = '#FE1B04', DARK = '#d11200', TEXT = '#1d1d1f', MUTED = '#6e6e73', BORDER = '#e5e7eb', TINT = '#fff5f5';
 const LEVEL = {
   green: { fg: '#15803d', bg: '#dcfce7', label: 'Under 1 month' },
   orange: { fg: '#b45309', bg: '#ffedd5', label: '1–3 months' },

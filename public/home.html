@@ -30,12 +30,12 @@
   });
 </script>
 <style>
-  /* v2.19.0 — unified Gershon design: light Linalysis-style page, Gershon.ai red #CC3333 */
+  /* v2.19.0 — unified Gershon design: light Linalysis-style page, Gershon.ai red #FE1B04 */
   :root{
     --bg:#fafafa; --paper:#ffffff;
     --muted:#6e6e73; --line:#e5e7eb; --soft:#fafafa;
-    --brand:#CC3333; --brand2:#e06a6a; --brand-ink:#a8281f; --tint:#fdf2f2; --tint-line:#f3caca;
-    --grad:linear-gradient(120deg,#CC3333 0%,#a8281f 100%);
+    --brand:#FE1B04; --brand2:#ff6a55; --brand-ink:#d11200; --tint:#fff5f5; --tint-line:#ffd0c9;
+    --grad:linear-gradient(120deg,#FE1B04 0%,#d11200 100%);
     --ok:#16a34a; --shadow:0 18px 50px rgba(29,29,31,.08);
     --radius:12px;
   }
@@ -46,8 +46,8 @@
   .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
   .btn{display:inline-flex;align-items:center;gap:.5rem;font-weight:600;font-size:.98rem;padding:.8rem 1.25rem;border-radius:999px;border:1px solid transparent;cursor:pointer;transition:.18s;white-space:nowrap}
   .btn-primary{background:var(--brand);color:#fff}
-  .btn-primary:hover{background:var(--brand-ink);box-shadow:0 8px 22px rgba(204,51,51,.28)}
-  .btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(204,51,51,.3)}
+  .btn-primary:hover{background:var(--brand-ink);box-shadow:0 8px 22px rgba(254, 27, 4,.28)}
+  .btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(254, 27, 4,.3)}
   .btn-ghost{background:#fff;border-color:var(--line);color:#1d1d1f}
   .btn-ghost:hover{border-color:var(--brand);color:var(--brand)}
   .btn-lite{background:#fff;border-color:var(--line);color:#1d1d1f}
@@ -65,7 +65,7 @@
   @media(max-width:760px){.nav-links a.link{display:none}.nav-links .btn{padding:.6rem 1rem;font-size:.9rem}}
   @media(max-width:380px){.nav-links .btn .li{display:none}}
 
-  .hero{position:relative;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#fafafa 60%,#fdf2f2 100%);color:#1d1d1f}
+  .hero{position:relative;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#fafafa 60%,#fff5f5 100%);color:#1d1d1f}
   .hero .wrap{padding:76px 24px 90px;position:relative;z-index:2}
   .kicker{display:inline-flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:600;letter-spacing:.02em;color:var(--brand);background:var(--tint);border:1px solid var(--tint-line);font-weight:700;padding:.4rem .8rem;border-radius:999px}
   .hero h1{font-size:clamp(2.1rem,5vw,3.5rem);line-height:1.05;letter-spacing:-.03em;margin:1.1rem 0 0;font-weight:800;color:#1d1d1f}
@@ -74,12 +74,12 @@
   .cta-row{display:flex;flex-wrap:wrap;gap:.8rem;margin-top:1.8rem}
   .trust{margin-top:1.4rem;font-size:.86rem;color:var(--muted)}
   .rings{position:absolute;right:-160px;top:-120px;width:620px;height:620px;opacity:.35;z-index:1;pointer-events:none}
-  .rings span{position:absolute;inset:0;margin:auto;border:1px solid rgba(204,51,51,.22);border-radius:50%}
+  .rings span{position:absolute;inset:0;margin:auto;border:1px solid rgba(254, 27, 4,.22);border-radius:50%}
   .rings span:nth-child(1){width:620px;height:620px}
   .rings span:nth-child(2){width:460px;height:460px}
   .rings span:nth-child(3){width:300px;height:300px}
   .rings span:nth-child(4){width:150px;height:150px}
-  .sweep{position:absolute;inset:0;margin:auto;width:620px;height:620px;border-radius:50%;background:conic-gradient(from 0deg,rgba(204,51,51,.14),transparent 30%);animation:spin 7s linear infinite}
+  .sweep{position:absolute;inset:0;margin:auto;width:620px;height:620px;border-radius:50%;background:conic-gradient(from 0deg,rgba(254, 27, 4,.14),transparent 30%);animation:spin 7s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   @media(prefers-reduced-motion:reduce){.sweep{animation:none}}
 
@@ -139,7 +139,7 @@
   .pricecard ul li{display:flex;gap:.55rem;align-items:flex-start;padding:.34rem 0;font-size:.95rem;color:#1d1d1f}
   .pricecard ul li::before{content:"✓";color:var(--ok);font-weight:800;flex:none}
 
-  .final{background:linear-gradient(180deg,#ffffff 0%,#fdf2f2 100%);border-top:1px solid var(--line);color:#1d1d1f;text-align:center}
+  .final{background:linear-gradient(180deg,#ffffff 0%,#fff5f5 100%);border-top:1px solid var(--line);color:#1d1d1f;text-align:center}
   .final .wrap{padding:80px 24px}
   .final h2{font-size:clamp(1.7rem,3.6vw,2.6rem);letter-spacing:-.02em;margin:0;font-weight:800}
   .final p{color:var(--muted);max-width:580px;margin:1rem auto 0}

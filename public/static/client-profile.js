@@ -6,7 +6,7 @@
  * lateness, overdue list, what we bill them for, fees, grade and call prep.
  * ============================================================================= */
 (function () {
-  const RED = '#CC3333';
+  const RED = '#FE1B04';
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let currency = 'USD';
   const money = (n) => (n == null || isNaN(n)) ? '—' : new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
