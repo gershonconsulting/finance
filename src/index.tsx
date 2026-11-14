@@ -16,6 +16,7 @@ import { buildOverview, DEFAULT_LEGAL, type LegalSettings } from './services/acc
 import { buildWeeklyReport, buildMonthlyReport, parsePnL, parseBankSummary, dueReport, lastMonthPeriod } from './services/email-reports';
 import { readServiceToken, writeServiceToken, getServiceAccess } from './services/service-token';
 import { etHour, addMonths, monthKey, etDay } from './services/account-overview';
+import pkg from '../package.json';
 
 type Bindings = {
   XERO_CLIENT_ID: string;
@@ -238,10 +239,11 @@ app.get('/api/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '2.23.1',
-    releaseDate: '2026-11-09T00:00:00Z',
+    version: pkg.version, // v2.23.2 — single source of truth: package.json
+    releaseDate: '2026-11-13T00:00:00Z',
     server: 'cloudflare-workers',
     fixes: [
+      'v2.23.2: One source of truth for the version (package.json) — /api/health and the home page footer no longer hard-code it (footer was stuck on v2.20.0)',
       'v2.23.1: New brand red #FE1B04 (dark #d11200, tint #fff5f5) replaces the old #CC3333 across the app, login/404 pages and e-mail reports',
       'v2.22.0: Ready for finance.gershon.ai (switch with CANONICAL_REDIRECT=on once the domain is attached); Legal section — long-unpaid cases kept out of collections (owed, overdue, ageing, DSO, collection rate, alerts); Google Sheets + Extract Data integrations removed',
       'v2.21.0: Full-width account dashboard; Invoices open on waiting-for-payment with a summary on top; Clients = active/inactive table (months together, paid, avg/month, how they pay, owed, months late green/orange/red); weekly (Mondays) and monthly (1st) e-mail reports built into the app; one shared Xero refresh chain (X-Session-Refresh)',

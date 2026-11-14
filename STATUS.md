@@ -12,6 +12,8 @@ Last updated: 2026-11-12 · v2.23.1 (branch nightly/2026-11-11-finance-brand-red
 - ✅ v2.23.0 (2026-11-10): POST /api/machine/clients — read-only per-client invoice figures (invoiced, paid, owed, overdue, months late, grade) for health.gershon.ai's Business tab. Auth = SHA-256 of the client-platform-matrix secret; no new secret.
 
 - ✅ v2.23.1 (PR #14, not merged): brand red #FE1B04 / dark #d11200 / tint #fff5f5 replaces #CC3333 in app, login/404, emails; derived shades retuned. Semantic error reds kept. Awaiting visual test.
+- ✅ v2.23.1 (2026-11-14): brand red #FE1B04 (dark #d11200, tint #fff5f5) (PR #14).
+- ✅ v2.23.2 (2026-11-14): version single source = package.json; /api/health and home footer read it (PR #15).
 
 ## ❌ Open
 - ❌ Xero client ID/secret hard-coded as fallbacks in src/index.tsx and server.js — move to Pages secrets and rotate (needs Olivier's go-ahead).
