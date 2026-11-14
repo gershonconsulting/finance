@@ -5,14 +5,14 @@
 .ov-muted { color:#6e6e73; }
 .ov-num { font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .ov-head { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:14px; flex-wrap:wrap; }
-.ov-eyebrow { font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#CC3333; }
+.ov-eyebrow { font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#FE1B04; }
 .ov-title { font-size:20px; font-weight:800; letter-spacing:-.01em; color:#1d1d1f; margin-top:2px; }
 .ov-head-actions { display:flex; align-items:center; gap:10px; }
 .ov-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#1d1d1f; font-size:13px; font-weight:600; cursor:pointer; }
-.ov-btn:hover { border-color:#CC3333; color:#CC3333; }
-.ov-btn--red { background:#CC3333; border-color:#CC3333; color:#fff; }
-.ov-btn--red:hover { background:#a8281f; color:#fff; }
-.ov-a { color:#CC3333; font-weight:600; font-size:12px; cursor:pointer; }
+.ov-btn:hover { border-color:#FE1B04; color:#FE1B04; }
+.ov-btn--red { background:#FE1B04; border-color:#FE1B04; color:#fff; }
+.ov-btn--red:hover { background:#d11200; color:#fff; }
+.ov-a { color:#FE1B04; font-weight:600; font-size:12px; cursor:pointer; }
 
 .ov-alerts { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:8px; margin-bottom:14px; }
 .ov-alert { display:flex; gap:10px; align-items:center; padding:9px 12px; border-radius:8px; font-size:13px; border:1px solid; }
@@ -23,7 +23,7 @@
 
 .ov-kpis { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
 .ov-kpi { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:13px 15px; position:relative; overflow:hidden; min-width:0; }
-.ov-kpi::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--c,#CC3333); }
+.ov-kpi::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--c,#FE1B04); }
 .ov-kpi-l { font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#6e6e73; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ov-kpi-v { font-size:24px; font-weight:800; letter-spacing:-.01em; color:#1d1d1f; margin-top:3px; white-space:nowrap; }
 .ov-kpi-s { font-size:12px; color:#6e6e73; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -48,13 +48,13 @@
 .ov-foot { font-size:11px; color:#6e6e73; margin:4px 2px 18px; }
 
 .ov-chip { padding:6px 12px; border-radius:999px; border:1px solid #e5e7eb; background:#fff; font-size:13px; font-weight:600; color:#374151; cursor:pointer; }
-.ov-chip:hover { border-color:#CC3333; color:#CC3333; }
-.ov-chip--on { background:#CC3333; border-color:#CC3333; color:#fff; }
+.ov-chip:hover { border-color:#FE1B04; color:#FE1B04; }
+.ov-chip--on { background:#FE1B04; border-color:#FE1B04; color:#fff; }
 .ov-chip--on:hover { color:#fff; }
 
 .ov-table { width:100%; border-collapse:collapse; font-size:13px; }
 .ov-table th { text-align:left; padding:10px 12px; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#6e6e73; background:#f8fafc; border-bottom:1px solid #e5e7eb; cursor:pointer; user-select:none; white-space:nowrap; }
-.ov-table th:hover { color:#CC3333; }
+.ov-table th:hover { color:#FE1B04; }
 .ov-table td { padding:10px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
 .ov-table tbody tr:hover { background:#fafafa; }
 .ov-table .r { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -69,13 +69,13 @@
 .ov-seg { display:inline-flex; background:#f3f4f6; border-radius:10px; padding:3px; }
 .ov-seg button { padding:6px 14px; border-radius:8px; font-size:13px; font-weight:600; color:#4b5563; }
 .ov-seg button b { margin-left:4px; font-weight:800; }
-.ov-seg button.on { background:#fff; color:#CC3333; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+.ov-seg button.on { background:#fff; color:#FE1B04; box-shadow:0 1px 2px rgba(0,0,0,.08); }
 .ov-input { padding:7px 11px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; min-width:200px; }
-.ov-input:focus { outline:none; border-color:#CC3333; box-shadow:0 0 0 3px rgba(204,51,51,.15); }
+.ov-input:focus { outline:none; border-color:#FE1B04; box-shadow:0 0 0 3px rgba(254, 27, 4,.15); }
 
 details.ov-classic { margin-top:8px; background:#fff; border:1px dashed #d1d5db; border-radius:12px; padding:10px 16px; }
 details.ov-classic > summary { cursor:pointer; font-size:13px; font-weight:600; color:#6e6e73; }
-details.ov-classic > summary:hover { color:#CC3333; }
+details.ov-classic > summary:hover { color:#FE1B04; }
 
 @media (max-width: 1500px) { .ov-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media (max-width: 1100px) { .ov-grid--main, .ov-grid--3, .ov-grid--2 { grid-template-columns:1fr; } }

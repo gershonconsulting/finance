@@ -244,11 +244,12 @@ app.get('/api/health', (c) => {
     server: 'cloudflare-workers',
     fixes: [
       'v2.23.2: One source of truth for the version (package.json) — /api/health and the home page footer no longer hard-code it (footer was stuck on v2.20.0)',
+      'v2.23.1: New brand red #FE1B04 (dark #d11200, tint #fff5f5) replaces the old #CC3333 across the app, login/404 pages and e-mail reports',
       'v2.22.0: Ready for finance.gershon.ai (switch with CANONICAL_REDIRECT=on once the domain is attached); Legal section — long-unpaid cases kept out of collections (owed, overdue, ageing, DSO, collection rate, alerts); Google Sheets + Extract Data integrations removed',
       'v2.21.0: Full-width account dashboard; Invoices open on waiting-for-payment with a summary on top; Clients = active/inactive table (months together, paid, avg/month, how they pay, owed, months late green/orange/red); weekly (Mondays) and monthly (1st) e-mail reports built into the app; one shared Xero refresh chain (X-Session-Refresh)',
       'v2.20.0: Client profile — click any client name to open a full card: client key number, invoices, months with us, averages, estimated profit, payment speed and lateness, on-time rate, overdue list, what we bill them for (and any late/interest fees), an A–D client grade and call-prep talking points',
       'v2.19.1: Demo mode fixes — no more "Running NaN% behind projection"; the status badge always says DEMO in demo mode (and stays "Demo data" once a card falls back to demo data); Invoices, Valuation and Reports tabs no longer log errors in demo mode (sample invoice list, complete valuation figures, old Reports renderer no longer crashes)',
-      'v2.19.0: Unified Gershon design — Linalysis-style white sidebar with a red active pill, white 12px cards, Gershon.ai red #CC3333 for buttons/tabs/focus rings/charts across the home page, session screen, Xero sign-in callback and dashboard; money colours kept (green = paid, orange = aged, red = overdue); phone layout fixes (menu backdrop, demo banner no longer covers the top bar); the sign-in callback no longer prints part of the session token on screen',
+      'v2.19.0: Unified Gershon design — Linalysis-style white sidebar with a red active pill, white 12px cards, Gershon.ai red #FE1B04 for buttons/tabs/focus rings/charts across the home page, session screen, Xero sign-in callback and dashboard; money colours kept (green = paid, orange = aged, red = overdue); phone layout fixes (menu backdrop, demo banner no longer covers the top bar); the sign-in callback no longer prints part of the session token on screen',
       'v2.18.2: Home page hero now shows a real product screenshot of the dashboard (sample data) with key-insight callouts, replacing the abstract three-stage diagram',
       'v2.18.1: Home page no longer hard-redirects signed-in visitors to /app — it always renders, and only relabels its CTAs to point at the dashboard when a session exists',
       'v2.18.0: Public marketing home page at / with Xero sign-in; dashboard moved to /app behind an auth gate; every /api/* route now requires a session (goals, bank-inputs, snapshots, mom, swot, role reports and the demo endpoints were previously open); no data is rendered before login',
@@ -431,17 +432,17 @@ app.get('/auth/callback', async (c) => {
         <style>
           body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; box-sizing:border-box;
                  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-                 color:#1d1d1f; background:linear-gradient(160deg,#ffffff 0%,#fafafa 55%,#fdf2f2 100%); }
+                 color:#1d1d1f; background:linear-gradient(160deg,#ffffff 0%,#fafafa 55%,#fff5f5 100%); }
           .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:32px 28px; max-width:420px; width:100%; text-align:center; box-shadow:0 18px 50px rgba(29,29,31,.08); }
-          .mark { width:52px; height:52px; border-radius:12px; background:#CC3333; display:inline-grid; place-items:center; margin-bottom:14px; }
+          .mark { width:52px; height:52px; border-radius:12px; background:#FE1B04; display:inline-grid; place-items:center; margin-bottom:14px; }
           h1 { font-size:20px; margin:0 0 6px; letter-spacing:-0.01em; }
           p { color:#6e6e73; margin:0 0 18px; font-size:14px; }
           .status { font-size:13px; padding:10px 12px; border-radius:8px; margin:0 0 16px; text-align:left; }
           .ok  { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
           .err { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
-          button { background:#CC3333; color:#fff; border:0; padding:11px 20px; border-radius:8px; cursor:pointer; font-size:15px; font-weight:600; width:100%; }
-          button:hover { background:#a8281f; }
-          button:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(204,51,51,.3); }
+          button { background:#FE1B04; color:#fff; border:0; padding:11px 20px; border-radius:8px; cursor:pointer; font-size:15px; font-weight:600; width:100%; }
+          button:hover { background:#d11200; }
+          button:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(254, 27, 4,.3); }
         </style>
       </head>
       <body>
@@ -2225,10 +2226,10 @@ const NOT_FOUND_PAGE =
   `<meta name="robots" content="noindex"><title>Not found · Gershon.AI Finance</title></head>` +
   `<body style="margin:0;min-height:100vh;display:grid;place-items:center;` +
   `font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;` +
-  `background:linear-gradient(160deg,#ffffff 0%,#fafafa 55%,#fdf2f2 100%);color:#1d1d1f;text-align:center">` +
-  `<div><p style="font-size:3.2rem;font-weight:800;margin:0;letter-spacing:-.03em;color:#CC3333">404</p>` +
+  `background:linear-gradient(160deg,#ffffff 0%,#fafafa 55%,#fff5f5 100%);color:#1d1d1f;text-align:center">` +
+  `<div><p style="font-size:3.2rem;font-weight:800;margin:0;letter-spacing:-.03em;color:#FE1B04">404</p>` +
   `<p style="color:#6e6e73;margin:.4rem 0 1.5rem">That page doesn't exist.</p>` +
-  `<a href="/" style="color:#CC3333;font-weight:600;text-decoration:none">&larr; Back to home</a>` +
+  `<a href="/" style="color:#FE1B04;font-weight:600;text-decoration:none">&larr; Back to home</a>` +
   `</div></body></html>`;
 
 // Browsers ask for /favicon.ico unprompted; we ship an SVG mark.

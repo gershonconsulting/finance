@@ -253,3 +253,5 @@ Checks: npm ci ok; npm run build ok (dist shows v2.23.2 in both pages);
 npx tsc --noEmit reports 92 errors both before and after this change
 (pre-existing lib/type errors, none new).
 Not verified: what is actually deployed beyond /api/health = 2.23.0.
+
+2026-11-11 wave 3: brand red switched to #FE1B04 (dark #d11200, tint #fff5f5), v2.22.1, branch nightly/2026-11-11-finance-brand-red. See STATUS.md.

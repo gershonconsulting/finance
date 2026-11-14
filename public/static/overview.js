@@ -9,7 +9,7 @@
  * ============================================================================= */
 (function () {
   'use strict';
-  const RED = '#CC3333';
+  const RED = '#FE1B04';
   const LV = {
     green:  { fg: '#15803d', bg: '#dcfce7', bd: '#86efac' },
     orange: { fg: '#b45309', bg: '#ffedd5', bd: '#fdba74' },
@@ -160,7 +160,7 @@
     chart = new Chart(cv, {
       type: 'bar',
       data: { labels: o.monthly.map(m => m.label), datasets: [
-        { label: 'Invoiced', data: o.monthly.map(m => m.invoiced), backgroundColor: '#CC3333', borderRadius: 4, maxBarThickness: 34 },
+        { label: 'Invoiced', data: o.monthly.map(m => m.invoiced), backgroundColor: '#FE1B04', borderRadius: 4, maxBarThickness: 34 },
         { label: 'Collected', data: o.monthly.map(m => m.collected), backgroundColor: '#94a3b8', borderRadius: 4, maxBarThickness: 34 },
       ] },
       options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
