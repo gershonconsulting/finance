@@ -12,10 +12,8 @@ const __dirname = path.dirname(__filename)
 // Import services (we'll need to adapt these if they use Cloudflare-specific features)
 const app = new Hono()
 
-// Production credentials embedded
+// Redirect-URI helper. Xero client ID/secret are read ONLY from process.env (XERO_CLIENT_ID / XERO_CLIENT_SECRET).
 const XERO_CREDENTIALS = {
-  CLIENT_ID: '0CA378B164364DB0821A6014520913E6',
-  CLIENT_SECRET: 'Mq75ulsu-AJPj80E5NOFV7aaZfgh898xEqjnplXPMYL9SdNE',
   getRedirectUri: (host) => {
     if (host.includes('finance.gershoncrm.com')) {
       return 'https://finance.gershoncrm.com/auth/callback'
@@ -272,9 +270,10 @@ app.get('/api/auth/status', (c) => {
 
 app.get('/auth/login', (c) => {
   const host = c.req.header('host') || ''
+  if (!process.env.XERO_CLIENT_ID || !process.env.XERO_CLIENT_SECRET) return c.json({ error: 'Xero not configured' }, 500)
   const credentials = {
-    clientId: XERO_CREDENTIALS.CLIENT_ID,
-    clientSecret: XERO_CREDENTIALS.CLIENT_SECRET,
+    clientId: process.env.XERO_CLIENT_ID,
+    clientSecret: process.env.XERO_CLIENT_SECRET,
     redirectUri: XERO_CREDENTIALS.getRedirectUri(host)
   }
 
@@ -293,10 +292,11 @@ app.get('/auth/callback', async (c) => {
     if (!code) {
       return c.html('<h1>Error: No authorization code received</h1>')
     }
+    if (!process.env.XERO_CLIENT_ID || !process.env.XERO_CLIENT_SECRET) return c.json({ error: 'Xero not configured' }, 500)
 
     const credentials = {
-      clientId: XERO_CREDENTIALS.CLIENT_ID,
-      clientSecret: XERO_CREDENTIALS.CLIENT_SECRET,
+      clientId: process.env.XERO_CLIENT_ID,
+      clientSecret: process.env.XERO_CLIENT_SECRET,
       redirectUri: XERO_CREDENTIALS.getRedirectUri(host)
     }
 

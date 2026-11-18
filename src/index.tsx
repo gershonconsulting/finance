@@ -32,10 +32,10 @@ const DEFAULT_GOALS = { revenue: null, clients: null, collection: null };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// Production credentials with fallbacks
+const XERO_NOT_CONFIGURED = { error: 'Xero not configured' };
+
+// Redirect-URI helper. Xero client ID/secret are read ONLY from env (Pages variables) — no literals.
 const PRODUCTION_CREDENTIALS = {
-  XERO_CLIENT_ID: '0CA378B164364DB0821A6014520913E6',
-  XERO_CLIENT_SECRET: 'Mq75ulsu-AJPj80E5NOFV7aaZfgh898xEqjnplXPMYL9SdNE',
   // Dynamically set redirect URI based on host
   getRedirectUri: (host: string) => {
     // v2.22.0 — the app moved to finance.gershon.ai. The callback always
@@ -46,14 +46,15 @@ const PRODUCTION_CREDENTIALS = {
   }
 };
 
-// Helper to get credentials with fallbacks
+// Returns null when XERO_CLIENT_ID / XERO_CLIENT_SECRET are not set in env.
 function getCredentials(c: any) {
   const { env } = c;
   const host = c.req.header('host') || '';
   
+  if (!env?.XERO_CLIENT_ID || !env?.XERO_CLIENT_SECRET) return null;
   return {
-    clientId: env?.XERO_CLIENT_ID || PRODUCTION_CREDENTIALS.XERO_CLIENT_ID,
-    clientSecret: env?.XERO_CLIENT_SECRET || PRODUCTION_CREDENTIALS.XERO_CLIENT_SECRET,
+    clientId: env.XERO_CLIENT_ID as string,
+    clientSecret: env.XERO_CLIENT_SECRET as string,
     // An env override only applies when it points at the host in use.
     redirectUri: (env?.XERO_REDIRECT_URI && host && env.XERO_REDIRECT_URI.includes(host.split(':')[0]))
       ? env.XERO_REDIRECT_URI
@@ -194,6 +195,7 @@ async function getSessionWithRefresh(c: any): Promise<{ session: SessionData | n
     // newest credential held server-side (KV); fall back to the browser's own.
     try {
       const credentials = getCredentials(c);
+      if (!credentials) throw new Error('Xero not configured');
       const oauth = new XeroOAuthService(credentials.clientId, credentials.clientSecret, credentials.redirectUri);
       const kv = c.env?.GOALS_KV;
       let fresh: { accessToken: string; refreshToken: string; expiresAt: number } | null = null;
@@ -296,6 +298,7 @@ app.get('/api/auto-connect', async (c) => {
     
     // Generate auth URL and redirect automatically
     const credentials = getCredentials(c);
+    if (!credentials) return c.json(XERO_NOT_CONFIGURED, 500);
     const oauth = new XeroOAuthService(
       credentials.clientId,
       credentials.clientSecret,
@@ -360,6 +363,7 @@ app.post('/auth/login', async (c) => {
 // OAuth: Start authentication (fallback to env vars)
 app.get('/auth/login', (c) => {
   const credentials = getCredentials(c);
+  if (!credentials) return c.json(XERO_NOT_CONFIGURED, 500);
   const oauth = new XeroOAuthService(
     credentials.clientId,
     credentials.clientSecret,
@@ -376,6 +380,7 @@ app.get('/auth/login', (c) => {
 app.get('/auth/callback', async (c) => {
   try {
     const credentials = getCredentials(c);
+    if (!credentials) return c.json(XERO_NOT_CONFIGURED, 500);
     const code = c.req.query('code');
     const state = c.req.query('state');
     
@@ -1922,6 +1927,7 @@ async function sendReportEmail(c: any, rep: { subject: string; html: string; tex
 
 async function serviceXero(c: any): Promise<XeroApiService | null> {
   const credentials = getCredentials(c);
+  if (!credentials) throw new Error('Xero not configured');
   const oauth = new XeroOAuthService(credentials.clientId, credentials.clientSecret, credentials.redirectUri);
   const access = await getServiceAccess(c.env?.GOALS_KV, oauth, 'cron');
   return access ? new XeroApiService(access.accessToken, access.tenantId) : null;

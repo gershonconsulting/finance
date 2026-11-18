@@ -1,5 +1,5 @@
 # finance.gershon.ai — status
-Last updated: 2026-11-12 · v2.23.1 (branch nightly/2026-11-11-finance-brand-red, PR #14)
+Last updated: 2026-11-18 · v2.23.3 (branch nightly/2026-11-18-finance-xero-fallbacks, HELD: secrets)
 
 ## Current state
 - Hono on Cloudflare Pages (project gershon-finance). Xero-backed accounts receivable.
@@ -15,8 +15,10 @@ Last updated: 2026-11-12 · v2.23.1 (branch nightly/2026-11-11-finance-brand-red
 - ✅ v2.23.1 (2026-11-14): brand red #FE1B04 (dark #d11200, tint #fff5f5) (PR #14).
 - ✅ v2.23.2 (2026-11-14): version single source = package.json; /api/health and home footer read it (PR #15).
 
+- ✅ v2.23.3 (2026-11-18, HELD, not merged): Xero client ID/secret fallbacks removed from src/index.tsx and server.js; env only (XERO_CLIENT_ID, XERO_CLIENT_SECRET); missing -> 500 JSON 'Xero not configured'.
+
 ## ❌ Open
-- ❌ Xero client ID/secret hard-coded as fallbacks in src/index.tsx and server.js — move to Pages secrets and rotate (needs Olivier's go-ahead).
+- ❌ HELD: secrets. Before merging v2.23.3 Charles must confirm XERO_CLIENT_ID + XERO_CLIENT_SECRET exist in Pages (Production), then rotate the Xero client secret in the Xero developer portal and update the env var; then Olivier says OK. Old values remain in git history and some legacy docs/public/static files (client ID).
 - ❌ ~90 legacy status docs at the root — archive into /docs.
 
 ## Known issues
