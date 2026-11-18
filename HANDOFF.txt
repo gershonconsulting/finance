@@ -187,6 +187,7 @@ this section added. If PR #8 merges first, keep this version.
     of the home page).
 
 [NOT DONE / still open]
+  - ❌ 2026-11-18 PR #17 removes hard-coded Xero fallbacks — HELD: needs XERO_CLIENT_ID/XERO_CLIENT_SECRET confirmed in Pages Production + secret rotation (Charles), then OK
   - server.js (old Node/Genspark server, not used by Cloudflare) untouched.
   - (Demo-mode glitches listed here last night are fixed in v2.19.1,
     see section 11.)
