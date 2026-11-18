@@ -2,6 +2,8 @@
 
 A professional Accounts Receivable (AR) dashboard for Xero accounting data. Built with Xero OAuth authentication, payment trends analysis, and real-time financial insights.
 
+**Current version: v2.23.2** (source of truth: `package.json`; `/api/health` and the home footer read it). Deploy: merge to `main` → `.github/workflows/deploy.yml` (Cloudflare Pages, project `gershon-finance`). Live status and open items: `STATUS.md`. 2026-11-18 nightly: docs refreshed.
+
 ## 🌐 URLs
 
 **🚀 Production**: https://finance.gershoncrm.com (GenSpark Hosted Deploy)
@@ -212,9 +214,9 @@ http://localhost:3000
 
 **Option 1: Use Pre-configured Credentials (Default)**
 ```
-Client ID: 0CA378B164364DB0821A6014520913E6
-Client Secret: 1V72d0a3rmemuOng7bW5MikXQTlR60hIiQCpLh0w7ON7E15U
-Redirect URI: https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/auth/callback
+Client ID / Client Secret: not documented here (credentials never belong in docs).
+They are stored as Cloudflare Pages secrets (XERO_CLIENT_ID, XERO_CLIENT_SECRET).
+Redirect URI: https://finance.gershoncrm.com/auth/callback
 ```
 
 **Option 2: Use Your Own Credentials (Recommended for Production)**
@@ -407,7 +409,16 @@ For technical support or questions:
 
 ## 📅 Version History
 
-### Version 2.0.0 (2026-01-18) - CURRENT ✨
+### Version 2.23.2 (2026-11-14) - CURRENT ✨
+See `STATUS.md` for the full list. Highlights since 2.0.0:
+- ✅ v2.21.0: weekly/monthly e-mail reports run headless (`/api/cron/run`)
+- ✅ v2.22.0: Legal section; Sheets/Extract integrations removed
+- ✅ v2.23.0: `POST /api/machine/clients` — read-only per-client invoice figures for health.gershon.ai
+- ✅ v2.23.1: brand red #FE1B04 across app, login/404 and e-mails
+- ✅ v2.23.2: version single source = `package.json`; `/api/health` and the home footer read it
+- ❌ Open: Xero client ID/secret hard-coded as fallbacks in `src/index.tsx` and `server.js` (and, until this README edit, shown in the Configuration section; still in git history) — move to Pages secrets and rotate (needs Olivier's go-ahead)
+
+### Version 2.0.0 (2026-01-18)
 - ✅ **NEW**: Xero OAuth authentication gate with professional login page
 - ✅ **NEW**: Payment Trends Analysis (Weekly/Monthly/Quarterly)
 - ✅ **NEW**: Sortable columns with arrow indicators
@@ -493,9 +504,9 @@ For technical support or questions:
 ---
 
 **Project**: Gershon Finance Dashboard  
-**Version**: 2.0.0  
-**Last Updated**: January 18, 2026  
-**Deployment**: GenSpark Hosted Deploy → finance.gershoncrm.com  
+**Version**: 2.23.2  
+**Last Updated**: November 18, 2026 (2026-11-18 nightly: docs refreshed)  
+**Deployment**: Cloudflare Pages via GitHub Actions (merge to main) → finance.gershoncrm.com  
 **Technology**: Hono + TypeScript + Tailwind CSS + Chart.js + OAuth2  
 
 **🔗 Production:**
