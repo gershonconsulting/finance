@@ -21,6 +21,9 @@ const html = readFileSync(file, 'utf8')
   .replace('__BUILD_TIMESTAMP__', timestamp)
   .replace(/(class="brand-version">)v\d+\.\d+\.\d+/, `$1v${version}`)
   .replace(/(unified-theme\.(?:css|js)\?v=)\d+\.\d+\.\d+/g, `$1${version}`)
+  // v2.23.4 — app naming "<App> by Gershon.AI" (title + sidebar wordmark).
+  .replace('<title>Gershon.AI · Finance</title>', '<title>Finance by Gershon.AI</title>')
+  .replace(/(<div class="brand-title"><i class="fas fa-chart-line"><\/i>)Gershon\.AI(<\/div>\s*<div class="brand-sub">)Finance(<\/div>)/, '$1Finance$2by Gershon.AI$3')
 writeFileSync(file, html)
 
 // v2.23.2 — the public home page footer was hard-coded (stuck on v2.20.0).
@@ -28,6 +31,8 @@ writeFileSync(file, html)
 const homeFile = 'dist/home.html'
 writeFileSync(
   homeFile,
-  readFileSync(homeFile, 'utf8').replace(/(class="ver">· v)\d+\.\d+\.\d+/, `$1${version}`),
+  readFileSync(homeFile, 'utf8').replace(/(class="ver">· v)\d+\.\d+\.\d+/, `$1${version}`)
+    // v2.23.4 — naming: page title + og:title "Finance by Gershon.AI — …"
+    .replace(/(<title>|og:title" content=")Gershon\.AI Finance — /g, '$1Finance by Gershon.AI — '),
 )
 console.log(`Build timestamp injected: ${timestamp} (v${version})`)
