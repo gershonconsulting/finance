@@ -21,5 +21,5 @@ function buildTimestampPlugin() {
 }
 
 export default defineConfig({
-  plugins: [pages(), buildTimestampPlugin()],
+  plugins: [pages({ entry: 'src/entry.tsx' }), buildTimestampPlugin()],
 })
