@@ -35,4 +35,13 @@ writeFileSync(
     // v2.23.4 — naming: page title + og:title "Finance by Gershon.AI — …"
     .replace(/(<title>|og:title" content=")Gershon\.AI Finance — /g, '$1Finance by Gershon.AI — '),
 )
+// v2.23.5 — naming: the sign-in callback and 404 page titles live in src/index.tsx
+// (95 KB, shared with HOLD PR #19), so they are renamed in the built worker instead.
+const workerFile = 'dist/_worker.js'
+writeFileSync(
+  workerFile,
+  readFileSync(workerFile, 'utf8')
+    .split('Signing you in · Gershon.AI Finance').join('Signing you in · Finance by Gershon.AI')
+    .split('Not found · Gershon.AI Finance').join('Not found · Finance by Gershon.AI'),
+)
 console.log(`Build timestamp injected: ${timestamp} (v${version})`)
