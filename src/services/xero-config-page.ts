@@ -28,6 +28,6 @@ small{color:#666}
 <p>${esc(XERO_CONFIG_MESSAGE)}.</p>
 <p>An administrator needs to add <code>XERO_CLIENT_ID</code> and <code>XERO_CLIENT_SECRET</code> as
 Production variables on the Cloudflare Pages project, then redeploy.</p>
-<p><small>Gershon Finance v${v}</small></p>
+<p><small>Finance by Gershon.AI · v${v}</small></p>
 </main></body></html>`;
 }
