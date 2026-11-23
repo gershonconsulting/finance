@@ -15,3 +15,9 @@ test('version is HTML-escaped and no credential-looking content', () => {
   assert.ok(!html.includes('<script>x'));
   assert.ok(!/client_?secret\s*[:=]\s*\S{20,}/i.test(html));
 });
+
+test('footer uses the Gershon.AI product name', () => {
+  const html = xeroNotConfiguredPage('2.23.6');
+  assert.ok(html.includes('Finance by Gershon.AI · v2.23.6'));
+  assert.ok(!html.includes('Gershon Finance'));
+});

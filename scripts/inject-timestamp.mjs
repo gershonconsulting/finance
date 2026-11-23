@@ -35,6 +35,7 @@ writeFileSync(
     // v2.23.4 — naming: page title + og:title "Finance by Gershon.AI — …"
     .replace(/(<title>|og:title" content=")Gershon\.AI Finance — /g, '$1Finance by Gershon.AI — '),
 )
+// v2.23.6 — Xero-not-configured page footer reads "Finance by Gershon.AI".
 // v2.23.5 — naming: the sign-in callback and 404 page titles live in src/index.tsx
 // (95 KB, shared with HOLD PR #19), so they are renamed in the built worker instead.
 const workerFile = 'dist/_worker.js'
