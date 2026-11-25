@@ -187,7 +187,7 @@ Success! Connected!
 The app has pre-configured working credentials in `.dev.vars`:
 ```bash
 XERO_CLIENT_ID=0CA378B164364DB0821A6014520913E6
-XERO_CLIENT_SECRET=1V72d0a3rmemuOng7bW5MikXQTlR60hIiQCpLh0w7ON7E15U
+XERO_CLIENT_SECRET=<set in Cloudflare Pages Production (secret) - never commit>
 XERO_REDIRECT_URI=https://3000-ipvcm98kowbtq5i0syvrt-de59bda9.sandbox.novita.ai/auth/callback
 ```
 
