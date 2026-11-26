@@ -7,6 +7,25 @@ export interface XeroTokens {
   tenantId?: string;
 }
 
+const TOKEN_ENDPOINT = 'https://identity.xero.com/connect/token';
+
+// v2.23.7 — Xero's identity host sits behind Akamai. Requests from a Worker
+// carry no User-Agent, and Akamai's bot rules reject them ("Access Denied")
+// from some Cloudflare locations — so sign-in worked for one user and failed
+// for another depending on which data center served them. Always identify
+// the client and accept JSON.
+const XERO_HEADERS = {
+  'User-Agent': 'GershonFinance/2.23.7 (+https://finance.gershon.ai)',
+  'Accept': 'application/json',
+};
+
+function readableTokenError(status: number, text: string): string {
+  if (/Access Denied|edgesuite|akamai/i.test(text)) {
+    return `Xero's network refused the sign-in request (HTTP ${status}). Please try again in a minute.`;
+  }
+  return text.length > 500 ? text.slice(0, 500) + '…' : text;
+}
+
 export class XeroOAuthService {
   private clientId: string;
   private clientSecret: string;
@@ -31,33 +50,45 @@ export class XeroOAuthService {
     return `https://login.xero.com/identity/connect/authorize?${params.toString()}`;
   }
 
-  // Exchange authorization code for tokens
-  async exchangeCodeForTokens(code: string): Promise<XeroTokens> {
-    const tokenEndpoint = 'https://identity.xero.com/connect/token';
-    
-    const body = new URLSearchParams({
-      grant_type: 'authorization_code',
-      code: code,
-      redirect_uri: this.redirectUri,
-    });
-
+  // POST to Xero's token endpoint with proper headers, one retry on edge errors.
+  private async tokenRequest(body: URLSearchParams, label: string): Promise<any> {
     const credentials = btoa(`${this.clientId}:${this.clientSecret}`);
+    let lastStatus = 0;
+    let lastText = '';
 
-    const response = await fetch(tokenEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body.toString(),
-    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await fetch(TOKEN_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          ...XERO_HEADERS,
+          'Authorization': `Basic ${credentials}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Token exchange failed: ${error}`);
+      if (response.ok) return response.json();
+
+      lastStatus = response.status;
+      lastText = await response.text();
+      // Only retry edge/transient failures; a real OAuth error (400) won't change.
+      if (![403, 429, 500, 502, 503, 504].includes(lastStatus)) break;
+      await new Promise((r) => setTimeout(r, 800));
     }
 
-    const data = await response.json();
+    throw new Error(`${label} failed: ${readableTokenError(lastStatus, lastText)}`);
+  }
+
+  // Exchange authorization code for tokens
+  async exchangeCodeForTokens(code: string): Promise<XeroTokens> {
+    const data = await this.tokenRequest(
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: this.redirectUri,
+      }),
+      'Token exchange',
+    );
 
     return {
       accessToken: data.access_token,
@@ -68,30 +99,13 @@ export class XeroOAuthService {
 
   // Refresh access token
   async refreshAccessToken(refreshToken: string): Promise<XeroTokens> {
-    const tokenEndpoint = 'https://identity.xero.com/connect/token';
-    
-    const body = new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-    });
-
-    const credentials = btoa(`${this.clientId}:${this.clientSecret}`);
-
-    const response = await fetch(tokenEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body.toString(),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Token refresh failed: ${error}`);
-    }
-
-    const data = await response.json();
+    const data = await this.tokenRequest(
+      new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+      'Token refresh',
+    );
 
     return {
       accessToken: data.access_token,
@@ -104,6 +118,7 @@ export class XeroOAuthService {
   async getTenantId(accessToken: string): Promise<string> {
     const response = await fetch('https://api.xero.com/connections', {
       headers: {
+        ...XERO_HEADERS,
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
